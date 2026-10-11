@@ -1,6 +1,14 @@
 import type { z } from "zod";
 import { ApiError } from "./schemas/common";
 import { HealthResponse } from "./schemas/health";
+import {
+  type CreateImportRequest,
+  ImportView,
+  PhotoUploadResponse,
+  type SaveDecision,
+  type SaveRequest,
+  SaveResponse,
+} from "./schemas/imports";
 import { StatsResponse } from "./schemas/stats";
 
 /** Every failed API call: an error from the server, an unexpected response, or no connection. */
@@ -53,9 +61,28 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     return parsed.data;
   }
 
+  const postJson = <S extends z.ZodType>(schema: S, path: string, body?: unknown) =>
+    request(schema, path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+
   return {
     health: () => request(HealthResponse, "/health"),
     stats: () => request(StatsResponse, "/stats"),
+
+    createImport: (body: CreateImportRequest = {}) => postJson(ImportView, "/imports", body),
+    getImport: (id: number) => request(ImportView, `/imports/${id}`),
+    /** One already-shrunk JPEG per request (§6.2). */
+    uploadPhoto: (id: number, jpeg: Blob) => {
+      const form = new FormData();
+      form.append("photo", jpeg, "photo.jpg");
+      return request(PhotoUploadResponse, `/imports/${id}/photos`, { method: "POST", body: form });
+    },
+    startReview: (id: number) => postJson(ImportView, `/imports/${id}/review`),
+    saveImport: (id: number, decisions: SaveDecision[]) =>
+      postJson(SaveResponse, `/imports/${id}/save`, { decisions } satisfies SaveRequest),
   };
 }
 

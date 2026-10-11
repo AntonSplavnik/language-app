@@ -246,10 +246,14 @@ Each candidate in `imports.candidates`:
 - **Save** sends the decisions.
 
 ### 6.5 Save
-For each decided candidate:
-1. Find or create the `words` row by identity (using the dictionary article if the learner applied the fix). A new row gets `check_status` (`match` / `mismatch_fixed` / `mismatch_kept` / `not_in_dictionary`) and a `word_translations` row with the extracted translation; an existing row is reused unchanged. If the fixed identity is already in the learner's list, the candidate is a no-op.
-2. Create the `user_words` row: **Add** → `learning`, **Skip** → `ignored`, with `import_id`.
+For each decided candidate (candidates without a decision are not saved and will be offered again by a later import):
+1. Find or create the `words` row by identity (using the dictionary article if the learner applied the fix). A new row gets `check_status` (`match` / `mismatch_fixed` / `mismatch_kept` / `not_in_dictionary`) and a `word_translations` row with the extracted translation; an existing row is reused unchanged (only a missing translation for the learner's language is added). If the fixed identity is already in the learner's list, the candidate is a no-op.
+2. Create the `user_words` row: **Add** → `learning`, **Skip** → `ignored`, with `import_id`. When an article fix makes two candidates the same word, **Add** wins.
 3. Mark the import `done`.
+
+The whole save is one transaction that locks the import row. Every decision is validated first, so a rejected request changes nothing: an unknown `key` is `unknown_candidate`; an `article` other than the candidate's own is accepted only for a `mismatch` and only if it is one of the dictionary genders (`invalid_article`). Words are created in a fixed order so that two imports saving the same word at the same time create it once and cannot deadlock.
+
+Photo uploads run the AI call outside any transaction, then lock the import row to merge, so photos uploaded at the same time don't overwrite each other's candidates.
 
 Saving happens before enrichment, so the words exist (and are practisable with the extracted data) even if enrichment fails.
 
@@ -331,11 +335,11 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/stats` | Home counters (learning, learned) and unfinished imports |
-| POST | `/imports` | Create import `{ name? }` |
-| POST | `/imports/:id/photos` | Upload one JPEG (multipart) → extract, merge, compare, check → updated candidates + `pageQuality` |
-| GET | `/imports/:id` | Import with candidates |
+| POST | `/imports` | Create import `{ name? }` → 201 + import |
+| POST | `/imports/:id/photos` | Upload one JPEG (multipart field `photo`, at most 10 MB) → extract, merge, compare, check → `{ pageQuality, wordsFound, import }`. Only while the import is `collecting` |
+| GET | `/imports/:id` | Import with candidates; `existing` is recomputed on every read |
 | POST | `/imports/:id/review` | Move import to `reviewing` (no more photos) |
-| POST | `/imports/:id/save` | Decisions `[{ key, action: add \| skip, article? }]` → save, then enrich → `{ added, skipped, detailsPending }` |
+| POST | `/imports/:id/save` | Decisions `[{ key, action: add \| skip, article? }]` → save, then enrich → `{ added, skipped, detailsPending }`. Allowed once, from `collecting` or `reviewing` |
 | POST | `/words/enrich-pending` | Retry enrichment for the learner's words with `enriched_at = null` |
 | GET | `/words?status=&q=` | Word list, filter by status, search German or English |
 | GET | `/words/:userWordId` | Word detail with progress |
@@ -459,6 +463,20 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Learner leaves mid-session | Answered cards are saved; session stays unfinished |
 | Source has no words | Option disabled |
 
+### Error codes
+| HTTP | `code` | When |
+|---|---|---|
+| 400 | `invalid_request` | Body or parameters fail validation, or no photo was sent |
+| 400 | `invalid_image` | The upload is not a JPEG |
+| 400 | `unknown_candidate`, `invalid_article` | Save decisions don't fit the import (§6.5) |
+| 404 | `import_not_found`, `not_found` | |
+| 409 | `import_closed` | Photo for an import that is no longer collecting; save of an import that is done |
+| 413 | `file_too_large` | Photo over 10 MB |
+| 422 | `ai_refused`, `ai_invalid_output`, `page_too_long` | The photo failed (§12 Import) |
+| 429 | `daily_limit` | §11.5 |
+| 503 | `ai_busy` | Claude rate-limited, overloaded or unreachable after the SDK's retries |
+| 500 | `internal` | Anything unexpected; the message includes the request id |
+
 ### General
 Every error response has the body `{ "error": { "code": "...", "message": "..." } }` (`ApiError` in `core/`). Unexpected server errors return it with a message; the web app shows it in a toast. Server logs include the request id.
 
@@ -482,6 +500,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
 - Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
 - No login: anyone on the home network can open the app. Acceptable for the prototype.
+- The server starts without `ANTHROPIC_API_KEY`; only the AI calls fail until it is set. The AI writes translations in the single user's `learner_language`, read at startup.
 
 ## 15. Later
 

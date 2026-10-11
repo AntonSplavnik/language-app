@@ -11,10 +11,12 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "ai:try": "tsx scripts/ai-try.ts",
     "import:wiktionary": "tsx scripts/import-wiktionary.ts",
-    "dict:lookup": "tsx scripts/dict-lookup.ts"
+    "dict:lookup": "tsx scripts/dict-lookup.ts",
+    "demo:import": "tsx scripts/demo-import.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
+    "@fastify/multipart": "10.1.3",
     "@language-app/core": "workspace:*",
     "drizzle-orm": "0.45.3",
     "fastify": "5.12.5",

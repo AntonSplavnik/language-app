@@ -1,14 +1,14 @@
 import { StatsResponse, type WordStatus } from "@language-app/core";
 import { describe, expect, it } from "vitest";
-import { buildApp } from "../../src/app";
 import { imports, users, userWords, words } from "../../src/db/schema";
 import { SINGLE_USER_ID } from "../../src/user";
+import { buildTestApp } from "../helpers/app";
 import { first, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 
 async function getStats() {
-  const app = buildApp({ db });
+  const app = buildTestApp(db);
   const res = await app.inject({ method: "GET", url: "/api/stats" });
   expect(res.statusCode).toBe(200);
   return StatsResponse.parse(res.json());

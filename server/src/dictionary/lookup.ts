@@ -1,6 +1,6 @@
 import type { Pos } from "@language-app/core";
 import { inArray, sql } from "drizzle-orm";
-import type { Db } from "../db/client";
+import type { Executor } from "../db/client";
 import { dictionaryEntries } from "../db/schema";
 
 export type DictionaryEntry = typeof dictionaryEntries.$inferSelect;
@@ -20,7 +20,7 @@ export const wordKey = ({ lemma, pos }: WordKey) => `${lemma}|${pos}`;
  * Every requested key is present in the result, with an empty list when nothing was found.
  */
 export async function lookupWords(
-  db: Db,
+  db: Executor,
   words: WordKey[],
 ): Promise<Map<string, DictionaryEntry[]>> {
   const result = new Map<string, DictionaryEntry[]>(words.map((w) => [wordKey(w), []]));
@@ -50,6 +50,6 @@ export async function lookupWords(
 }
 
 /** Entries for one word; see {@link lookupWords}. */
-export async function lookupWord(db: Db, word: WordKey): Promise<DictionaryEntry[]> {
+export async function lookupWord(db: Executor, word: WordKey): Promise<DictionaryEntry[]> {
   return (await lookupWords(db, [word])).get(wordKey(word)) ?? [];
 }
