@@ -232,9 +232,10 @@ Each candidate in `imports.candidates`:
 - `key` is `lemma|pos|article` (empty article for non-nouns).
 - **Duplicates** within an import are merged by `(lemma, pos, article)`; the first translation wins.
 - **Comparison:** a candidate is `in_my_words` if the learner has a `user_words` row (any status, including `ignored`) for a `words` row with the same identity.
-- **Dictionary check** (new candidates only): look up `dictionary_entries` by `lemma` + `pos` (exact match first, then case-insensitive).
+- **Dictionary check** (new candidates only): look up `dictionary_entries` by `lemma` + `pos` (exact match first, then case-insensitive). Words other than nouns that are not found under their own part of speech fall back to any non-noun entry with the same lemma, because sources label small words differently (Claude calls *nicht* a particle, Wiktionary an adverb). Nouns never fall back. Genders are merged across all entries found (*der See* and *die See*).
   - Found and `article` is one of `genders` (or the word is not a noun) → `match`
-  - Found and the noun's `article` is not in `genders` → `mismatch`, with the dictionary genders attached
+  - Found noun whose dictionary entries carry no gender (plural-only nouns such as *Eltern*) → `match`: nothing contradicts it
+  - Found and the noun's `article` is not in `genders`, or the AI gave no article → `mismatch`, with the dictionary genders attached
   - Not found → `not_found`
 
 ### 6.4 Review
@@ -262,14 +263,20 @@ A word already enriched by a previous import (any user) needs no AI call — thi
 
 ## 7. Wiktionary dictionary
 
-- **Source:** German entries from English Wiktionary, as the JSONL download from kaikki.org (`kaikki.org/dictionary/German`), refreshed monthly by kaikki.
-- **Import:** `pnpm --filter server import:wiktionary <file>` streams the file and writes `dictionary_entries`:
-  - keeps entries whose part of speech maps to our `pos` list, skips entries whose senses are all "form of" another word;
-  - derives `genders` from the entry's gender tags / head template, `plurals` from forms tagged plural (nominative), verb forms from forms tagged preterite, past participle and auxiliary, and `glosses_en` from the first sense glosses.
-  - The exact field mapping is fixed against the real file during implementation and covered by a test on a small sample file.
+- **Source:** German entries from English Wiktionary, as the JSONL download from kaikki.org (`kaikki.org/dictionary/German/kaikki.org-dictionary-German.jsonl`, 1.08 GB, 371k lines; downloaded 2026-10-11, file dated 2026-10-03). kaikki marks this file **deprecated, to be removed**; the importer also accepts the raw wiktextract dump for all languages (`.jsonl.gz`), keeping only `lang_code = de`, as the replacement. The downloaded file lives in `data/kaikki/` (git-ignored).
+- **Import:** `pnpm --filter server import:wiktionary <file>` streams the file and writes `dictionary_entries` (98,308 entries in ≈11 s on the development Mac). Mapping (`server/src/dictionary/kaikki.ts`):
+  - **Part of speech:** `noun`, `verb`, `adj`→adjective, `adv`→adverb, `pron`→pronoun, `prep`/`postp`→preposition, `conj`→conjunction, `det`/`article`→determiner, `num`→numeral, `particle`, `intj`→interjection, `contraction`→other. Everything else is skipped: proper names (`name`), phrases, proverbs, affixes, symbols.
+  - **Form-of entries:** senses that only point to an inflected form ("nominative plural of Tisch") are dropped, and an entry with no other senses is skipped (≈268k entries). Derived words that Wiktionary also files as form-of are kept: female equivalents (*Freundin*), agent nouns (*Lehrer*), diminutives, gerunds and verbal nouns.
+  - **`genders`:** from the gender tags (masculine/feminine/neuter) of the kept senses. A noun with several genders appears as several entries (*das/der/die Band*), each with its own plural.
+  - **`plurals`:** forms tagged exactly `plural` (qualified variants such as "Handies, now nonstandard" are left out).
+  - **`forms`** (verbs): Präteritum from the form tagged `past`, Partizip II from `participle past`, auxiliary from `auxiliary`. When Wiktionary lists both *haben* and *sein* (529 verbs, e.g. *fahren*, *aufstehen*), `forms` stays empty so enrichment picks the usual one; a card shows one auxiliary.
+  - **`glosses_en`:** the most specific gloss of each kept sense, up to five.
+  - A test loads a 50-entry sample cut from the real file (`server/test/fixtures/kaikki-sample.jsonl`, made with `server/scripts/make-kaikki-sample.ts`).
+- **Check from the command line:** `pnpm --filter server dict:lookup <lemma> <pos> [article]` prints the entries and the check result.
 - **Re-running** the import replaces the table (truncate + insert in one transaction).
 - **Licence:** CC BY-SA. The app footer shows "Grammar data from Wiktionary (CC BY-SA)". Commercial use needs a licence review.
-- **Known limits:** long compound nouns are often missing (→ `not_found`, AI data used); glosses are English only.
+- **Known limits:** long compound nouns are often missing (→ `not_found`, AI data used); glosses are English only; plurals belong to the entry, not the meaning (*der Stock* lists *Stöcke*, the plural for "stick", also for the "floor" meaning); plural-only nouns have no gender.
+- **Measured coverage (2026-10-11):** of the 218 words extracted from three real book pages, 205 were found and none had a different article. The 13 not found were textbook compounds (*Kinderbibliothek*, *Terminvereinbarung*), *TV* and *möchten* (filed as a form of *mögen*).
 
 ## 8. Practice
 

@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "ai:try": "tsx scripts/ai-try.ts"
+    "ai:try": "tsx scripts/ai-try.ts",
+    "import:wiktionary": "tsx scripts/import-wiktionary.ts",
+    "dict:lookup": "tsx scripts/dict-lookup.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",

@@ -28,6 +28,8 @@ pnpm test                 # all unit + server tests; never calls Claude
 pnpm test:live            # real Claude API calls (~15¢); run after changes under server/src/ai
 pnpm --filter server ai:try extract <photo> [--save name]      # one real call: words, tokens, time, cost
 pnpm --filter server ai:try enrich <words.json> [--save name]  # --save records a fixture in server/test/fixtures/ai/
+pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary, ~11 s
+pnpm --filter server dict:lookup <lemma> <pos> [article]       # what the dictionary check sees for a word
 pnpm typecheck
 pnpm check                # Biome lint + format check (`pnpm format` to fix)
 ```
