@@ -11,6 +11,8 @@
     "test": "pnpm -r test",
     "test:live": "pnpm --filter server test:live",
     "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter server db:generate",
+    "db:migrate": "pnpm --filter server db:migrate",
     "check": "biome check .",
     "format": "biome check --write ."
   },

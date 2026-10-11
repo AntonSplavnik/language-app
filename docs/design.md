@@ -172,7 +172,7 @@ users ──< user_words >── words ──< word_translations
 ### `card_results`
 | Field | Notes |
 |---|---|
-| `id`, `session_id`, `user_word_id` | |
+| `id`, `session_id`, `user_word_id` | `UNIQUE (session_id, user_word_id)`: one answer per card per session, so a retried request is never counted twice |
 | `result` | `knew` / `didnt_know` / `skipped` |
 | `flipped` | Whether the card was turned over before answering |
 | `flip_ms` | Time from card shown to first flip; `null` if not flipped |
@@ -182,7 +182,8 @@ users ──< user_words >── words ──< word_translations
 ### `dictionary_entries` — read-only reference, loaded from Wiktionary
 | Field | Notes |
 |---|---|
-| `lemma`, `pos` | Indexed together |
+| `id` | |
+| `lemma`, `pos` | Indexed together, also as `(lower(lemma), pos)` for the case-insensitive lookup |
 | `genders` | Array, e.g. `[der]`, `[der, das]` |
 | `plurals` | Array |
 | `forms` | JSON, same shape as `words.forms` |
@@ -345,7 +346,7 @@ Home ─┬─► Import ──► Review ──► Done ─► (Practice these 
 
 Mobile-first layout, usable on desktop.
 
-1. **Home** — New import, Practice, My words; counters (learning / learned); banner for each import not yet `done` ("Finish reviewing Lesson 4"); Wiktionary credit in the footer.
+1. **Home** — New import, Practice, My words; counters (learning / learned); banner for each import not yet `done` that has at least one photo ("Finish reviewing Lesson 4"); Wiktionary credit in the footer.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (uploading / reading / done / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
 3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session).
 4. **Practice setup** — three sources with counts, **Start**.
@@ -429,7 +430,7 @@ Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cent
 | Source has no words | Option disabled |
 
 ### General
-Unexpected server errors return a JSON error with a message; the web app shows it in a toast. Server logs include the request id.
+Every error response has the body `{ "error": { "code": "...", "message": "..." } }` (`ApiError` in `core/`). Unexpected server errors return it with a message; the web app shows it in a toast. Server logs include the request id.
 
 ## 13. Testing
 

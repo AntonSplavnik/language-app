@@ -21,7 +21,9 @@ pnpm workspace, TypeScript everywhere, no build step (packages import each other
 
 ```sh
 docker compose up -d      # PostgreSQL 17: databases language_app and language_app_test
-pnpm dev                  # server on 127.0.0.1:3000, Vite on 0.0.0.0:$WEB_PORT (default 5173) proxying /api
+pnpm dev                  # migrates the dev DB, then server on 127.0.0.1:3000 and Vite on 0.0.0.0:$WEB_PORT (default 5173) proxying /api
+pnpm db:generate          # after editing server/src/db/schema.ts: writes a migration to server/drizzle/
+pnpm db:migrate           # applies migrations to DATABASE_URL (tests rebuild the test DB themselves)
 pnpm test                 # all unit + server tests; never calls Claude
 pnpm test:live            # real Claude API calls (~25¢); run after changes under server/src/ai
 pnpm typecheck

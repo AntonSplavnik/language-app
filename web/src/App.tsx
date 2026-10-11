@@ -1,21 +1,11 @@
-import { useEffect, useState } from "react";
-import { checkServer, type ServerState } from "./health";
+import { Navigate, Route, Routes } from "react-router";
+import { Home } from "./screens/Home";
 
 export function App() {
-  const [server, setServer] = useState<ServerState | "checking">("checking");
-
-  useEffect(() => {
-    checkServer().then(setServer);
-  }, []);
-
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", padding: 16 }}>
-      <h1>Language App</h1>
-      <p>
-        {server === "checking" && "Checking server…"}
-        {server === "ok" && "server ok"}
-        {server === "unreachable" && "Server unreachable"}
-      </p>
-    </main>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
