@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // No @types/node and no DOM-only APIs beyond what React Native also has:
+    // core must run unchanged in the browser, on the server and in a phone app.
+    "lib": ["ES2023", "DOM"],
+    "types": []
+  },
+  "include": ["src", "test"]
+}

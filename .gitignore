@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.DS_Store
+*.log
+
+# Wiktionary download (large; see docs/design.md §7)
+data/
+
+# Real textbook photos used by live tests (copyrighted)
+server/test/live/photos/

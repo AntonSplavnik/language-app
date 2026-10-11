@@ -83,7 +83,7 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 |---|---|
 | Language | TypeScript everywhere |
 | Repo | One repo, pnpm workspaces: `core/`, `server/`, `web/` |
-| Runtime | Node.js 24 LTS |
+| Runtime | Node.js 24 or newer (developed on 26) |
 | Web | React + Vite, React Router, CSS Modules, `@use-gesture/react` for swipes |
 | Server | Fastify, `@fastify/multipart` for photo upload |
 | Database | PostgreSQL 17 in Docker, Drizzle ORM + drizzle-kit migrations |
@@ -449,7 +449,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 - `docker compose up -d` starts PostgreSQL (dev and test databases).
 - `pnpm dev` starts the server (port 3000) and Vite (port 5173, `--host`). Vite proxies `/api` to the server, so the browser needs only one address.
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
-- Configuration via `.env`: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`.
+- Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
 - No login: anyone on the home network can open the app. Acceptable for the prototype.
 
 ## 15. Later
