@@ -1,6 +1,7 @@
 import type { SaveResponse } from "@language-app/core";
 import { Link, useLocation } from "react-router";
 import { Page } from "../components/Page";
+import { PendingDetails } from "../components/PendingDetails";
 import ui from "../styles/ui.module.css";
 import styles from "./DoneScreen.module.css";
 
@@ -36,11 +37,15 @@ export function DoneScreen() {
                 {result.skipped} skipped; they won't be suggested again.
               </p>
             )}
+            {result.added > 0 && result.detailsPending === 0 && (
+              <p className={styles.detail}>Example sentences and forms are ready.</p>
+            )}
           </>
         ) : (
           <p className={styles.headline}>Import saved</p>
         )}
       </div>
+      {result && result.detailsPending > 0 && <PendingDetails count={result.detailsPending} />}
     </Page>
   );
 }

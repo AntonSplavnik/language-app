@@ -77,6 +77,17 @@ export function ReviewScreen() {
       removeItem(storageKey(importId));
       navigate(`/imports/${importId}/done`, { replace: true, state: result });
     } catch (error) {
+      // Saving can take a while because of enrichment; if the answer got lost on the way, the
+      // import may well be saved. Check before offering to save again.
+      const saved = await api.getImport(importId).then(
+        (current) => current.status === "done",
+        () => false,
+      );
+      if (saved) {
+        removeItem(storageKey(importId));
+        navigate(`/imports/${importId}/done`, { replace: true });
+        return;
+      }
       toast.show(errorMessage(error));
       setSaving(false);
     }
@@ -94,11 +105,15 @@ export function ReviewScreen() {
           onClick={save}
         >
           {saving && <span className={ui.spinner} />}
-          {adds === 0
-            ? fresh.length === 0
-              ? "Finish"
-              : `Skip all ${fresh.length} words`
-            : `Save ${adds} ${adds === 1 ? "word" : "words"}`}
+          {saving
+            ? adds > 0
+              ? "Adding details…"
+              : "Saving…"
+            : adds === 0
+              ? fresh.length === 0
+                ? "Finish"
+                : `Skip all ${fresh.length} words`
+              : `Save ${adds} ${adds === 1 ? "word" : "words"}`}
         </button>
       }
     >

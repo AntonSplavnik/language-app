@@ -4,6 +4,8 @@ import { z } from "zod";
 export const StatsResponse = z.object({
   learning: z.number().int().nonnegative(),
   learned: z.number().int().nonnegative(),
+  /** The learner's words (not ignored) still waiting for enrichment (§6.6). */
+  detailsPending: z.number().int().nonnegative(),
   unfinishedImports: z.array(
     z.object({
       id: z.number().int(),

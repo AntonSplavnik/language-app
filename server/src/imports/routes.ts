@@ -8,7 +8,7 @@ import {
   createImport,
   getImport,
   type ImportDeps,
-  saveImport,
+  saveAndEnrich,
   startReview,
 } from "./service";
 
@@ -53,6 +53,6 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
   app.post("/api/imports/:id/save", async (request) => {
     const { id } = Params.parse(request.params);
     const { decisions } = SaveRequest.parse(request.body);
-    return saveImport(db, userId, id, decisions);
+    return saveAndEnrich({ ...deps, log: request.log }, userId, id, decisions);
   });
 }

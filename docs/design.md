@@ -258,12 +258,16 @@ Photo uploads run the AI call outside any transaction, then lock the import row 
 Saving happens before enrichment, so the words exist (and are practisable with the extracted data) even if enrichment fails.
 
 ### 6.6 Enrichment
-For each added word whose `words.enriched_at` is `null`:
-1. **Dictionary first:** if `dictionary_entries` has plural (nouns) or verb forms, copy them to `words`, `forms_source = dictionary`.
-2. **AI fills the gaps:** AI call 2 receives the words in batches of up to 30. It always writes the example sentence and its translation, and writes plural / verb forms only for words where the dictionary had none (`forms_source = ai`).
-3. Set `enriched_at`.
+For each added word whose `words.enriched_at` is `null` (`server/src/words/enrich.ts`):
+1. **Dictionary first:** if `dictionary_entries` has plural (nouns) or verb forms, copy them to `words`, `forms_source = dictionary`. A noun's plural comes from an entry with the word's own gender (*der Band* → *Bände*, *die Band* → *Bands*). The copy happens before the AI call, so a word keeps its dictionary forms even if the AI fails.
+2. **AI fills the gaps:** AI call 2 receives the words in batches of up to 30, three batches at a time. It always writes the example sentence and its translation, and writes plural / verb forms only for words where the dictionary had none (`forms_source = ai`). Each result is matched to its word by `ref`, and only used if its `lemma` is that word's lemma.
+3. Set `enriched_at`. Updates only touch rows where `enriched_at` is still `null`, so two runs never write the same word twice.
+
+A failed batch (AI busy, refused, invalid output) leaves its words pending; the other batches still count, and saving never fails because of enrichment. Save answers after enrichment, so the Review screen shows "Adding details…" meanwhile; the server finishes enrichment even if the phone drops the connection, and the phone then finds the import done and shows the Done screen.
 
 A word already enriched by a previous import (any user) needs no AI call — this is the benefit of the shared `words` table.
+
+**Measured (2026-10-11, Haiku 5.5 `medium`):** backfilling the 94 words saved before enrichment existed took 4 calls in 10 s for ≈0.5¢; 30 noun plurals and 16 verb forms came from the dictionary, 1 plural and 2 verb forms from the AI. A typical save (15–40 added words, one or two parallel batches) adds roughly 5–10 s. With Opus 5.5 an 11-word batch took 10 s, so a full 30-word batch would add more; if saves grow slow, switch to answering at once and enriching in the background.
 
 ## 7. Wiktionary dictionary
 
@@ -334,13 +338,13 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/stats` | Home counters (learning, learned) and unfinished imports |
+| GET | `/stats` | Home counters (learning, learned), `detailsPending` (the learner's non-ignored words without details) and unfinished imports |
 | POST | `/imports` | Create import `{ name? }` → 201 + import |
 | POST | `/imports/:id/photos` | Upload one JPEG (multipart field `photo`, at most 10 MB) → extract, merge, compare, check → `{ pageQuality, wordsFound, import }`. Only while the import is `collecting` |
 | GET | `/imports/:id` | Import with candidates; `existing` is recomputed on every read |
 | POST | `/imports/:id/review` | Move import to `reviewing` (no more photos) |
 | POST | `/imports/:id/save` | Decisions `[{ key, action: add \| skip, article? }]` → save, then enrich → `{ added, skipped, detailsPending }`. Allowed once, from `collecting` or `reviewing` |
-| POST | `/words/enrich-pending` | Retry enrichment for the learner's words with `enriched_at = null` |
+| POST | `/words/enrich-pending` | Retry enrichment for the learner's `learning` / `learned` words with `enriched_at = null` → `{ enriched, pending }` |
 | GET | `/words?status=&q=` | Word list, filter by status, search German or English |
 | GET | `/words/:userWordId` | Word detail with progress |
 | PATCH | `/words/:userWordId` | `{ status?, customTranslation?, note? }` |
@@ -360,7 +364,7 @@ Home ─┬─► Import ──► Review ──► Done ─► (Practice these 
 
 Mobile-first layout, usable on desktop.
 
-1. **Home** — New import, Practice, My words; counters (learning / learned); banner for each import not yet `done` that has at least one photo ("Finish reviewing Lesson 4"); Wiktionary credit in the footer.
+1. **Home** — New import, Practice, My words; counters (learning / learned); banner for each import not yet `done` that has at least one photo ("Finish reviewing Lesson 4"); "N words without details yet" + **Add details** when enrichment is pending; Wiktionary credit in the footer.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
    - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and cannot be changed later. The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
@@ -368,7 +372,7 @@ Mobile-first layout, usable on desktop.
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
 3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session).
    - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
-   - Until M6/M7: no "Adding details…" step and no **Practice these now**; Done offers **Import more pages** and **Home**. Home shows Practice and My words once those screens exist (M7, M8).
+   - Until M7: no **Practice these now**; Done offers **Import more pages** and **Home**. Home shows Practice and My words once those screens exist (M7, M8).
 4. **Practice setup** — three sources with counts, **Start**.
 5. **Flashcards** — progress "5 / 20", card, swipe hints, buttons below the card.
 6. **Summary** — §8.6.
@@ -457,7 +461,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | `stop_reason = refusal` (after fallback) | Treated as a failed photo |
 | Output fails Zod validation | One automatic retry, then failed photo |
 | `stop_reason = max_tokens` | Failed photo: "Page too long — photograph it in two parts" |
-| Enrichment fails | Words stay saved; cards show "Details pending"; Done screen shows "N words without details" + **Retry** (`/words/enrich-pending`) |
+| Enrichment fails | Words stay saved; cards show "Details pending"; Done screen and Home show "N words without details" + **Add details** (`/words/enrich-pending`) |
 | Learner leaves during review | Import stays `reviewing`; Home shows a banner to finish it |
 | Same word saved twice concurrently | Unique constraints + upsert; no duplicates |
 | Daily limit reached | Upload refused with a clear message |

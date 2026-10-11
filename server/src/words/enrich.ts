@@ -1,0 +1,200 @@
+import type { EnrichInputWord, EnrichOutput, VerbForms } from "@language-app/core";
+import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
+import type { AiClient } from "../ai/types";
+import type { Db } from "../db/client";
+import { users, userWords, words, wordTranslations } from "../db/schema";
+import { type DictionaryEntry, lookupWords, wordKey } from "../dictionary/lookup";
+
+// Enrichment (docs/design.md §6.6): example sentences for every word, plus the plural or verb
+// forms the dictionary doesn't have.
+
+export const ENRICH_BATCH_SIZE = 30;
+/** Batches sent to the AI at the same time. */
+export const ENRICH_PARALLEL_BATCHES = 3;
+
+type Log = { warn: (details: object, message: string) => void };
+export type EnrichDeps = { db: Db; ai: AiClient; log?: Log };
+export type EnrichResult = { enriched: number; pending: number };
+
+type Forms = { plural: string | null; forms: VerbForms | null };
+type PendingWord = Awaited<ReturnType<typeof loadPending>>[number];
+
+/**
+ * Enriches the given words that are not enriched yet. Never throws for a failed AI call: those
+ * words stay pending (`enriched_at` NULL) and can be retried. `pending` counts the given words
+ * still without details afterwards.
+ */
+export async function enrichWords(
+  { db, ai, log }: EnrichDeps,
+  {
+    userId,
+    importId = null,
+    wordIds,
+  }: { userId: number; importId?: number | null; wordIds: number[] },
+): Promise<EnrichResult> {
+  if (wordIds.length === 0) return { enriched: 0, pending: 0 };
+
+  const [user] = await db
+    .select({ learnerLanguage: users.learnerLanguage })
+    .from(users)
+    .where(eq(users.id, userId));
+  if (!user) throw new Error(`user ${userId} not found`);
+  const language = user.learnerLanguage;
+
+  const pendingWords = await loadPending(db, wordIds, language);
+  if (pendingWords.length === 0) return { enriched: 0, pending: 0 };
+
+  // 1. Dictionary first. Copied now, so a word keeps its dictionary forms even if the AI fails.
+  const dictionary = await lookupWords(
+    db,
+    pendingWords.filter((w) => w.pos === "noun" || w.pos === "verb"),
+  );
+  const fromDictionary = new Map<number, Forms>();
+  for (const word of pendingWords) {
+    const forms = dictionaryForms(word, dictionary.get(wordKey(word)) ?? []);
+    if (!forms) continue;
+    fromDictionary.set(word.id, forms);
+    await db
+      .update(words)
+      .set({ ...forms, formsSource: "dictionary" })
+      .where(and(eq(words.id, word.id), isNull(words.enrichedAt)));
+  }
+
+  // 2. The AI writes every example sentence, and the forms the dictionary didn't have.
+  let enriched = 0;
+  await forEachLimited(
+    chunk(pendingWords, ENRICH_BATCH_SIZE),
+    ENRICH_PARALLEL_BATCHES,
+    async (batch) => {
+      const input: EnrichInputWord[] = batch.map((word, ref) => ({
+        ref,
+        lemma: word.lemma,
+        pos: word.pos,
+        article: word.article,
+        translation: word.translation ?? word.lemma,
+        needsForms: (word.pos === "noun" || word.pos === "verb") && !fromDictionary.has(word.id),
+      }));
+
+      let output: EnrichOutput;
+      try {
+        output = await ai.enrichWords(input, { userId, importId });
+      } catch (error) {
+        log?.warn({ err: error }, `Enrichment of ${batch.length} words failed; they stay pending`);
+        return;
+      }
+
+      for (const result of output.words) {
+        const word = batch[result.ref];
+        const sent = input[result.ref];
+        // Only trust an entry that names the word it was meant for.
+        if (!word || !sent || result.lemma.trim() !== word.lemma) continue;
+
+        const aiForms: Forms | null = sent.needsForms
+          ? word.pos === "noun"
+            ? { plural: result.plural, forms: null }
+            : { plural: null, forms: result.forms }
+          : null;
+
+        // 3. Done. `enriched_at IS NULL` keeps a concurrent run from writing the same word twice.
+        const updated = await db
+          .update(words)
+          .set({
+            exampleDe: result.exampleDe,
+            enrichedAt: new Date(),
+            ...(aiForms ? { ...aiForms, formsSource: "ai" as const } : {}),
+          })
+          .where(and(eq(words.id, word.id), isNull(words.enrichedAt)))
+          .returning({ id: words.id });
+        if (updated.length === 0) continue;
+
+        enriched++;
+        await db
+          .update(wordTranslations)
+          .set({ exampleTranslation: result.exampleTranslation })
+          .where(
+            and(eq(wordTranslations.wordId, word.id), eq(wordTranslations.language, language)),
+          );
+      }
+    },
+  );
+
+  const [left] = await db
+    .select({ n: count() })
+    .from(words)
+    .where(and(inArray(words.id, wordIds), isNull(words.enrichedAt)));
+  return { enriched, pending: left?.n ?? 0 };
+}
+
+/** Retries enrichment for every word of the learner that has no details yet (§9). */
+export async function enrichPendingForUser(
+  deps: EnrichDeps,
+  userId: number,
+): Promise<EnrichResult> {
+  return enrichWords(deps, { userId, wordIds: await pendingWordIds(deps.db, userId) });
+}
+
+/** The learner's words still waiting for details; ignored words never become cards, so not those. */
+export async function pendingWordIds(db: Db, userId: number): Promise<number[]> {
+  const rows = await db
+    .select({ id: words.id })
+    .from(userWords)
+    .innerJoin(words, eq(userWords.wordId, words.id))
+    .where(
+      and(eq(userWords.userId, userId), ne(userWords.status, "ignored"), isNull(words.enrichedAt)),
+    );
+  return rows.map((r) => r.id);
+}
+
+async function loadPending(db: Db, wordIds: number[], language: string) {
+  return db
+    .select({
+      id: words.id,
+      lemma: words.lemma,
+      pos: words.pos,
+      article: words.article,
+      translation: wordTranslations.translation,
+    })
+    .from(words)
+    .leftJoin(
+      wordTranslations,
+      and(eq(wordTranslations.wordId, words.id), eq(wordTranslations.language, language)),
+    )
+    .where(and(inArray(words.id, wordIds), isNull(words.enrichedAt)))
+    .orderBy(words.id);
+}
+
+/**
+ * Forms the dictionary has for a word: a noun's plural from an entry with the word's own gender
+ * (der Band → Bände, die Band → Bands), a verb's forms from its entry.
+ */
+function dictionaryForms(word: PendingWord, entries: DictionaryEntry[]): Forms | null {
+  if (word.pos === "noun") {
+    const article = word.article;
+    const sameGender = article ? entries.filter((e) => e.genders.includes(article)) : entries;
+    const plural = sameGender.find((e) => e.plurals.length > 0)?.plurals[0];
+    return plural ? { plural, forms: null } : null;
+  }
+  if (word.pos === "verb") {
+    const forms = entries.find((e) => e.forms)?.forms;
+    return forms ? { plural: null, forms } : null;
+  }
+  return null;
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+/** Runs `work` for every item, at most `limit` at a time. */
+async function forEachLimited<T>(items: T[], limit: number, work: (item: T) => Promise<void>) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const item = items[next++] as T;
+      await work(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}

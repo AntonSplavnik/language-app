@@ -6,7 +6,7 @@ import type {
   SaveDecision,
   SaveResponse,
 } from "@language-app/core";
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
 import { countExtractCallsToday } from "../ai/usage";
 import type { Db, Executor } from "../db/client";
@@ -14,6 +14,7 @@ import { imports, users, userWords, words, wordTranslations } from "../db/schema
 import { checkWord } from "../dictionary/check";
 import { lookupWords, wordKey } from "../dictionary/lookup";
 import { HttpError } from "../http/errors";
+import { type EnrichDeps, enrichWords } from "../words/enrich";
 import { candidateKey, newCandidateWords, type WordIdentity } from "./candidates";
 
 // The import flow (docs/design.md §6): photos → candidates → review → save.
@@ -96,16 +97,31 @@ export async function addPhoto(
 }
 
 /**
+ * Saves the decisions, then enriches the added words (§6.5–6.6). Saving commits first, so the
+ * words exist even if enrichment fails; `detailsPending` counts the added words still without
+ * details. Enrichment keeps running if the client disconnects.
+ */
+export async function saveAndEnrich(
+  deps: ImportDeps & { log?: EnrichDeps["log"] },
+  userId: number,
+  id: number,
+  decisions: SaveDecision[],
+): Promise<SaveResponse> {
+  const { added, skipped, addedWordIds } = await saveImport(deps.db, userId, id, decisions);
+  const { pending } = await enrichWords(deps, { userId, importId: id, wordIds: addedWordIds });
+  return { added, skipped, detailsPending: pending };
+}
+
+/**
  * Saves the learner's decisions (§6.5): each decided candidate becomes a shared `words` row (found
  * or created) and a `user_words` row (`learning` or `ignored`), then the import is done.
- * Enrichment runs separately, after this transaction (M6).
  */
 export async function saveImport(
   db: Db,
   userId: number,
   id: number,
   decisions: SaveDecision[],
-): Promise<SaveResponse> {
+): Promise<{ added: number; skipped: number; addedWordIds: number[] }> {
   return db.transaction(async (tx) => {
     const locked = await findImport(tx, userId, id, { forUpdate: true });
     if (locked.status === "done") throw importClosed();
@@ -156,14 +172,7 @@ export async function saveImport(
       .set({ status: "done", completedAt: new Date() })
       .where(eq(imports.id, id));
 
-    const [pending] = addedWordIds.length
-      ? await tx
-          .select({ n: count() })
-          .from(words)
-          .where(and(inArray(words.id, addedWordIds), isNull(words.enrichedAt)))
-      : [{ n: 0 }];
-
-    return { added, skipped, detailsPending: pending?.n ?? 0 };
+    return { added, skipped, addedWordIds };
   });
 }
 

@@ -2,6 +2,7 @@ import type { StatsResponse } from "@language-app/core";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
+import { PendingDetails } from "../components/PendingDetails";
 import ui from "../styles/ui.module.css";
 import styles from "./Home.module.css";
 
@@ -47,6 +48,10 @@ export function Home() {
               <Counter label="Learning" value={state.stats.learning} />
               <Counter label="Learned" value={state.stats.learned} />
             </section>
+
+            {state.stats.detailsPending > 0 && (
+              <PendingDetails key={state.stats.detailsPending} count={state.stats.detailsPending} />
+            )}
 
             {state.stats.unfinishedImports.map((item) => (
               <Link

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import type { EnrichInputWord } from "@language-app/core";
+import type { EnrichedWord, EnrichInputWord } from "@language-app/core";
 import type { MessageRequest, MessageTransport } from "../../src/ai/transport";
 
 /** A real Claude response recorded with `pnpm --filter server ai:try … --save <name>`. */
@@ -93,3 +93,60 @@ export const apiError = (status: number) =>
 
 export const connectionError = () =>
   new Anthropic.APIConnectionError({ message: "Connection error." });
+
+/**
+ * A transport that builds each response from its request, for calls that run in parallel or in
+ * no fixed order. Records every request it receives.
+ */
+export function respondingTransport(respond: (request: MessageRequest) => BetaMessage | Error) {
+  const requests: MessageRequest[] = [];
+  const transport: MessageTransport = async (request) => {
+    requests.push(structuredClone(request));
+    const result = respond(request);
+    if (result instanceof Error) throw result;
+    return structuredClone(result);
+  };
+  return { transport, requests };
+}
+
+/** True when the request is an extract call (it carries the page photo). */
+export const isExtractRequest = (request: MessageRequest) =>
+  JSON.stringify(request.messages[0]?.content).includes('"type":"image"');
+
+/** The words an enrich request sent (§11.3). */
+export function enrichInputOf(request: MessageRequest): EnrichInputWord[] {
+  const content = request.messages[0]?.content;
+  const text = Array.isArray(content) && content[0]?.type === "text" ? content[0].text : "[]";
+  return JSON.parse(text) as EnrichInputWord[];
+}
+
+/**
+ * A made-up but well-formed enrich response for a request: an example sentence per word and
+ * invented forms where they were asked for. `change` can alter or drop single entries.
+ */
+export function fakeEnrichResponse(
+  request: MessageRequest,
+  change: (entry: EnrichedWord, input: EnrichInputWord) => EnrichedWord | null = (e) => e,
+): BetaMessage {
+  const base = loadAiFixture("enrich-batch").response;
+  const words = enrichInputOf(request).flatMap((input) => {
+    const entry: EnrichedWord = {
+      ref: input.ref,
+      lemma: input.lemma,
+      exampleDe: `Das ist ein Beispiel mit ${input.lemma}.`,
+      exampleTranslation: `This is an example with ${input.translation}.`,
+      plural: input.needsForms && input.pos === "noun" ? `${input.lemma}-AI` : null,
+      forms:
+        input.needsForms && input.pos === "verb"
+          ? {
+              praeteritum: `${input.lemma}-prät`,
+              partizip2: `${input.lemma}-p2`,
+              auxiliary: "haben",
+            }
+          : null,
+    };
+    const changed = change(entry, input);
+    return changed ? [changed] : [];
+  });
+  return withText(base, JSON.stringify({ words }));
+}

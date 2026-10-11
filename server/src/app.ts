@@ -6,6 +6,7 @@ import type { Db } from "./db/client";
 import { registerErrorHandling } from "./http/errors";
 import { importRoutes } from "./imports/routes";
 import { statsRoutes } from "./routes/stats";
+import { wordRoutes } from "./words/routes";
 
 export type AppDeps = {
   db: Db;
@@ -26,6 +27,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   app.get("/api/health", async (): Promise<HealthResponse> => ({ status: "ok" }));
   statsRoutes(app, deps);
   importRoutes(app, deps);
+  wordRoutes(app, deps);
 
   return app;
 }

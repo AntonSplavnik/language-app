@@ -10,6 +10,7 @@ import {
   SaveResponse,
 } from "./schemas/imports";
 import { StatsResponse } from "./schemas/stats";
+import { EnrichPendingResponse } from "./schemas/words";
 
 /** Every failed API call: an error from the server, an unexpected response, or no connection. */
 export class ApiClientError extends Error {
@@ -83,6 +84,9 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     startReview: (id: number) => postJson(ImportView, `/imports/${id}/review`),
     saveImport: (id: number, decisions: SaveDecision[]) =>
       postJson(SaveResponse, `/imports/${id}/save`, { decisions } satisfies SaveRequest),
+
+    /** Retries enrichment for the learner's words that have no details yet. */
+    enrichPending: () => postJson(EnrichPendingResponse, "/words/enrich-pending"),
   };
 }
 

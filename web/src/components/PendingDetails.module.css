@@ -1,0 +1,24 @@
+.box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 15px;
+  text-align: left;
+}
+
+.sub {
+  display: block;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.done {
+  background: var(--success-soft);
+  color: var(--success);
+}

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Article, Pos, VerbForms } from "./common";
 
-// List/detail/patch shapes for the word endpoints are added in M8.
+// List/detail/patch shapes for the other word endpoints are added in M8.
 
 /** What a learner sees about one of their words: shared facts plus their own overrides. */
 export const WordView = z.object({
@@ -22,3 +22,12 @@ export const WordView = z.object({
   enriched: z.boolean(),
 });
 export type WordView = z.infer<typeof WordView>;
+
+/** `POST /api/words/enrich-pending` (§6.6, §9). */
+export const EnrichPendingResponse = z.object({
+  /** Words that got their details in this run. */
+  enriched: z.number().int().nonnegative(),
+  /** The learner's words still without details (e.g. the AI was busy). */
+  pending: z.number().int().nonnegative(),
+});
+export type EnrichPendingResponse = z.infer<typeof EnrichPendingResponse>;

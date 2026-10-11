@@ -7,6 +7,7 @@ const json = (status: number, body: unknown) => async () =>
 const stats = {
   learning: 3,
   learned: 1,
+  detailsPending: 2,
   unfinishedImports: [
     {
       id: 7,

@@ -34,7 +34,12 @@ async function addWords(userId: number, statuses: WordStatus[]) {
 
 describe("GET /api/stats", () => {
   it("starts at zero with no unfinished imports", async () => {
-    expect(await getStats()).toEqual({ learning: 0, learned: 0, unfinishedImports: [] });
+    expect(await getStats()).toEqual({
+      learning: 0,
+      learned: 0,
+      detailsPending: 0,
+      unfinishedImports: [],
+    });
   });
 
   it("counts learning and learned words, not ignored ones", async () => {
