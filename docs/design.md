@@ -409,15 +409,20 @@ Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cent
 
 **Measured (2026-10-11, Opus 5.5, effort `low`, three real book pages shrunk to 1600 px):** extract took 13–25 s and 5–8 cents per page (≈3,700 input tokens; 1,700–3,300 output tokens for 52–101 words). A blurred page returned `poor` in 2.6 s for 1.5 cents. Enriching 11 words took 10 s and 2.7 cents.
 
-**Measured with Haiku 5.5 (same day, same pages):**
+**Model comparison (same day, same pages).** Exercise page p. 64 is the dense one that separates the models:
 
-| Effort | Exercise page p. 64 (Opus `low`: 101 words) | Time | Cost |
-|---|---|---|---|
-| `low` | 70 words; misses real vocabulary (*Uhr, Person, schreiben*), leaves separable verbs split, keeps place names, an abbreviation and a handwritten word | 8 s | 0.15¢ |
-| `medium` | 96 words; follows the skip rules; still misses a few long compounds and splits two separable verbs | 30 s | 0.43¢ |
-| `high` | 94 words; no better than `medium` | 40 s | 0.56¢ |
+| Model, effort | Words on p. 64 | Quality notes | Time | Cost per page |
+|---|---|---|---|---|
+| Opus 5.5 `low` | 101 | Follows all rules; reference | 25 s | 8.1¢ |
+| Sonnet 5.5 `low` | 106 | Joins separable verbs correctly; keeps place names (*Schweiz*) and a handwritten word; changes *Kinderärztin* to *Kinderarzt* | 18 s | 4.2¢ |
+| Sonnet 5.5 `medium` | 101 | Like `low`, plus one plural as lemma (*Kinder*) | 17 s | 4.1¢ |
+| Haiku 5.5 `low` | 70 | Misses real vocabulary (*Uhr, Person, schreiben*), leaves separable verbs split, keeps place names, an abbreviation and a handwritten word | 8 s | 0.15¢ |
+| Haiku 5.5 `medium` | 96 | Follows the skip rules; misses a few long compounds; splits two separable verbs (*kreuzen* for *ankreuzen*) | 30 s | 0.43¢ |
+| Haiku 5.5 `high` | 94 | No better than `medium` | 40 s | 0.56¢ |
 
-On a vocabulary-list page Haiku `low` matched Opus closely (50 vs 52 words). No noun article differed from Opus on any page. Enrichment at `medium`: same plurals and verb forms as Opus, 4.6 s, 0.07¢ for 11 words. For development the `.env` uses Haiku 5.5 at `medium`; the code defaults stay Opus 5.5 at `low`.
+On the vocabulary-list page all models matched Opus closely (Sonnet 53, Haiku 50 vs 52 words), and no noun article differed from Opus on any page. Enrichment of the 11-word batch gave identical plurals and verb forms on all three models (Opus 10 s / 2.7¢, Sonnet `low` 6 s / 1.3¢, Haiku `medium` 5 s / 0.07¢).
+
+Error kinds differ: Sonnet's mistakes are mostly extra words the learner can skip, while Haiku's split separable verbs produce a wrong lemma. For development the `.env` uses Haiku 5.5 at `medium`; the code defaults stay Opus 5.5 at `low`.
 
 ### 11.5 Daily limit
 `DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage`. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
