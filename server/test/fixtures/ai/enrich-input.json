@@ -1,0 +1,90 @@
+[
+  {
+    "ref": 0,
+    "lemma": "Schreibtisch",
+    "pos": "noun",
+    "article": "der",
+    "translation": "desk",
+    "needsForms": true
+  },
+  {
+    "ref": 1,
+    "lemma": "Garage",
+    "pos": "noun",
+    "article": "die",
+    "translation": "garage",
+    "needsForms": false
+  },
+  {
+    "ref": 2,
+    "lemma": "Kühlschrank",
+    "pos": "noun",
+    "article": "der",
+    "translation": "fridge",
+    "needsForms": true
+  },
+  {
+    "ref": 3,
+    "lemma": "Arbeit",
+    "pos": "noun",
+    "article": "die",
+    "translation": "work",
+    "needsForms": true
+  },
+  {
+    "ref": 4,
+    "lemma": "verkaufen",
+    "pos": "verb",
+    "article": null,
+    "translation": "to sell",
+    "needsForms": true
+  },
+  {
+    "ref": 5,
+    "lemma": "sehen",
+    "pos": "verb",
+    "article": null,
+    "translation": "to see",
+    "needsForms": true
+  },
+  {
+    "ref": 6,
+    "lemma": "vermieten",
+    "pos": "verb",
+    "article": null,
+    "translation": "to rent out",
+    "needsForms": false
+  },
+  {
+    "ref": 7,
+    "lemma": "aufstehen",
+    "pos": "verb",
+    "article": null,
+    "translation": "to get up",
+    "needsForms": true
+  },
+  {
+    "ref": 8,
+    "lemma": "möbliert",
+    "pos": "adjective",
+    "article": null,
+    "translation": "furnished",
+    "needsForms": true
+  },
+  {
+    "ref": 9,
+    "lemma": "ungefähr",
+    "pos": "adverb",
+    "article": null,
+    "translation": "approximately",
+    "needsForms": false
+  },
+  {
+    "ref": 10,
+    "lemma": "Stock",
+    "pos": "noun",
+    "article": "der",
+    "translation": "floor, storey",
+    "needsForms": true
+  }
+]

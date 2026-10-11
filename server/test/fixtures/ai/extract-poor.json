@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "kind": "extract",
+    "source": "blurry.jpg",
+    "recordedAt": "2026-10-11T20:11:50.422Z",
+    "requestedModel": "claude-opus-5-5",
+    "effort": "low",
+    "promptHash": "b46933e6294c",
+    "durationMs": 2558
+  },
+  "response": {
+    "model": "claude-opus-5-5",
+    "id": "msg_011Cfw4NvgLqTV1fDVsBm9TB",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"pageQuality\":\"poor\",\"words\":[]}"
+      }
+    ],
+    "container": null,
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 3687,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "iterations": [
+        {
+          "input_tokens": 3687,
+          "output_tokens": 19,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "type": "message",
+          "model": null
+        }
+      ],
+      "output_tokens": 19,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "diagnostics": null
+  }
+}

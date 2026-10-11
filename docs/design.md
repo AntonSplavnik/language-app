@@ -198,7 +198,10 @@ users ──< user_words >── words ──< word_translations
 | `input_tokens`, `output_tokens` | From the API response `usage` |
 | `stop_reason` | |
 | `ok` | Whether the result was usable |
+| `duration_ms` | Wall-clock time of the attempt, including SDK retries; tracks the "under a minute" goal |
 | `created_at` | |
+
+One row per API attempt: a retry after invalid output and a failed call each get their own row. When a refusal fallback ran, `model` is the model that answered and the token counts cover every model that ran (`usage.iterations`).
 
 ## 6. Import flow
 
@@ -358,7 +361,7 @@ Mobile-first layout, usable on desktop.
 ## 11. AI calls
 
 ### 11.1 Common settings
-- **SDK:** `@anthropic-ai/sdk`, structured outputs with the Zod schemas from `core/` (`output_config.format`). Every response is validated again with Zod before use.
+- **SDK:** `@anthropic-ai/sdk`, beta client (`client.beta.messages.create`, needed for `fallbacks`). Structured outputs: the Zod schemas from `core/` converted with the SDK's `betaZodOutputFormat` into `output_config.format`. The SDK turns enum values into schema descriptions rather than hard constraints, so every response is validated again with Zod before use. `thinking` is never sent (Opus 5.5 always thinks adaptively; disabling it is a 400).
 - **Model:** `claude-opus-5-5` by default, configured separately per call (`AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`).
 - **Effort:** `low` (`AI_EFFORT`). Opus 5.5 defaults to `medium`, so it is set explicitly.
 - **Refusal fallback:** server-side fallback enabled (`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta). `stop_reason` is checked before reading content.
@@ -375,20 +378,22 @@ Mobile-first layout, usable on desktop.
   "words": [ { "lemma": "Tisch", "pos": "noun", "article": "der", "translation": "table" } ] }
 ```
 
-**Prompt rules:**
-- Return every German word on the page once, in base form: verbs → infinitive; nouns → nominative singular with article; adjectives/adverbs → uninflected form.
+**Prompt rules** (full text in `server/src/ai/prompts.ts`):
+- Return every German word on the page once, in base form: verbs → infinitive; nouns → nominative singular; adjectives/adverbs → uninflected form. Function words (articles, pronouns, prepositions…) are included with their part of speech.
+- `lemma` is always the word alone; a noun's article goes only in `article` (the first test run returned "der Tisch" as the lemma until this was stated).
 - Recombine separable verbs (*Ich stehe um 7 auf* → `aufstehen`).
 - Reflexive verbs without `sich`.
-- Skip proper names, numbers, and page furniture (page numbers, exercise labels, headers).
-- `translation` is a short English equivalent for the sense used on the page.
-- `pageQuality = poor` if the page is blurry, dark, cut off, or has no German text.
+- Skip proper names, numbers written as digits (times, dates, prices, phone numbers, addresses), abbreviations whose full word is also on the page, and page furniture (page numbers, lesson and exercise labels, running headers and footers).
+- Only printed text counts: handwriting (the learner's own answers and notes) is skipped.
+- `translation` is a short English equivalent (one to four words) for the sense used on the page; verbs as infinitives ("to go").
+- `pageQuality = poor` if most of the page could not be read (blurry, dark, cut off, or no German text); the words that could be read are still returned.
 
 ### 11.3 Call 2 — Enrich
-**Input:** up to 30 words `{ lemma, pos, article, translation, needsForms }`.
+**Input:** up to 30 words `{ ref, lemma, pos, article, translation, needsForms }`, sent as JSON. `ref` is the word's position in the batch; the output repeats it so each result is matched to its word by number, not by spelling.
 
 **Output schema:**
 ```json
-{ "words": [ { "lemma": "Tisch", "pos": "noun", "article": "der",
+{ "words": [ { "ref": 0, "lemma": "Tisch",
                "exampleDe": "Der Tisch steht in der Küche.",
                "exampleTranslation": "The table is in the kitchen.",
                "plural": "Tische",
@@ -402,8 +407,10 @@ Mobile-first layout, usable on desktop.
 ### 11.4 Cost
 Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cents (Sonnet 5.5 ~4 cents, Haiku 5.5 ~0.2 cents). Real numbers come from `ai_usage`.
 
+**Measured (2026-10-11, Opus 5.5, effort `low`, three real book pages shrunk to 1600 px):** extract took 13–25 s and 5–8 cents per page (≈3,700 input tokens; 1,700–3,300 output tokens for 52–101 words). A blurred page returned `poor` in 2.6 s for 1.5 cents. Enriching 11 words took 10 s and 2.7 cents.
+
 ### 11.5 Daily limit
-`DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage`. Beyond it, photo upload returns an error: "Daily photo limit reached".
+`DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage`. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
 
 ## 12. Errors
 
@@ -413,7 +420,8 @@ Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cent
 | File the browser cannot decode | Error on that photo only: "Couldn't open this image" |
 | `pageQuality = poor` | Photo marked poor: "Couldn't read much from this page" + **Retake**; its words are still added to candidates |
 | One photo fails | Other photos continue; failed photo shows **Retry** |
-| Claude 429 / 5xx after SDK retries | "AI is busy, try again" + **Retry** |
+| Claude 429 / 5xx / unreachable after SDK retries | "AI is busy, try again" + **Retry** |
+| Other Claude API errors (bad request, invalid API key) | Not retried; surfaces as an unexpected server error |
 | `stop_reason = refusal` (after fallback) | Treated as a failed photo |
 | Output fails Zod validation | One automatic retry, then failed photo |
 | `stop_reason = max_tokens` | Failed photo: "Page too long — photograph it in two parts" |
@@ -439,11 +447,11 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 | Unit | Learning rules, candidate merging, dictionary match logic, session ordering | Vitest in `core/` and `server/` | Free |
 | Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection per source, result recording, daily limit, error paths (429, refusal, invalid output, max_tokens) | Vitest + real PostgreSQL test database (Docker), AI client replaced by **recorded real Claude responses** (fixtures) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` | Vitest on a small sample file with expected rows | Free |
-| Live | 2–3 real photos through the real Claude API end to end; asserts schema validity and a sensible word count | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~25¢ per run |
+| Live | 2 real photos and one small enrich batch through the real Claude API; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run |
 | AI quality (optional) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models | ~$2–3 per run on Opus |
 | Manual | Layout, gestures, photo flow on the real device | iPhone on the local network | — |
 
-Fixtures are created by running a few real photos through Claude once and saving the responses. Implementation follows test-first development.
+Fixtures are created by running a few real photos through Claude once and saving the raw responses (`pnpm --filter server ai:try extract <photo> --save <name>`, `… enrich <words.json> --save <name>`; stored in `server/test/fixtures/ai/` with the prompt hash and timing). Cases that cannot or should not be provoked for real (refusal, `max_tokens`, invalid output, fallback, 429/5xx/connection errors) are built in the tests from a recorded response. Implementation follows test-first development.
 
 ## 14. Development setup
 

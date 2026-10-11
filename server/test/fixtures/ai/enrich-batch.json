@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "kind": "enrich",
+    "source": "enrich-input.json",
+    "recordedAt": "2026-10-11T20:11:37.180Z",
+    "requestedModel": "claude-opus-5-5",
+    "effort": "low",
+    "promptHash": "9e8e7d6a36c3",
+    "durationMs": 10241
+  },
+  "input": [
+    {
+      "ref": 0,
+      "lemma": "Schreibtisch",
+      "pos": "noun",
+      "article": "der",
+      "translation": "desk",
+      "needsForms": true
+    },
+    {
+      "ref": 1,
+      "lemma": "Garage",
+      "pos": "noun",
+      "article": "die",
+      "translation": "garage",
+      "needsForms": false
+    },
+    {
+      "ref": 2,
+      "lemma": "Kühlschrank",
+      "pos": "noun",
+      "article": "der",
+      "translation": "fridge",
+      "needsForms": true
+    },
+    {
+      "ref": 3,
+      "lemma": "Arbeit",
+      "pos": "noun",
+      "article": "die",
+      "translation": "work",
+      "needsForms": true
+    },
+    {
+      "ref": 4,
+      "lemma": "verkaufen",
+      "pos": "verb",
+      "article": null,
+      "translation": "to sell",
+      "needsForms": true
+    },
+    {
+      "ref": 5,
+      "lemma": "sehen",
+      "pos": "verb",
+      "article": null,
+      "translation": "to see",
+      "needsForms": true
+    },
+    {
+      "ref": 6,
+      "lemma": "vermieten",
+      "pos": "verb",
+      "article": null,
+      "translation": "to rent out",
+      "needsForms": false
+    },
+    {
+      "ref": 7,
+      "lemma": "aufstehen",
+      "pos": "verb",
+      "article": null,
+      "translation": "to get up",
+      "needsForms": true
+    },
+    {
+      "ref": 8,
+      "lemma": "möbliert",
+      "pos": "adjective",
+      "article": null,
+      "translation": "furnished",
+      "needsForms": true
+    },
+    {
+      "ref": 9,
+      "lemma": "ungefähr",
+      "pos": "adverb",
+      "article": null,
+      "translation": "approximately",
+      "needsForms": false
+    },
+    {
+      "ref": 10,
+      "lemma": "Stock",
+      "pos": "noun",
+      "article": "der",
+      "translation": "floor, storey",
+      "needsForms": true
+    }
+  ],
+  "response": {
+    "model": "claude-opus-5-5",
+    "id": "msg_011Cfw4MPT6ThyQLAJ9oJyKY",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"words\":[{\"ref\":0,\"lemma\":\"Schreibtisch\",\"exampleDe\":\"Mein Laptop liegt auf dem Schreibtisch.\",\"exampleTranslation\":\"My laptop is on the desk.\",\"plural\":\"Schreibtische\",\"forms\":null},{\"ref\":1,\"lemma\":\"Garage\",\"exampleDe\":\"Das Auto steht in der Garage.\",\"exampleTranslation\":\"The car is in the garage.\",\"plural\":null,\"forms\":null},{\"ref\":2,\"lemma\":\"Kühlschrank\",\"exampleDe\":\"Die Milch ist im Kühlschrank.\",\"exampleTranslation\":\"The milk is in the fridge.\",\"plural\":\"Kühlschränke\",\"forms\":null},{\"ref\":3,\"lemma\":\"Arbeit\",\"exampleDe\":\"Ich fahre mit dem Bus zur Arbeit.\",\"exampleTranslation\":\"I take the bus to work.\",\"plural\":\"Arbeiten\",\"forms\":null},{\"ref\":4,\"lemma\":\"verkaufen\",\"exampleDe\":\"Wir verkaufen unser altes Fahrrad.\",\"exampleTranslation\":\"We are selling our old bike.\",\"plural\":null,\"forms\":{\"praeteritum\":\"verkaufte\",\"partizip2\":\"verkauft\",\"auxiliary\":\"haben\"}},{\"ref\":5,\"lemma\":\"sehen\",\"exampleDe\":\"Ich sehe meine Freundin im Park.\",\"exampleTranslation\":\"I see my girlfriend in the park.\",\"plural\":null,\"forms\":{\"praeteritum\":\"sah\",\"partizip2\":\"gesehen\",\"auxiliary\":\"haben\"}},{\"ref\":6,\"lemma\":\"vermieten\",\"exampleDe\":\"Herr Braun vermietet eine kleine Wohnung.\",\"exampleTranslation\":\"Mr. Braun rents out a small apartment.\",\"plural\":null,\"forms\":null},{\"ref\":7,\"lemma\":\"aufstehen\",\"exampleDe\":\"Ich stehe jeden Tag um sieben Uhr auf.\",\"exampleTranslation\":\"I get up at seven o'clock every day.\",\"plural\":null,\"forms\":{\"praeteritum\":\"stand auf\",\"partizip2\":\"aufgestanden\",\"auxiliary\":\"sein\"}},{\"ref\":8,\"lemma\":\"möbliert\",\"exampleDe\":\"Das Zimmer ist möbliert.\",\"exampleTranslation\":\"The room is furnished.\",\"plural\":null,\"forms\":null},{\"ref\":9,\"lemma\":\"ungefähr\",\"exampleDe\":\"Die Wohnung kostet ungefähr 600 Euro.\",\"exampleTranslation\":\"The apartment costs approximately 600 euros.\",\"plural\":null,\"forms\":null},{\"ref\":10,\"lemma\":\"Stock\",\"exampleDe\":\"Wir wohnen im dritten Stock.\",\"exampleTranslation\":\"We live on the third floor.\",\"plural\":\"Stockwerke\",\"forms\":null}]}"
+      }
+    ],
+    "container": null,
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 1778,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "iterations": [
+        {
+          "input_tokens": 1778,
+          "output_tokens": 978,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "type": "message",
+          "model": null
+        }
+      ],
+      "output_tokens": 978,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "diagnostics": null
+  }
+}

@@ -181,6 +181,8 @@ export const aiUsage = pgTable(
     outputTokens: integer(),
     stopReason: text(),
     ok: boolean().notNull(),
+    /** Wall-clock time of the call, including SDK retries; tracks the "under a minute" goal (§1). */
+    durationMs: integer(),
     createdAt: createdAt(),
   },
   // Daily photo limit counts today's extract calls per user.

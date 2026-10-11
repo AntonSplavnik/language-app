@@ -19,6 +19,8 @@ export const ExtractOutput = z.object({
 export type ExtractOutput = z.infer<typeof ExtractOutput>;
 
 export const EnrichInputWord = z.object({
+  /** Position in the batch; the output repeats it so results match their word reliably. */
+  ref: z.number().int(),
   lemma: z.string(),
   pos: Pos,
   article: Article.nullable(),
@@ -28,9 +30,9 @@ export const EnrichInputWord = z.object({
 export type EnrichInputWord = z.infer<typeof EnrichInputWord>;
 
 export const EnrichedWord = z.object({
+  ref: z.number().int(),
+  /** Echoed as a sanity check that the entry belongs to the word with this ref. */
   lemma: z.string(),
-  pos: Pos,
-  article: Article.nullable(),
   exampleDe: z.string(),
   exampleTranslation: z.string(),
   plural: z.string().nullable(),

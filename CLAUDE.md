@@ -25,7 +25,9 @@ pnpm dev                  # migrates the dev DB, then server on 127.0.0.1:3000 a
 pnpm db:generate          # after editing server/src/db/schema.ts: writes a migration to server/drizzle/
 pnpm db:migrate           # applies migrations to DATABASE_URL (tests rebuild the test DB themselves)
 pnpm test                 # all unit + server tests; never calls Claude
-pnpm test:live            # real Claude API calls (~25¢); run after changes under server/src/ai
+pnpm test:live            # real Claude API calls (~15¢); run after changes under server/src/ai
+pnpm --filter server ai:try extract <photo> [--save name]      # one real call: words, tokens, time, cost
+pnpm --filter server ai:try enrich <words.json> [--save name]  # --save records a fixture in server/test/fixtures/ai/
 pnpm typecheck
 pnpm check                # Biome lint + format check (`pnpm format` to fix)
 ```
