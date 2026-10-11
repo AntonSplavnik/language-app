@@ -43,3 +43,4 @@ Configuration lives in the repo-root `.env` (copy `.env.example`). iPhone testin
 - `pnpm test` must never call Claude: server tests use recorded responses in `server/test/fixtures/ai/`.
 - **Load the `claude-api` skill before touching `server/src/ai/`.**
 - Real textbook photos stay out of git (`server/test/live/photos/` is ignored).
+- The iPhone opens the app over plain HTTP on the home network, which is **not a secure context**: no `crypto.randomUUID()`, `crypto.subtle`, clipboard, camera/microphone streams or service workers in web code. Testing on desktop `localhost` hides this, so check on the phone.

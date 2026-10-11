@@ -1,0 +1,153 @@
+.muted {
+  color: var(--muted);
+  margin: 0;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summary p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.bulk {
+  display: flex;
+  margin-right: -10px;
+}
+
+.known {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.knownToggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.knownList {
+  margin: 0;
+  padding: 0 14px 14px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: opacity 120ms ease;
+}
+
+.rowMain {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.word {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lemma {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 14px;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.notFound {
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.choice {
+  flex: none;
+  min-width: 64px;
+  text-align: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.adding .choice {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.skipping {
+  opacity: 0.6;
+}
+
+.skipping .lemma {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+
+.skipping .choice {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.fix {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 14px;
+}
+
+.fixButtons {
+  display: flex;
+  gap: 6px;
+}

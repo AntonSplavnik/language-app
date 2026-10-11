@@ -1,0 +1,246 @@
+import type { Article, Candidate, ImportView } from "@language-app/core";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import { api } from "../api";
+import { Page } from "../components/Page";
+import { readJson, removeItem, writeJson } from "../lib/storage";
+import { errorMessage, useToast } from "../lib/toast";
+import {
+  countAdds,
+  type Decision,
+  type Decisions,
+  initialDecisions,
+  type ReviewAction,
+  reviewable,
+  reviewReducer,
+  toSaveDecisions,
+} from "../state/reviewDecisions";
+import ui from "../styles/ui.module.css";
+import styles from "./ReviewScreen.module.css";
+
+const storageKey = (importId: number) => `review:${importId}`;
+
+const withArticle = (article: Article | null, lemma: string) =>
+  article ? `${article} ${lemma}` : lemma;
+
+/** Review the new words: Add or Skip each, fix articles the dictionary disagrees with (§6.4). */
+export function ReviewScreen() {
+  const importId = Number(useParams().id);
+  const navigate = useNavigate();
+  const toast = useToast();
+
+  const [view, setView] = useState<ImportView | null>(null);
+  const [decisions, setDecisions] = useState<Decisions>({});
+  const [showKnown, setShowKnown] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let loaded = await api.getImport(importId);
+      if (loaded.status === "done") return navigate("/", { replace: true });
+      // Opened directly while still collecting: reviewing closes the import to photos.
+      if (loaded.status === "collecting") loaded = await api.startReview(importId);
+      if (cancelled) return;
+      setView(loaded);
+      setDecisions(initialDecisions(loaded.candidates, readJson<Decisions>(storageKey(importId))));
+    })().catch((error) => toast.show(errorMessage(error)));
+    return () => {
+      cancelled = true;
+    };
+  }, [importId, navigate, toast]);
+
+  // Decisions survive a reload on this device (§12: leaving during review).
+  useEffect(() => {
+    if (view) writeJson(storageKey(importId), decisions);
+  }, [view, importId, decisions]);
+
+  const update = (action: ReviewAction) =>
+    setDecisions((current) => reviewReducer(current, action));
+
+  if (!view) {
+    return (
+      <Page title="Review" back="/">
+        <p className={styles.muted}>Loading…</p>
+      </Page>
+    );
+  }
+
+  const fresh = reviewable(view.candidates);
+  const known = view.candidates.filter((c) => c.existing === "in_my_words");
+  const adds = countAdds(decisions);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const result = await api.saveImport(importId, toSaveDecisions(view.candidates, decisions));
+      removeItem(storageKey(importId));
+      navigate(`/imports/${importId}/done`, { replace: true, state: result });
+    } catch (error) {
+      toast.show(errorMessage(error));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Page
+      title={view.name ?? "Review words"}
+      back="/"
+      footer={
+        <button
+          type="button"
+          className={`${ui.button} ${ui.primary} ${ui.block}`}
+          disabled={saving}
+          onClick={save}
+        >
+          {saving && <span className={ui.spinner} />}
+          {adds === 0
+            ? fresh.length === 0
+              ? "Finish"
+              : `Skip all ${fresh.length} words`
+            : `Save ${adds} ${adds === 1 ? "word" : "words"}`}
+        </button>
+      }
+    >
+      <div className={styles.summary}>
+        <p>
+          <strong>{fresh.length}</strong> new {fresh.length === 1 ? "word" : "words"} · {adds} to
+          add
+        </p>
+        {fresh.length > 0 && (
+          <div className={styles.bulk}>
+            <button
+              type="button"
+              className={`${ui.button} ${ui.quiet}`}
+              onClick={() => update({ type: "setAll", action: "add" })}
+            >
+              Add all
+            </button>
+            <button
+              type="button"
+              className={`${ui.button} ${ui.quiet}`}
+              onClick={() => update({ type: "setAll", action: "skip" })}
+            >
+              Skip all
+            </button>
+          </div>
+        )}
+      </div>
+
+      {known.length > 0 && (
+        <section className={styles.known}>
+          <button
+            type="button"
+            className={styles.knownToggle}
+            aria-expanded={showKnown}
+            onClick={() => setShowKnown((open) => !open)}
+          >
+            {known.length} already in your words
+            <span aria-hidden>{showKnown ? "▴" : "▾"}</span>
+          </button>
+          {showKnown && (
+            <p className={styles.knownList}>
+              {known.map((c) => withArticle(c.article, c.lemma)).join(", ")}
+            </p>
+          )}
+        </section>
+      )}
+
+      {fresh.length === 0 && (
+        <p className={styles.muted}>Every word on these pages is already in your list.</p>
+      )}
+
+      <ul className={styles.list}>
+        {fresh.map((candidate) => {
+          const decision = decisions[candidate.key];
+          return decision ? (
+            <WordRow
+              key={candidate.key}
+              candidate={candidate}
+              decision={decision}
+              onToggle={() => update({ type: "toggle", key: candidate.key })}
+              onApply={(article) => update({ type: "applyArticle", key: candidate.key, article })}
+              onUndo={() => update({ type: "clearArticle", key: candidate.key })}
+            />
+          ) : null;
+        })}
+      </ul>
+    </Page>
+  );
+}
+
+function WordRow({
+  candidate,
+  decision,
+  onToggle,
+  onApply,
+  onUndo,
+}: {
+  candidate: Candidate;
+  decision: Decision;
+  onToggle: () => void;
+  onApply: (article: Article) => void;
+  onUndo: () => void;
+}) {
+  const adding = decision.action === "add";
+  const article = decision.article ?? candidate.article;
+  const mismatch = candidate.dictionary.status === "mismatch";
+  const fixed = decision.article !== undefined && decision.article !== candidate.article;
+
+  return (
+    <li className={`${styles.row} ${adding ? styles.adding : styles.skipping}`}>
+      <button type="button" className={styles.rowMain} aria-pressed={adding} onClick={onToggle}>
+        <span className={styles.word}>
+          <span className={styles.lemma}>{withArticle(article, candidate.lemma)}</span>
+          <span className={styles.meta}>
+            {candidate.translation} · {candidate.pos}
+            {candidate.dictionary.status === "not_found" && (
+              <span className={styles.notFound}>not in dictionary</span>
+            )}
+          </span>
+        </span>
+        <span className={styles.choice}>{adding ? "Add" : "Skip"}</span>
+      </button>
+
+      {mismatch && (
+        <div className={styles.fix}>
+          {fixed ? (
+            <>
+              <span>Dictionary article applied</span>
+              <button
+                type="button"
+                className={`${ui.button} ${ui.quiet} ${ui.small}`}
+                onClick={onUndo}
+              >
+                Undo
+              </button>
+            </>
+          ) : (
+            <>
+              <span>
+                AI: <strong>{withArticle(candidate.article, candidate.lemma)}</strong> · Dictionary:{" "}
+                <strong>
+                  {(candidate.dictionary.genders ?? [])
+                    .map((g) => withArticle(g, candidate.lemma))
+                    .join(" / ")}
+                </strong>
+              </span>
+              <span className={styles.fixButtons}>
+                {(candidate.dictionary.genders ?? []).map((gender) => (
+                  <button
+                    key={gender}
+                    type="button"
+                    className={`${ui.button} ${ui.secondary} ${ui.small}`}
+                    onClick={() => onApply(gender)}
+                  >
+                    Use {gender}
+                  </button>
+                ))}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}

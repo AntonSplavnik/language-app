@@ -51,9 +51,15 @@
 }
 
 .banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   background: var(--accent-soft);
   border-radius: var(--radius);
   padding: 12px 16px;
+  color: var(--text);
+  text-decoration: none;
 }
 
 .error {
@@ -79,4 +85,15 @@
 
 .footer a {
   color: inherit;
+}
+
+.newImport {
+  min-height: 64px;
+  font-size: 18px;
+  margin-top: 8px;
+}
+
+.camera {
+  font-size: 24px;
+  line-height: 1;
 }

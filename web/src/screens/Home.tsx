@@ -1,6 +1,8 @@
 import type { StatsResponse } from "@language-app/core";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router";
 import { api } from "../api";
+import ui from "../styles/ui.module.css";
 import styles from "./Home.module.css";
 
 type State =
@@ -47,11 +49,30 @@ export function Home() {
             </section>
 
             {state.stats.unfinishedImports.map((item) => (
-              <div key={item.id} className={styles.banner}>
-                {item.status === "reviewing" ? "Finish reviewing" : "Continue importing"}{" "}
-                <strong>{item.name ?? `the import from ${formatDate(item.createdAt)}`}</strong>
-              </div>
+              <Link
+                key={item.id}
+                to={
+                  item.status === "reviewing" ? `/imports/${item.id}/review` : `/imports/${item.id}`
+                }
+                className={styles.banner}
+              >
+                <span>
+                  {item.status === "reviewing" ? "Finish reviewing" : "Continue importing"}{" "}
+                  <strong>{item.name ?? `the import from ${formatDate(item.createdAt)}`}</strong>
+                </span>
+                <span aria-hidden>›</span>
+              </Link>
             ))}
+
+            <Link to="/imports/new" className={`${ui.button} ${ui.primary} ${styles.newImport}`}>
+              <span aria-hidden className={styles.camera}>
+                +
+              </span>
+              New import
+            </Link>
+            <p className={styles.muted}>
+              Photograph the pages you studied to collect their new words.
+            </p>
           </>
         )}
       </main>

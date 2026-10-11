@@ -1,0 +1,8 @@
+{
+  // Tests may use Node APIs (e.g. reading source files); the app code may not.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "test"]
+}

@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@language-app/core": "workspace:*",

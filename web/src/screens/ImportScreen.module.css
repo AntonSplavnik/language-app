@@ -1,0 +1,137 @@
+.name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.name input {
+  /* 16px keeps iOS Safari from zooming in on focus. */
+  font-size: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-muted);
+  border: 2px solid transparent;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    var(--surface-muted) 30%,
+    var(--surface) 50%,
+    var(--surface-muted) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.status {
+  color: var(--muted);
+  min-height: 20px;
+}
+
+.busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+
+/* Per-status accents on the thumbnail and status line. */
+.reading .thumb {
+  border-color: var(--accent);
+}
+
+.done .status {
+  color: var(--success);
+}
+
+.poor .thumb {
+  border-color: var(--warning);
+}
+
+.poor .status {
+  color: var(--warning);
+}
+
+.failed .thumb {
+  border-color: var(--danger);
+}
+
+.failed .status {
+  color: var(--danger);
+}
+
+.add {
+  min-height: 64px;
+  border-style: dashed;
+  border-width: 2px;
+}
+
+.plus {
+  font-size: 24px;
+  line-height: 1;
+}

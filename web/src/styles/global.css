@@ -1,14 +1,21 @@
 :root {
-  --bg: #fafaf7;
+  --bg: #f7f6f2;
   --surface: #ffffff;
+  --surface-muted: #efeee9;
   --text: #1c1c1e;
   --muted: #6b6b70;
-  --border: #e4e4e0;
+  --border: #e2e1dc;
   --accent: #2f6fdf;
   --accent-soft: #e8f0fd;
+  --success: #1e7d46;
+  --success-soft: #e3f4ea;
+  --warning: #9a5b00;
+  --warning-soft: #fdf1dc;
   --danger: #c4372b;
+  --danger-soft: #fbe7e5;
   --radius: 14px;
   --gutter: 16px;
+  --shadow: 0 6px 24px rgb(0 0 0 / 0.12);
 
   color-scheme: light dark;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -20,12 +27,19 @@
   :root {
     --bg: #111113;
     --surface: #1c1c1f;
+    --surface-muted: #26262a;
     --text: #f2f2f4;
     --muted: #9a9aa2;
-    --border: #2c2c31;
+    --border: #2f2f35;
     --accent: #6c9ef8;
     --accent-soft: #1d2a40;
+    --success: #5cc78a;
+    --success-soft: #16301f;
+    --warning: #f0b45c;
+    --warning-soft: #33270f;
     --danger: #ef6b5f;
+    --danger-soft: #3a1b18;
+    --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
   }
 }
 
@@ -41,6 +55,12 @@ body {
   color: var(--text);
 }
 
-button {
+button,
+input {
   font: inherit;
+  color: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
 }

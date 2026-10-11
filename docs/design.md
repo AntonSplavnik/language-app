@@ -361,8 +361,14 @@ Home ─┬─► Import ──► Review ──► Done ─► (Practice these 
 Mobile-first layout, usable on desktop.
 
 1. **Home** — New import, Practice, My words; counters (learning / learned); banner for each import not yet `done` that has at least one photo ("Finish reviewing Lesson 4"); Wiktionary credit in the footer.
-2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (uploading / reading / done / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
+2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
+   - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and cannot be changed later. The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
+   - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
+   - A photo can be removed before it is sent or after it failed; once read, its words stay in the import (they can be skipped in review). **Retry** appears only for failures worth retrying with the same photo (AI busy, invalid output, network); otherwise the message says what to do (e.g. "photograph it in two parts").
+   - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
 3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session).
+   - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
+   - Until M6/M7: no "Adding details…" step and no **Practice these now**; Done offers **Import more pages** and **Home**. Home shows Practice and My words once those screens exist (M7, M8).
 4. **Practice setup** — three sources with counts, **Start**.
 5. **Flashcards** — progress "5 / 20", card, swipe hints, buttons below the card.
 6. **Summary** — §8.6.
