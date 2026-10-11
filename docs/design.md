@@ -364,7 +364,7 @@ Mobile-first layout, usable on desktop.
 - **SDK:** `@anthropic-ai/sdk`, beta client (`client.beta.messages.create`, needed for `fallbacks`). Structured outputs: the Zod schemas from `core/` converted with the SDK's `betaZodOutputFormat` into `output_config.format`. The SDK turns enum values into schema descriptions rather than hard constraints, so every response is validated again with Zod before use. `thinking` is never sent (Opus 5.5 always thinks adaptively; disabling it is a 400).
 - **Model:** `claude-opus-5-5` by default, configured separately per call (`AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`).
 - **Effort:** `low` (`AI_EFFORT`). Opus 5.5 defaults to `medium`, so it is set explicitly.
-- **Refusal fallback:** server-side fallback enabled (`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta). `stop_reason` is checked before reading content.
+- **Refusal fallback:** server-side fallback enabled (`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta) for models that support it (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5). Haiku 5.5 has no server-side fallback and must not be sent the parameter, so a Haiku refusal is final. `stop_reason` is checked before reading content.
 - **`max_tokens`:** 16000.
 - **Retries:** SDK default (2) for 429 / 5xx / connection errors.
 - **Usage:** every call writes an `ai_usage` row.
@@ -408,6 +408,16 @@ Mobile-first layout, usable on desktop.
 Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cents (Sonnet 5.5 ~4 cents, Haiku 5.5 ~0.2 cents). Real numbers come from `ai_usage`.
 
 **Measured (2026-10-11, Opus 5.5, effort `low`, three real book pages shrunk to 1600 px):** extract took 13–25 s and 5–8 cents per page (≈3,700 input tokens; 1,700–3,300 output tokens for 52–101 words). A blurred page returned `poor` in 2.6 s for 1.5 cents. Enriching 11 words took 10 s and 2.7 cents.
+
+**Measured with Haiku 5.5 (same day, same pages):**
+
+| Effort | Exercise page p. 64 (Opus `low`: 101 words) | Time | Cost |
+|---|---|---|---|
+| `low` | 70 words; misses real vocabulary (*Uhr, Person, schreiben*), leaves separable verbs split, keeps place names, an abbreviation and a handwritten word | 8 s | 0.15¢ |
+| `medium` | 96 words; follows the skip rules; still misses a few long compounds and splits two separable verbs | 30 s | 0.43¢ |
+| `high` | 94 words; no better than `medium` | 40 s | 0.56¢ |
+
+On a vocabulary-list page Haiku `low` matched Opus closely (50 vs 52 words). No noun article differed from Opus on any page. Enrichment at `medium`: same plurals and verb forms as Opus, 4.6 s, 0.07¢ for 11 words. For development the `.env` uses Haiku 5.5 at `medium`; the code defaults stay Opus 5.5 at `low`.
 
 ### 11.5 Daily limit
 `DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage`. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
@@ -475,7 +485,7 @@ Recorded here so decisions already made are not lost.
 - **Korean** as learner language (new `word_translations` rows; Korean UI text).
 - **Accounts** and multi-user; review of shared `words` rows with `mismatch_kept` before reusing them for other users.
 - **Phone app** in React Native reusing `server/` and `core/`.
-- **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (high effort) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
+- **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
 - **Text-to-speech (listening):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium).
 - **Speech (speaking):** Azure Pronunciation Assessment with the expected phrase as reference (de-DE and ko-KR supported, per-word and per-phoneme scores; phoneme labels are en-US only). Plain transcription (Whisper etc.) is unsuitable because it hides learner errors. Needs HTTPS for the microphone and possibly server-side audio conversion (ffmpeg) for iPhone recordings. Alternative to test: SpeechSuper.
 

@@ -29,11 +29,15 @@ const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]);
 const ctx = { userId: SINGLE_USER_ID, importId: null };
 
 function setup(...steps: Array<BetaMessage | Error>) {
+  return setupWithModel(MODEL, ...steps);
+}
+
+function setupWithModel(model: string, ...steps: Array<BetaMessage | Error>) {
   const replay = replayTransport(...steps);
   const ai = createClaudeAi({
     transport: replay.transport,
     recordUsage: dbUsageSink(db),
-    models: { extract: MODEL, enrich: MODEL },
+    models: { extract: model, enrich: model },
     effort: "low",
     learnerLanguage: "en",
   });
@@ -89,6 +93,16 @@ describe("extractWords (§11.2)", () => {
         data: Buffer.from(jpeg).toString("base64"),
       },
     });
+  });
+
+  it("Haiku 5.5 has no server-side fallback, so the request leaves it out", async () => {
+    const { ai, requests } = setupWithModel("claude-haiku-5-5", page);
+    await ai.extractWords(jpeg, ctx);
+
+    const request = first(requests);
+    expect(request).toMatchObject({ model: "claude-haiku-5-5", output_config: { effort: "low" } });
+    expect(request).not.toHaveProperty("fallbacks");
+    expect(request).not.toHaveProperty("betas");
   });
 
   it("records one ai_usage row with the model that answered, tokens and duration", async () => {

@@ -14,6 +14,16 @@ import type { UsageSink } from "./usage";
 export const MAX_TOKENS = 16_000;
 /** Server-side refusal fallback, routed by refusal category (§11.1). */
 export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+/**
+ * Models that accept `fallbacks: "default"`. Claude Haiku 5.5 has no server-side fallback and
+ * must not be sent the parameter; unknown models don't get it either.
+ */
+const MODELS_WITH_FALLBACK = new Set([
+  "claude-opus-5-5",
+  "claude-opus-5",
+  "claude-fable-5-1",
+  "claude-sonnet-5-5",
+]);
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -47,10 +57,11 @@ export function createClaudeAi(options: ClaudeAiOptions): AiClient {
     const request: MessageRequest = {
       model: spec.model,
       max_tokens: MAX_TOKENS,
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
-      // Opus 5.5 always thinks adaptively; effort is the only depth control and defaults to
-      // medium, so it is set explicitly. Never send `thinking`: disabling it is a 400.
+      ...(MODELS_WITH_FALLBACK.has(spec.model)
+        ? { betas: [FALLBACK_BETA], fallbacks: "default" as const }
+        : {}),
+      // Opus 5.5 and Haiku 5.5 always think adaptively and default to medium effort, so effort
+      // is set explicitly. Never send `thinking`: disabling it is a 400 on Opus 5.5.
       output_config: { effort, format: { type: "json_schema", schema: spec.jsonSchema } },
       system: spec.system,
       messages: [{ role: "user", content: spec.content }],
