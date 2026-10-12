@@ -15,7 +15,7 @@ export type DictionaryRow = Omit<typeof dictionaryEntries.$inferInsert, "id"> & 
 /** IPA and one recording of the entry; each null when Wiktionary has none. */
 export type Pronunciation = {
   ipa: string | null;
-  /** Wikimedia Commons file name, e.g. "De-Tisch2.ogg" (credited on Word detail). */
+  /** Wikimedia Commons file name, e.g. "De-Tisch2.ogg" (recordings are credited in the Home footer). */
   audioFile: string | null;
   /** The MP3 transcode on upload.wikimedia.org: iPhone Safari can't play Ogg. */
   audioUrl: string | null;

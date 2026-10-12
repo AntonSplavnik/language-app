@@ -71,7 +71,6 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
   - **API client** used by the web app.
   - **Learning rules**: applying a card result to a word's progress (`applyResult(progress, result, now) → progress`).
   - **Card formatting** (`card.ts`): what the front and back of a card show, and which translation to show (`displayTranslation`: the learner's own wins).
-  - **Recording credit** (`pronunciation.ts`): `commonsFileUrl(audioFile)`, the Wikimedia Commons page of a recording.
 - **`server/`** — the only unit that talks to the database and to Claude. Holds the API key. Each feature folder has its own `routes.ts` with its HTTP endpoints (§9); `app.ts` wires them together.
   - `db/` — Drizzle schema and migrations.
   - `ai/` — the Claude client (`AiClient`: `extractWords(jpeg, ctx)`, `enrichWords(words, ctx)`) on a swappable message transport, so tests replay recorded responses; the prompts; `ai_usage` rows.
@@ -132,7 +131,7 @@ users ──< user_words >── words ──< word_translations
 | `forms_source` | `dictionary` / `ai`; `null` until enrichment has filled forms, and for parts of speech without forms |
 | `example_de` | AI-written example sentence |
 | `ipa` | Pronunciation from Wiktionary, e.g. `/tɪʃ/`; nullable (§6.6) |
-| `audio_file` | Wikimedia Commons file name of the recording, e.g. `De-Tisch2.ogg`, for the credit link; nullable |
+| `audio_file` | Wikimedia Commons file name of the recording, e.g. `De-Tisch2.ogg`, whose file page carries its licence and author; nullable |
 | `audio_url` | The recording as MP3 on `upload.wikimedia.org`, streamed by the browser when played; nullable |
 | `check_status` | `match` / `mismatch_fixed` / `mismatch_kept` / `not_in_dictionary` |
 | `enriched_at` | `null` until enrichment has run |
@@ -298,7 +297,7 @@ A word already enriched by a previous import (any user) needs no AI call — thi
 - **Check from the command line:** `pnpm --filter server dict:lookup <lemma> <pos> [article]` prints the entries and the check result.
 - **Re-running** the import replaces the table (truncate + insert in one transaction).
 - **Licence:** CC BY-SA. Home's footer shows "Grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons". Commercial use needs a licence review.
-- **Recordings:** the audio files live on Wikimedia Commons, each with its own free licence and author, shown on the file's page (a sample of ten German recordings: all CC BY-SA 2.5–4.0 or CC BY 2.0). The app stores only the file name and URL; the browser streams the MP3 from `upload.wikimedia.org` when the learner taps a speaker button (https audio plays on the plain-HTTP page). Each recording is credited per word: Word detail links its Commons file page (`commonsFileUrl`, §10).
+- **Recordings:** the audio files live on Wikimedia Commons, each with its own free licence and author, shown on the file's page (a sample of ten German recordings: all CC BY-SA 2.5–4.0 or CC BY 2.0). The app stores only the file name and URL; the browser streams the MP3 from `upload.wikimedia.org` when the learner taps a speaker button (https audio plays on the plain-HTTP page). The recordings are credited together in Home's footer ("recordings from Wikimedia Commons", §10), not per word; `audio_file` still names each file, so its page with the licence and author can be found.
 - **Known limits:** long compound nouns are often missing (→ `not_found`, AI data used); glosses are English only; plurals belong to the entry, not the meaning (*der Stock* lists *Stöcke*, the plural for "stick", also for the "floor" meaning); plural-only nouns have no gender.
 - **Measured coverage (2026-10-11):** of the 218 words extracted from three real book pages, 205 were found and none had a different article. The 13 not found were textbook compounds (*Kinderbibliothek*, *Terminvereinbarung*), *TV* and *möchten* (filed as a form of *mögen*).
 - **Pronunciation coverage (2026-10-12, same file):** of the 98,308 entries imported, 71,908 (73 %) have a recording and 60,481 (62 %) an IPA. Every recording in the file has an MP3 link; 19,532 file names contain spaces (Commons pages write them as `_`).
@@ -417,8 +416,8 @@ Mobile-first layout, usable on desktop. Light and dark colour schemes follow the
    - The search runs 250 ms after typing stops, or at once on Enter (which also closes the keyboard). It searches every tab: when the current tab has no match, the empty state links to the tabs that have ("2 in Ignored ›"). The field uses a 16 px font so iOS Safari doesn't zoom in.
    - A row shows the headword (article + lemma, as on the card back), the translation (the learner's own if set) and a short progress mark: "new" for a learning word never practised, otherwise the right answers in a row towards learned ("0/3", "1/3", "2/3"; `LEARNED_STREAK`); nothing for learned or ignored words. Tapping a row opens Word detail.
    - Empty tabs say what belongs there (Learned: "a word counts as learned after 3 right answers in a row"); the Learning tab offers **New import**.
-8. **Word detail** (`/words/:id`) — the headword as the title, then:
-   - when Wiktionary has a pronunciation, a row with the speaker button (as on the card back, §8.2), the IPA (e.g. /tɪʃ/), and a small "Recording: Wikimedia Commons ↗" link to the recording's file page, which carries its licence (only when there is a recording; it moves below on a narrow screen);
+8. **Word detail** (`/words/:id`) — the header shows the back chevron, the headword as on the card back (with the article for nouns) as a larger title (28 px bold, only on this screen), and, when the word has a recording, the speaker button (as on the card back, §8.2) at its right end. A long word wraps (hyphenated where the browser can) instead of being cut off, and the button never shrinks, so it stays on screen. The recording has no credit of its own here: recordings are credited in Home's footer (screen 1, §7). Then:
+   - the IPA when Wiktionary has one (e.g. /tɪʃ/);
    - the part of speech (muted), then the translation the card shows;
    - status as a three-part control (Learning / Learned / Ignored) that saves on tap, with one line on what the status means; moving a word back to Learning resets its streak (§9.1);
    - the word's facts: the stored translation (labelled "Original translation" when the learner has their own, "Translation" otherwise), the forms line with its source ("from Wiktionary" / "from AI"), the example sentence and its translation, the dictionary check in plain words (`mismatch_kept` in warning colour), and a hint when details are still pending;
@@ -553,7 +552,7 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, Commons links, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers | Vitest in `core/`, `server/` and `web/` | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers | Vitest in `core/`, `server/` and `web/` | Free |
 | Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / edit / delete, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`) and a 3-word enrich batch through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |

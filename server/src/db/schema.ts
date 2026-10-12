@@ -55,7 +55,7 @@ export const words = pgTable(
     exampleDe: text(),
     /** Pronunciation from Wiktionary, copied by enrichment (§6.6); null when it has none. */
     ipa: text(),
-    /** Wikimedia Commons file name of the recording, for the credit link. */
+    /** Wikimedia Commons file name of the recording; its Commons page carries the licence and author. */
     audioFile: text(),
     /** The recording as MP3 on upload.wikimedia.org, streamed by the browser when played. */
     audioUrl: text(),

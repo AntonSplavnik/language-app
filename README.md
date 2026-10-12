@@ -24,7 +24,7 @@ It is a working prototype for one learner: a web app served from your Mac on the
 - **Pronunciation:** the back of a card has a speaker button that plays a native speaker's recording of the word from Wikimedia Commons (via Wiktionary). It plays only when tapped, never on the front, and is streamed when played, not stored. About three quarters of the dictionary's words have a recording; words without one show no button.
 - **Offline answers:** an answer that fails to send waits in a queue and is retried every 5 s and when the connection comes back. A reload continues at the same card.
 - **My words:** Learning / Learned / Ignored tabs with counts, search in German and English, and a progress mark per word ("new", "1/3").
-- **Word detail:** listen to the word and see its IPA (e.g. /tɪʃ/) with a link to the recording's Commons page, change the status, add your own translation and a note (shown on the card), see where the forms came from and what the dictionary check found, delete the word.
+- **Word detail:** listen to the word (speaker button next to it) and see its IPA (e.g. /tɪʃ/), change the status, add your own translation and a note (shown on the card), see where the forms came from and what the dictionary check found, delete the word.
 - **Home Screen app:** add it to the iPhone Home Screen to run full screen. Light and dark mode follow the system.
 
 ## Tech stack and layout
@@ -161,7 +161,7 @@ pnpm --filter server demo:import <photo> [--save]                # the whole imp
 ## Data and licences
 
 - **Wiktionary data** comes via kaikki.org and is licensed CC BY-SA. The app credits it in the footer of the Home screen. Commercial use would need a licence review. The small committed sample `server/test/fixtures/kaikki-sample.jsonl` is the same data.
-- **Recordings** are audio files on Wikimedia Commons, linked from Wiktionary. Each file has its own free licence and author (those checked were CC BY-SA or CC BY), shown on its Commons page. The app stores only the file name and URL and streams the MP3 from `upload.wikimedia.org` when you tap play. Home's footer mentions Wikimedia Commons, and Word detail links each recording's file page as its credit.
+- **Recordings** are audio files on Wikimedia Commons, linked from Wiktionary. Each file has its own free licence and author (those checked were CC BY-SA or CC BY), shown on its Commons page. The app stores only the file name and URL and streams the MP3 from `upload.wikimedia.org` when you tap play. The app credits the recordings in the footer of the Home screen ("recordings from Wikimedia Commons"), not per word.
 - **Textbook photos are never committed.** `server/test/live/photos/` and `data/` (the dictionary download and any local photos) are git-ignored, and the server does not store uploaded photos.
 - **AI fixtures:** `server/test/fixtures/ai/` holds Claude responses recorded from a few real textbook pages, so they contain the word lists read from those pages. That is fine in this private repo; review them before making the repo public.
 

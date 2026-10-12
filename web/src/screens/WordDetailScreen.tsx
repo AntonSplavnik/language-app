@@ -2,7 +2,6 @@ import {
   ApiClientError,
   CUSTOM_TRANSLATION_MAX,
   cardBack,
-  commonsFileUrl,
   displayTranslation,
   NOTE_MAX,
   type WordDetail,
@@ -146,25 +145,15 @@ export function WordDetailScreen() {
   };
 
   return (
-    <Page title={back.headword} back={listUrl}>
+    <Page
+      title={back.headword}
+      wordTitle
+      back={listUrl}
+      // Pronunciation from Wiktionary; recordings are credited in Home's footer.
+      action={back.audioUrl && <SpeakerButton url={back.audioUrl} word={back.headword} />}
+    >
       <section className={styles.summary}>
-        {/* Pronunciation from Wiktionary; each recording is credited with its Commons page. */}
-        {(word.audioUrl || word.ipa) && (
-          <div className={styles.pronunciation}>
-            {word.audioUrl && <SpeakerButton url={word.audioUrl} word={back.headword} />}
-            {word.ipa && <span className={styles.ipa}>{word.ipa}</span>}
-            {word.audioUrl && word.audioFile && (
-              <a
-                className={styles.credit}
-                href={commonsFileUrl(word.audioFile)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Recording: Wikimedia Commons <span aria-hidden="true">↗</span>
-              </a>
-            )}
-          </div>
-        )}
+        {word.ipa && <p className={styles.ipa}>{word.ipa}</p>}
         <p className={styles.pos}>{word.pos}</p>
         <p className={styles.translation}>{displayTranslation(word)}</p>
       </section>

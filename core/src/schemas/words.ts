@@ -28,7 +28,7 @@ export const WordView = z.object({
   enriched: z.boolean(),
   /** Pronunciation from Wiktionary (§7), e.g. "/tɪʃ/"; null when it has none. */
   ipa: z.string().nullable(),
-  /** Wikimedia Commons file name of the recording, for the credit link (`commonsFileUrl`). */
+  /** Wikimedia Commons file name of the recording, e.g. "De-Tisch2.ogg". */
   audioFile: z.string().nullable(),
   /** The recording as MP3, played from upload.wikimedia.org on tap; null when there is none. */
   audioUrl: z.string().nullable(),

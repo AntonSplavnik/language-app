@@ -44,23 +44,10 @@
   margin: 0;
 }
 
-/* Speaker, IPA and the recording's credit; the credit moves below on a narrow screen. */
-.pronunciation {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  margin-bottom: 8px;
-}
-
-.ipa {
+/* The IPA right under the word in the header (the speaker button sits next to the word). */
+.summary .ipa {
+  margin-bottom: 4px;
   font-size: 18px;
-}
-
-.credit {
-  margin-left: auto;
-  font-size: 13px;
-  color: var(--muted);
 }
 
 .pos {

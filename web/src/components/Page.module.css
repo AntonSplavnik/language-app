@@ -32,12 +32,33 @@
 }
 
 .title {
+  min-width: 0;
   margin: 0;
   font-size: 22px;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A German word as the title: bigger, and a long one wraps (hyphenated where the browser can)
+   rather than being cut off, so the whole word stays readable and the action stays on screen. */
+.wordTitle {
+  font-size: 28px;
+  line-height: 1.2;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+
+/* Never shrinks, so a long title can't push it off screen. */
+.action {
+  flex: none;
+  display: flex;
+  margin-left: auto;
+  padding-left: 8px;
 }
 
 .main {
