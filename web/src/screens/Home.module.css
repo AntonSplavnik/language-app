@@ -87,10 +87,9 @@
   color: inherit;
 }
 
-.newImport {
+.bigAction {
   min-height: 64px;
   font-size: 18px;
-  margin-top: 8px;
 }
 
 .camera {

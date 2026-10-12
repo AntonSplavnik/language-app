@@ -1,0 +1,93 @@
+.progress {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stage {
+  flex: 1;
+  min-height: 360px;
+  max-height: 560px;
+  display: flex;
+  /* Keeps the card (and so the start of every swipe) clear of the screen edges, where a sideways
+     swipe is the system's "go back". Together with the page gutter: 32 px from each edge. */
+  padding: 0 16px;
+  perspective: 1200px;
+  -webkit-perspective: 1200px;
+}
+
+.draggable {
+  position: relative;
+  flex: 1;
+  /* The card handles all touch movement itself; the page must not scroll or zoom under it. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: grab;
+  will-change: transform;
+}
+
+.hint {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.knew {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.didnt_know {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.skipped {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.help {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.miss {
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 22px;
+}
+
+.hit {
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 22px;
+}
+
+.finishing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  color: var(--muted);
+}

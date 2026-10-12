@@ -53,6 +53,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  /* A card sliding out sideways must not make the page wider. `clip`, unlike `hidden`, keeps
+     position: sticky working. */
+  overflow-x: clip;
 }
 
 button,

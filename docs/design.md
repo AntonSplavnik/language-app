@@ -289,7 +289,7 @@ A word already enriched by a previous import (any user) needs no AI call — thi
 ## 8. Practice
 
 ### 8.1 Session sources
-Before starting, the learner chooses one source. Each option shows how many words it contains; options with no words are disabled. A session takes **up to 20 words** and never includes `ignored` words.
+Before starting, the learner chooses one source. Each option shows how many words it contains (all of them, e.g. "20 of 94 words"); options with no words are disabled, and the first option with words is preselected so a session starts in two taps (Home → Practice → Start). A session takes **up to 20 words** and never includes `ignored` words. "Most recent `done` import" means the latest `completed_at`; its words are the `user_words` rows it created (`import_id`), so a word that import found already in the list is not part of it.
 
 | Source | Words | Order |
 |---|---|---|
@@ -315,10 +315,12 @@ Before starting, the learner chooses one source. Each option shows how many word
 | Didn't know | Swipe left | ← | ✗ |
 | Skip | Swipe up | ↑ | Skip |
 
-The card follows the finger, tilts, and slides out in the swipe direction; a short swipe snaps back. Answering is allowed with or without flipping.
+The card follows the finger, tilts, and slides out in the swipe direction; a short swipe snaps back. A swipe counts when the card moved more than 100 px, or was flicked faster than 0.5 px/ms after at least 24 px; the larger of the two movements decides the direction, and swiping down does nothing. While dragging, a label (Knew / Didn't know / Skip) fades in as the swipe gets closer to counting.
+
+**iOS Safari:** a sideways swipe anywhere on a page means "go back" in Safari, which clashed with the right swipe. The flashcard screen cancels native touch movement (`touchmove` with `preventDefault`; the screen doesn't scroll), which stops it. A swipe that starts at the very screen edge is a system gesture no page can cancel, so the card keeps 32 px from each edge. Added to the Home Screen, the app runs full screen without Safari's navigation gestures (§14). Answering is allowed with or without flipping; `flipped` means the card was turned over at any point before the answer, and `flip_ms` is the time to the first flip.
 
 ### 8.4 Recording
-Each answer is sent immediately (`POST /api/sessions/:id/results`). If the request fails, answers are queued in memory and retried when the network is back. Leaving mid-session loses nothing already answered.
+Each answer is sent immediately (`POST /api/sessions/:id/results`). If the request fails, answers are queued in memory, in order, and retried every 5 s and as soon as the browser reports it is online again. An answer the server rejects for good (4xx, e.g. the word was deleted meanwhile) is dropped with a message. After the last card, the session is finished only once every answer has been sent; while offline the screen says the answers are kept. Leaving mid-session loses nothing already answered. The session's cards and the current position are kept in the tab (`sessionStorage`), so a reload continues at the same card. Each card can be answered once per session (`UNIQUE (session_id, user_word_id)`): a retried request returns `recorded: false` and changes nothing.
 
 ### 8.5 Learning rules (`core/`)
 | Result | Effect on `user_words` |
@@ -330,7 +332,7 @@ Each answer is sent immediately (`POST /api/sessions/:id/results`). If the reque
 `knew` and `didnt_know` also set `last_result` and `last_practiced_at`.
 
 ### 8.6 Summary
-After the last card: counts of knew / didn't know / skipped, the list of missed words, and buttons **New session** and **Home**. The session gets `finished_at`.
+After the last card: counts of knew / didn't know / skipped, the list of missed words (in the order they were answered), and buttons **New session** and **Home**. The session gets `finished_at` the first time it is finished; finishing again returns the same summary.
 
 ## 9. API
 
@@ -349,10 +351,10 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 | GET | `/words/:userWordId` | Word detail with progress |
 | PATCH | `/words/:userWordId` | `{ status?, customTranslation?, note? }` |
 | DELETE | `/words/:userWordId` | Remove from the learner's list (shared `words` row stays) |
-| GET | `/sessions/options` | Word count per source |
-| POST | `/sessions` | `{ source }` → session + cards |
-| POST | `/sessions/:id/results` | `{ userWordId, result, flipped, flipMs, answerMs }` |
-| POST | `/sessions/:id/finish` | → summary |
+| GET | `/sessions/options` | `{ options: [{ source, count }] }`, in display order |
+| POST | `/sessions` | `{ source }` → `{ id, source, cards }`; 400 `no_words` for a source without words |
+| POST | `/sessions/:id/results` | `{ userWordId, result, flipped, flipMs, answerMs }` → `{ recorded }` |
+| POST | `/sessions/:id/finish` | → `{ knew, didntKnow, skipped, missed }` |
 
 ## 10. Screens
 
@@ -372,7 +374,7 @@ Mobile-first layout, usable on desktop.
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
 3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session).
    - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
-   - Until M7: no **Practice these now**; Done offers **Import more pages** and **Home**. Home shows Practice and My words once those screens exist (M7, M8).
+   - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. On Home, **Practice** is the main button once there are words, **New import** the second; My words follows in M8.
 4. **Practice setup** — three sources with counts, **Start**.
 5. **Flashcards** — progress "5 / 20", card, swipe hints, buttons below the card.
 6. **Summary** — §8.6.
@@ -479,7 +481,8 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | 400 | `invalid_request` | Body or parameters fail validation, or no photo was sent |
 | 400 | `invalid_image` | The upload is not a JPEG |
 | 400 | `unknown_candidate`, `invalid_article` | Save decisions don't fit the import (§6.5) |
-| 404 | `import_not_found`, `not_found` | |
+| 400 | `no_words` | Practice source without words |
+| 404 | `import_not_found`, `session_not_found`, `word_not_found`, `not_found` | |
 | 409 | `import_closed` | Photo for an import that is no longer collecting; save of an import that is done |
 | 413 | `file_too_large` | Photo over 10 MB |
 | 422 | `ai_refused`, `ai_invalid_output`, `page_too_long` | The photo failed (§12 Import) |
@@ -507,7 +510,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 
 - `docker compose up -d` starts PostgreSQL (dev and test databases).
 - `pnpm dev` starts the server (port 3000) and Vite (port 5173, `--host`). Vite proxies `/api` to the server, so the browser needs only one address.
-- **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
+- **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Words", without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
 - Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
 - No login: anyone on the home network can open the app. Acceptable for the prototype.
 - The server starts without `ANTHROPIC_API_KEY`; only the AI calls fail until it is set. The AI writes translations in the single user's `learner_language`, read at startup.

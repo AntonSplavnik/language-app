@@ -1,0 +1,82 @@
+.muted {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 8px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  text-align: center;
+}
+
+.value {
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.good {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.bad {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.muted.tile {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.heading {
+  margin: 8px 0;
+  font-size: 17px;
+}
+
+.missed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.missed li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.missed li + li {
+  border-top: 1px solid var(--border);
+}
+
+.word {
+  font-weight: 600;
+}
+
+.translation {
+  color: var(--muted);
+  text-align: right;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}

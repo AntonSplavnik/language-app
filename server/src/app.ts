@@ -5,6 +5,7 @@ import type { AiClient } from "./ai/types";
 import type { Db } from "./db/client";
 import { registerErrorHandling } from "./http/errors";
 import { importRoutes } from "./imports/routes";
+import { practiceRoutes } from "./practice/routes";
 import { statsRoutes } from "./routes/stats";
 import { wordRoutes } from "./words/routes";
 
@@ -28,6 +29,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   statsRoutes(app, deps);
   importRoutes(app, deps);
   wordRoutes(app, deps);
+  practiceRoutes(app, deps);
 
   return app;
 }

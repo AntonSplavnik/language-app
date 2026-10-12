@@ -134,3 +134,42 @@ describe("import endpoints", () => {
     expect(JSON.parse(String(save.calls[0]?.init?.body))).toEqual({ decisions });
   });
 });
+
+describe("session endpoints", () => {
+  it("use the right paths and bodies", async () => {
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const answers: Record<string, unknown> = {
+      "GET /api/sessions/options": { options: [{ source: "not_learned", count: 3 }] },
+      "POST /api/sessions": { id: 9, source: "not_learned", cards: [] },
+      "POST /api/sessions/9/results": { recorded: true },
+      "POST /api/sessions/9/finish": { knew: 1, didntKnow: 0, skipped: 0, missed: [] },
+    };
+    const api = createApiClient({
+      fetch: async (input, init) => {
+        const method = init?.method ?? "GET";
+        calls.push({
+          url: String(input),
+          method,
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+        return new Response(JSON.stringify(answers[`${method} ${String(input)}`]), { status: 200 });
+      },
+    });
+
+    await api.sessionOptions();
+    await api.createSession({ source: "not_learned" });
+    const result = {
+      userWordId: 4,
+      result: "knew" as const,
+      flipped: true,
+      flipMs: 900,
+      answerMs: 2100,
+    };
+    expect(await api.recordResult(9, result)).toEqual({ recorded: true });
+    expect((await api.finishSession(9)).knew).toBe(1);
+
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(Object.keys(answers));
+    expect(calls[1]?.body).toEqual({ source: "not_learned" });
+    expect(calls[2]?.body).toEqual(result);
+  });
+});

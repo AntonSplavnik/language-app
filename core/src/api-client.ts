@@ -9,6 +9,14 @@ import {
   type SaveRequest,
   SaveResponse,
 } from "./schemas/imports";
+import {
+  type CardResultRequest,
+  CardResultResponse,
+  type CreateSessionRequest,
+  SessionOptionsResponse,
+  SessionResponse,
+  SessionSummary,
+} from "./schemas/sessions";
 import { StatsResponse } from "./schemas/stats";
 import { EnrichPendingResponse } from "./schemas/words";
 
@@ -87,6 +95,12 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 
     /** Retries enrichment for the learner's words that have no details yet. */
     enrichPending: () => postJson(EnrichPendingResponse, "/words/enrich-pending"),
+
+    sessionOptions: () => request(SessionOptionsResponse, "/sessions/options"),
+    createSession: (body: CreateSessionRequest) => postJson(SessionResponse, "/sessions", body),
+    recordResult: (sessionId: number, body: CardResultRequest) =>
+      postJson(CardResultResponse, `/sessions/${sessionId}/results`, body),
+    finishSession: (sessionId: number) => postJson(SessionSummary, `/sessions/${sessionId}/finish`),
   };
 }
 

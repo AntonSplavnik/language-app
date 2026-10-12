@@ -69,7 +69,17 @@ export function Home() {
               </Link>
             ))}
 
-            <Link to="/imports/new" className={`${ui.button} ${ui.primary} ${styles.newImport}`}>
+            {state.stats.learning + state.stats.learned > 0 && (
+              <Link to="/practice" className={`${ui.button} ${ui.primary} ${styles.bigAction}`}>
+                Practice
+              </Link>
+            )}
+            <Link
+              to="/imports/new"
+              className={`${ui.button} ${
+                state.stats.learning + state.stats.learned > 0 ? ui.secondary : ui.primary
+              } ${styles.bigAction}`}
+            >
               <span aria-hidden className={styles.camera}>
                 +
               </span>
