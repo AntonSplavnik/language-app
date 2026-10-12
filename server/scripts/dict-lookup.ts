@@ -26,6 +26,8 @@ try {
       plurals: e.plurals,
       forms: e.forms,
       glosses: e.glossesEn,
+      ipa: e.ipa,
+      audio: e.audioFile,
     });
   }
   if (entries.length === 0) console.log("Not in the dictionary.");

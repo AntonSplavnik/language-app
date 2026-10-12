@@ -188,6 +188,10 @@ describe("word endpoints", () => {
     exampleTranslation: null,
     note: null,
     enriched: false,
+    ipa: "/tɪʃ/",
+    audioFile: "De-Tisch2.ogg",
+    audioUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/de/De-Tisch2.ogg/De-Tisch2.ogg.mp3",
   };
   const detail = {
     ...tisch,

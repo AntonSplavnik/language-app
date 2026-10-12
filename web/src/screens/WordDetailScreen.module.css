@@ -44,6 +44,25 @@
   margin: 0;
 }
 
+/* Speaker, IPA and the recording's credit; the credit moves below on a narrow screen. */
+.pronunciation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+
+.ipa {
+  font-size: 18px;
+}
+
+.credit {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .pos {
   color: var(--muted);
   font-size: 15px;

@@ -52,10 +52,20 @@
   font-size: 16px;
 }
 
+/* The headword with the speaker button after it; a long word pushes the button below. */
+.headwordRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+}
+
 .headword {
   font-size: 32px;
   font-weight: 700;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .forms {

@@ -14,6 +14,10 @@ const tisch: WordView = {
   exampleTranslation: "The table is in the kitchen.",
   note: null,
   enriched: true,
+  ipa: "/tɪʃ/",
+  audioFile: "De-Tisch2.ogg",
+  audioUrl:
+    "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/de/De-Tisch2.ogg/De-Tisch2.ogg.mp3",
 };
 
 const gehen: WordView = {
@@ -57,7 +61,13 @@ describe("cardBack (§8.2)", () => {
       example: { de: "Der Tisch steht in der Küche.", translation: "The table is in the kitchen." },
       note: null,
       detailsPending: false,
+      audioUrl: tisch.audioUrl,
     });
+  });
+
+  it("offers the recording only when Wiktionary has one", () => {
+    expect(cardBack(tisch).audioUrl).toMatch(/De-Tisch2\.ogg\.mp3$/);
+    expect(cardBack({ ...tisch, audioFile: null, audioUrl: null }).audioUrl).toBeNull();
   });
 
   it("noun without a plural shows no forms line", () => {
@@ -97,6 +107,9 @@ describe("cardBack (§8.2)", () => {
       exampleDe: null,
       exampleTranslation: null,
       enriched: false,
+      ipa: null,
+      audioFile: null,
+      audioUrl: null,
     };
     expect(cardBack(pending)).toEqual({
       headword: "der Tisch",
@@ -104,6 +117,7 @@ describe("cardBack (§8.2)", () => {
       example: null,
       note: null,
       detailsPending: true,
+      audioUrl: null,
     });
   });
 });

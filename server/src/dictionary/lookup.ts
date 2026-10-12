@@ -1,4 +1,4 @@
-import type { Pos } from "@language-app/core";
+import type { Article, Pos } from "@language-app/core";
 import { inArray, sql } from "drizzle-orm";
 import type { Executor } from "../db/client";
 import { dictionaryEntries } from "../db/schema";
@@ -52,4 +52,19 @@ export async function lookupWords(
 /** Entries for one word; see {@link lookupWords}. */
 export async function lookupWord(db: Executor, word: WordKey): Promise<DictionaryEntry[]> {
   return (await lookupWords(db, [word])).get(wordKey(word)) ?? [];
+}
+
+/**
+ * Of the entries found for a word, the ones that describe it: for a noun those with its gender
+ * (der Band → Bände, die Band → Bands) or, when none has it, those without a gender (plural-only
+ * nouns such as Eltern); every entry for other words and for a noun without an article.
+ */
+export function entriesForWord(
+  word: { pos: Pos; article: Article | null },
+  entries: DictionaryEntry[],
+): DictionaryEntry[] {
+  const { article } = word;
+  if (word.pos !== "noun" || !article) return entries;
+  const sameGender = entries.filter((e) => e.genders.includes(article));
+  return sameGender.length > 0 ? sameGender : entries.filter((e) => e.genders.length === 0);
 }

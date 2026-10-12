@@ -37,6 +37,9 @@ export function wordViewQuery<Extra extends SelectedFields = Record<never, never
       exampleTranslation: wordTranslations.exampleTranslation,
       note: userWords.note,
       enriched: sql<boolean>`${words.enrichedAt} is not null`,
+      ipa: words.ipa,
+      audioFile: words.audioFile,
+      audioUrl: words.audioUrl,
       ...(extra as Extra),
     })
     .from(userWords)

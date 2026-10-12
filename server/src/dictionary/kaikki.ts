@@ -10,6 +10,15 @@ export type DictionaryRow = Omit<typeof dictionaryEntries.$inferInsert, "id"> & 
   plurals: string[];
   forms: VerbForms | null;
   glossesEn: string[];
+} & Pronunciation;
+
+/** IPA and one recording of the entry; each null when Wiktionary has none. */
+export type Pronunciation = {
+  ipa: string | null;
+  /** Wikimedia Commons file name, e.g. "De-Tisch2.ogg" (credited on Word detail). */
+  audioFile: string | null;
+  /** The MP3 transcode on upload.wikimedia.org: iPhone Safari can't play Ogg. */
+  audioUrl: string | null;
 };
 
 /** Wiktionary part of speech → ours. Anything else (proper names, phrases, affixes…) is skipped. */
@@ -38,6 +47,9 @@ const GENDER_TAGS: Array<[tag: string, article: Article]> = [
 
 const MAX_GLOSSES = 5;
 
+/** Recordings are streamed by the browser straight from Wikimedia Commons (§7). */
+const COMMONS_UPLOADS = "https://upload.wikimedia.org/";
+
 /**
  * Wiktionary files derived words under form-of too ("female equivalent of Freund", "agent noun
  * of lehren", "diminutive of Blume"). They are words in their own right and are kept; only
@@ -60,9 +72,20 @@ const Entry = z.object({
       }),
     )
     .optional(),
+  // Each sound is checked on its own: a malformed one must not drop the whole entry.
+  sounds: z.array(z.unknown()).optional(),
 });
 type Entry = z.infer<typeof Entry>;
 type Form = NonNullable<Entry["forms"]>[number];
+
+/** An IPA transcription (`ipa`) or a recording (`audio` + `mp3_url`); rhymes etc. are ignored. */
+const Sound = z.object({
+  ipa: z.string().optional(),
+  audio: z.string().optional(),
+  mp3_url: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+type Sound = z.infer<typeof Sound>;
 
 export function mapEntry(raw: unknown): DictionaryRow | null {
   const parsed = Entry.safeParse(raw);
@@ -89,7 +112,36 @@ export function mapEntry(raw: unknown): DictionaryRow | null {
       0,
       MAX_GLOSSES,
     ),
+    ...pronunciation(entry.sounds ?? []),
   };
+}
+
+/**
+ * The entry's IPA (the first one tagged Germany, otherwise the first: November lists the Austrian
+ * /noˈfɛmbɐ/ first) and its best recording: tagged Germany, then untagged, then any (Austria,
+ * Bavaria…). Wiktionary lists a recording under every entry of the word, so each meaning of a
+ * homograph keeps its own (der Band /bant/, die Band /bɛnt/).
+ */
+function pronunciation(raw: unknown[]): Pronunciation {
+  const sounds = raw.flatMap((s) => {
+    const parsed = Sound.safeParse(s);
+    return parsed.success ? [parsed.data] : [];
+  });
+  const germany = (s: Sound) => Boolean(s.tags?.includes("Germany"));
+
+  const ipas = sounds.filter((s) => s.ipa);
+  const ipa = (ipas.find(germany) ?? ipas[0])?.ipa ?? null;
+
+  const recordings = sounds.filter(
+    (s): s is Sound & { audio: string; mp3_url: string } =>
+      Boolean(s.audio) && Boolean(s.mp3_url?.startsWith(COMMONS_UPLOADS)),
+  );
+  const recording =
+    recordings.find(germany) ??
+    recordings.find((s) => !s.tags || s.tags.length === 0) ??
+    recordings[0];
+
+  return { ipa, audioFile: recording?.audio ?? null, audioUrl: recording?.mp3_url ?? null };
 }
 
 function isPointer(sense: NonNullable<Entry["senses"]>[number]): boolean {

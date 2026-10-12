@@ -21,6 +21,7 @@ A companion app for learning German from any book. After each study session the 
 - Photo import → AI extraction → comparison with the learner's words → Wiktionary check → review → save → AI enrichment
 - Shared word dictionary + per-learner word list with statuses (`learning` / `learned` / `ignored`)
 - Flashcard practice (one mode) with three session sources
+- Word pronunciation from Wiktionary: IPA, and recordings from Wikimedia Commons played on tap
 - Per-word progress tracking
 - "My words" list with edit, status change and delete
 - AI usage tracking (tokens and time per call, from which the cost is worked out) and a daily photo limit
@@ -39,7 +40,8 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Grammar facts | Checked against German Wiktionary (kaikki.org extract). Dictionary first, AI fills gaps. |
 | Example sentences | Written by AI once, when the word is added; stored permanently |
 | Card front | English translation + part of speech |
-| Card back | German word with article, plural / verb forms, example sentence + translation |
+| Card back | German word with article, plural / verb forms, example sentence + translation; a speaker button when the word has a recording |
+| Pronunciation | IPA and native-speaker recordings from Wiktionary (Wikimedia Commons), copied with the dictionary forms. Played only on tap, streamed from Commons, never stored. No text-to-speech fallback (§15) |
 | Grading | Learner self-grades by swipe; time to flip and time to answer are recorded |
 | Learned rule | 3 "knew it" in a row → `learned` |
 | Platform | Web app (React), structured so a React Native app can reuse server and core later |
@@ -69,15 +71,16 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
   - **API client** used by the web app.
   - **Learning rules**: applying a card result to a word's progress (`applyResult(progress, result, now) → progress`).
   - **Card formatting** (`card.ts`): what the front and back of a card show, and which translation to show (`displayTranslation`: the learner's own wins).
+  - **Recording credit** (`pronunciation.ts`): `commonsFileUrl(audioFile)`, the Wikimedia Commons page of a recording.
 - **`server/`** — the only unit that talks to the database and to Claude. Holds the API key. Each feature folder has its own `routes.ts` with its HTTP endpoints (§9); `app.ts` wires them together.
   - `db/` — Drizzle schema and migrations.
   - `ai/` — the Claude client (`AiClient`: `extractWords(jpeg, ctx)`, `enrichWords(words, ctx)`) on a swappable message transport, so tests replay recorded responses; the prompts; `ai_usage` rows.
   - `dictionary/` — Wiktionary lookups and the check rules; `scripts/import-wiktionary.ts` loads the reference table.
   - `imports/` — import flow: merge, compare, dictionary check, save.
-  - `words/` — enrichment (`enrich.ts`), the learner's word list: list, detail, edit, delete (`service.ts`), and the query every word view is built on (`views.ts`).
+  - `words/` — enrichment (`enrich.ts`), pronunciation from the dictionary and its backfill (`pronunciation.ts`), the learner's word list: list, detail, edit, delete (`service.ts`), and the query every word view is built on (`views.ts`).
   - `practice/` — session word selection and result recording.
   - `routes/stats.ts` — Home's counters; `http/errors.ts` — error responses (§12); `config.ts` — `.env` validation.
-- **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`), so a phone app only needs to replace those.
+- **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`, `playAudio()`), so a phone app only needs to replace those.
 
 ### Technology
 
@@ -128,6 +131,9 @@ users ──< user_words >── words ──< word_translations
 | `forms` | JSON, depends on pos. Verbs: `{ praeteritum, partizip2, auxiliary }` |
 | `forms_source` | `dictionary` / `ai`; `null` until enrichment has filled forms, and for parts of speech without forms |
 | `example_de` | AI-written example sentence |
+| `ipa` | Pronunciation from Wiktionary, e.g. `/tɪʃ/`; nullable (§6.6) |
+| `audio_file` | Wikimedia Commons file name of the recording, e.g. `De-Tisch2.ogg`, for the credit link; nullable |
+| `audio_url` | The recording as MP3 on `upload.wikimedia.org`, streamed by the browser when played; nullable |
 | `check_status` | `match` / `mismatch_fixed` / `mismatch_kept` / `not_in_dictionary` |
 | `enriched_at` | `null` until enrichment has run |
 | `created_at` | |
@@ -193,6 +199,7 @@ Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCA
 | `plurals` | Array |
 | `forms` | JSON, same shape as `words.forms` |
 | `glosses_en` | Array of short English glosses |
+| `ipa`, `audio_file`, `audio_url` | The entry's pronunciation (§7), same meaning as in `words`; nullable |
 
 ### `ai_usage`
 | Field | Notes |
@@ -264,13 +271,15 @@ Saving happens before enrichment, so the words exist (and are practisable with t
 
 ### 6.6 Enrichment
 For each added word whose `words.enriched_at` is `null` (`server/src/words/enrich.ts`):
-1. **Dictionary first:** if `dictionary_entries` has plural (nouns) or verb forms, copy them to `words`, `forms_source = dictionary`. A noun's plural comes from an entry with the word's own gender (*der Band* → *Bände*, *die Band* → *Bands*). The copy happens before the AI call, so a word keeps its dictionary forms even if the AI fails.
+1. **Dictionary first:** if `dictionary_entries` has plural (nouns) or verb forms, copy them to `words`, `forms_source = dictionary`; copy the pronunciation (`ipa`, `audio_file`, `audio_url`) too. Both come from the entries that describe the word: for a noun those with its own gender (*der Band* → *Bände* /bant/, *die Band* → *Bands* /bɛnt/) or, when none has it, those without a gender (plural-only nouns such as *Eltern*); for other words every entry found (§6.3, including the non-noun fallback: *nicht* as a particle gets the adverb's recording). The pronunciation is the one of the first such entry with a recording, otherwise of the first with IPA. The copy happens before the AI call, so a word keeps its dictionary facts even if the AI fails. The AI never writes a pronunciation: a word without one in the dictionary has none.
 2. **AI fills the gaps:** AI call 2 receives the words in batches of up to 30, three batches at a time. It always writes the example sentence and its translation, and writes plural / verb forms only for words where the dictionary had none (`forms_source = ai`). Each result is matched to its word by `ref`, and only used if its `lemma` is that word's lemma.
 3. Set `enriched_at`. Updates only touch rows where `enriched_at` is still `null`, so two runs never write the same word twice.
 
 A failed batch (AI busy, refused, invalid output) leaves its words pending; the other batches still count, and saving never fails because of enrichment. Save answers after enrichment, so the Review screen shows "Adding details…" meanwhile; the server finishes enrichment even if the phone drops the connection, and the phone then finds the import done and shows the Done screen.
 
 A word already enriched by a previous import (any user) needs no AI call — this is the benefit of the shared `words` table.
+
+**Pronunciation backfill:** enriched words never pass through enrichment again, so words saved before pronunciation existed get it from `pnpm --filter server backfill:pronunciation` (`backfillPronunciation()` in `server/src/words/pronunciation.ts`): every German word with neither `ipa` nor `audio_url` gets the dictionary pronunciation, chosen as above. Run it after re-importing the dictionary (it refuses while the dictionary has no recordings); it prints how many words it updated and is safe to run again, since a word that has a pronunciation is never touched. Measured on the author's list before running it: 141 of 149 practisable words have a recording in the dictionary, 134 an IPA.
 
 **Measured (2026-10-11, Haiku 5.5 `medium`):** backfilling the 94 words saved before enrichment existed took 4 calls in 10 s for ≈0.5¢; 30 noun plurals and 16 verb forms came from the dictionary, 1 plural and 2 verb forms from the AI. A typical save (15–40 added words, one or two parallel batches) adds roughly 5–10 s. With Opus 5.5 an 11-word batch took 10 s, so a full 30-word batch would add more; if saves grow slow, switch to answering at once and enriching in the background.
 
@@ -284,12 +293,15 @@ A word already enriched by a previous import (any user) needs no AI call — thi
   - **`plurals`:** forms tagged exactly `plural` (qualified variants such as "Handies, now nonstandard" are left out).
   - **`forms`** (verbs): Präteritum from the form tagged `past`, Partizip II from `participle past`, auxiliary from `auxiliary`. When Wiktionary lists both *haben* and *sein* (529 verbs, e.g. *fahren*, *aufstehen*), `forms` stays empty so enrichment picks the usual one; a card shows one auxiliary.
   - **`glosses_en`:** the most specific gloss of each kept sense, up to five.
-  - A test loads a 50-entry sample cut from the real file (`server/test/fixtures/kaikki-sample.jsonl`, made with `server/scripts/make-kaikki-sample.ts`).
+  - **Pronunciation** (from the entry's `sounds`; each sound is checked on its own, so a malformed one never drops the entry): **`ipa`** is the entry's first IPA tagged `Germany`, otherwise its first IPA (*November* lists the Austrian /noˈfɛmbɐ/ first). The recording is the entry's best one: tagged `Germany` (almost all are "Germany, Berlin"), then untagged, then any (Austria, Bavaria…). **`audio_file`** is its Commons file name and **`audio_url`** its `mp3_url`, the MP3 transcode on `upload.wikimedia.org` (iPhone Safari cannot play Ogg); recordings hosted anywhere else are ignored. Wiktionary repeats the sounds on every entry of a word, but homographs with different sounds have their own (*der Band* /bant/, *die Band* /bɛnt/).
+  - A test loads a 53-entry sample cut from the real file (`server/test/fixtures/kaikki-sample.jsonl`, made with `server/scripts/make-kaikki-sample.ts`), with the IPA and recordings of each entry.
 - **Check from the command line:** `pnpm --filter server dict:lookup <lemma> <pos> [article]` prints the entries and the check result.
 - **Re-running** the import replaces the table (truncate + insert in one transaction).
-- **Licence:** CC BY-SA. Home's footer shows "Grammar data from Wiktionary (CC BY-SA)". Commercial use needs a licence review.
+- **Licence:** CC BY-SA. Home's footer shows "Grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons". Commercial use needs a licence review.
+- **Recordings:** the audio files live on Wikimedia Commons, each with its own free licence and author, shown on the file's page (a sample of ten German recordings: all CC BY-SA 2.5–4.0 or CC BY 2.0). The app stores only the file name and URL; the browser streams the MP3 from `upload.wikimedia.org` when the learner taps a speaker button (https audio plays on the plain-HTTP page). Each recording is credited per word: Word detail links its Commons file page (`commonsFileUrl`, §10).
 - **Known limits:** long compound nouns are often missing (→ `not_found`, AI data used); glosses are English only; plurals belong to the entry, not the meaning (*der Stock* lists *Stöcke*, the plural for "stick", also for the "floor" meaning); plural-only nouns have no gender.
 - **Measured coverage (2026-10-11):** of the 218 words extracted from three real book pages, 205 were found and none had a different article. The 13 not found were textbook compounds (*Kinderbibliothek*, *Terminvereinbarung*), *TV* and *möchten* (filed as a form of *mögen*).
+- **Pronunciation coverage (2026-10-12, same file):** of the 98,308 entries imported, 71,908 (73 %) have a recording and 60,481 (62 %) an IPA. Every recording in the file has an MP3 link; 19,532 file names contain spaces (Commons pages write them as `_`).
 
 ## 8. Practice
 
@@ -310,7 +322,8 @@ Before starting, the learner chooses one source. Each option shows how many word
   - other: the lemma
   - example sentence and its translation; the learner's note if present
   - if not enriched yet: whatever is available, plus "Details pending"
-- **Flip:** tap (or Space) turns the card with a 3D flip animation; tapping again turns it back.
+  - a **speaker button** after the headword when the word has a recording (`audio_url`). Nothing plays by itself: a tap plays the recording (tapping again starts it over), the button fills and its waves pulse while it plays, and "Couldn't play the recording" appears as a toast if it fails. One sound plays at a time; moving to the next card stops it. The front never has one: hearing the word would give the answer away. Words without a recording show no button.
+- **Flip:** tap (or Space) turns the card with a 3D flip animation; tapping again turns it back. A tap on the speaker button plays and does not flip; a swipe may still start on it, and then nothing plays. The face turned away is `inert`, so its button can't be tapped or focused. Space on the focused speaker button plays rather than flips.
 
 ### 8.3 Gestures and keys
 | Action | Touch | Keyboard | Button |
@@ -365,7 +378,7 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 Errors are listed in §12. Ids of another learner's rows answer like unknown ids (404).
 
 ### 9.1 Word endpoints
-A `WordView` is what a card shows (§8.2): `userWordId`, `lemma`, `pos`, `article`, `plural`, `forms`, `translation`, `customTranslation`, `exampleDe`, `exampleTranslation`, `note`, `enriched`.
+A `WordView` is what a card shows (§8.2): `userWordId`, `lemma`, `pos`, `article`, `plural`, `forms`, `translation`, `customTranslation`, `exampleDe`, `exampleTranslation`, `note`, `enriched`, `ipa`, `audioFile`, `audioUrl`.
 
 - **`GET /words?status=&q=`** — `status` (`learning` / `learned` / `ignored`) filters; absent means all. `q` is a case-insensitive substring of the German lemma, the stored translation or the learner's custom translation; `%` and `_` match themselves, a blank `q` is no search. Words are ordered by lemma, ignoring case. Each word is a `WordView` plus `status`, `timesSeen` and `correctStreak` (for the progress mark). `counts` gives the words per status that match `q`, whatever `status` asked for, so the tabs can show where the matches are. No paging: the prototype's list has a few hundred words.
 - **`GET /words/:userWordId`** — `WordDetail`: a `WordView` plus `status`, `formsSource`, `checkStatus`, `timesSeen`, `timesCorrect`, `correctStreak`, `lastResult`, `lastPracticedAt`, `addedAt`. 404 `word_not_found`.
@@ -387,7 +400,7 @@ Mobile-first layout, usable on desktop. Light and dark colour schemes follow the
    - only when there is unfinished work: a banner for each import not yet `done` that has at least one photo ("Continue importing Lesson 4" while collecting, "Finish reviewing Lesson 4" once reviewing; an unnamed import shows its date), and "N words without details yet" + **Add details** when enrichment is pending;
    - **Practice**, the main button, once there are learning or learned words, with what it draws from on a second line ("136 words to practise"; "Review learned words" when every word is learned);
    - **+ New import**, the second button; while there are no words yet it is the main button, with the hint "Photograph the pages you studied to collect their new words." below it;
-   - the Wiktionary credit in the footer.
+   - the credit in the footer: grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
    - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and cannot be changed later. The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
@@ -405,7 +418,8 @@ Mobile-first layout, usable on desktop. Light and dark colour schemes follow the
    - A row shows the headword (article + lemma, as on the card back), the translation (the learner's own if set) and a short progress mark: "new" for a learning word never practised, otherwise the right answers in a row towards learned ("0/3", "1/3", "2/3"; `LEARNED_STREAK`); nothing for learned or ignored words. Tapping a row opens Word detail.
    - Empty tabs say what belongs there (Learned: "a word counts as learned after 3 right answers in a row"); the Learning tab offers **New import**.
 8. **Word detail** (`/words/:id`) — the headword as the title, then:
-   - the part of speech under the headword (muted), then the translation the card shows;
+   - when Wiktionary has a pronunciation, a row with the speaker button (as on the card back, §8.2), the IPA (e.g. /tɪʃ/), and a small "Recording: Wikimedia Commons ↗" link to the recording's file page, which carries its licence (only when there is a recording; it moves below on a narrow screen);
+   - the part of speech (muted), then the translation the card shows;
    - status as a three-part control (Learning / Learned / Ignored) that saves on tap, with one line on what the status means; moving a word back to Learning resets its streak (§9.1);
    - the word's facts: the stored translation (labelled "Original translation" when the learner has their own, "Translation" otherwise), the forms line with its source ("from Wiktionary" / "from AI"), the example sentence and its translation, the dictionary check in plain words (`mismatch_kept` in warning colour), and a hint when details are still pending;
    - progress: seen, correct, in a row, when last practised and with what result, when it was added;
@@ -507,6 +521,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Learner leaves mid-session | Answers that reached the server are saved; session stays unfinished |
 | Source has no words | Option disabled |
 | A word in the session was deleted meanwhile | Its answer gets 404 `word_not_found` and is dropped with a message (§8.4) |
+| A recording can't be loaded or played (offline, file gone, browser refused) | Toast "Couldn't play the recording"; the card and the session are unaffected |
 
 ### My words
 | Problem | Behaviour |
@@ -514,6 +529,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Word detail opened for a word that was deleted | "This word is not in your list any more" + link to My words |
 | Loading the list or a word fails | Inline message with **Try again** |
 | Saving a change or deleting fails | Toast; typed texts stay, a status change is undone on screen |
+| A recording can't be played | Toast "Couldn't play the recording" |
 
 ### Error codes
 | HTTP | `code` | When |
@@ -537,9 +553,9 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, photo / review / word-form helpers | Vitest in `core/`, `server/` and `web/` | Free |
+| Unit | Learning rules, card formatting, Commons links, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers | Vitest in `core/`, `server/` and `web/` | Free |
 | Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / edit / delete, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
-| Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` | Vitest on a small sample file with expected rows | Free |
+| Dictionary import | Mapping from kaikki JSONL to `dictionary_entries`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`) and a 3-word enrich batch through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
 | AI quality (optional, not built yet) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models; needs the hand-checked pages first | ~$2–3 per run on Opus |
 | Manual | Layout, gestures, photo flow on the real device | iPhone on the local network | — |
@@ -550,7 +566,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 
 - `docker compose up -d` starts PostgreSQL (dev and test databases).
 - `pnpm dev` migrates the dev database, then starts the server (127.0.0.1:3000) and Vite (all interfaces, port 5173, `strictPort`). Vite proxies `/api` to the server, so the browser needs only one address.
-- The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`.
+- The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`. A database with words saved before pronunciation existed then needs `pnpm --filter server backfill:pronunciation` once (§6.6).
 - Checks: `pnpm test` (never calls Claude), `pnpm typecheck`, `pnpm check` (Biome; `pnpm format` fixes formatting). `ai:try` and `pnpm test:live` shrink photos with macOS `sips`.
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Words", without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
 - Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
@@ -573,7 +589,7 @@ Recorded here so decisions already made are not lost.
 - **Accounts** and multi-user; review of shared `words` rows with `mismatch_kept` before reusing them for other users.
 - **Phone app** in React Native reusing `server/` and `core/`.
 - **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
-- **Text-to-speech (listening):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium).
+- **Text-to-speech (listening):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
 - **Speech (speaking):** Azure Pronunciation Assessment with the expected phrase as reference (de-DE and ko-KR supported, per-word and per-phoneme scores; phoneme labels are en-US only). Plain transcription (Whisper etc.) is unsuitable because it hides learner errors. Needs HTTPS for the microphone and possibly server-side audio conversion (ffmpeg) for iPhone recordings. Alternative to test: SpeechSuper.
 
 ## 16. Research notes (2026-10-11)

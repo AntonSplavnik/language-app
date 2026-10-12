@@ -2,6 +2,7 @@ import {
   ApiClientError,
   CUSTOM_TRANSLATION_MAX,
   cardBack,
+  commonsFileUrl,
   displayTranslation,
   NOTE_MAX,
   type WordDetail,
@@ -11,6 +12,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../api";
 import { Page } from "../components/Page";
+import { SpeakerButton } from "../components/SpeakerButton";
 import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
 import { checkLabel, dayText, FORMS_SOURCE_LABEL } from "../words/labels";
@@ -146,6 +148,23 @@ export function WordDetailScreen() {
   return (
     <Page title={back.headword} back={listUrl}>
       <section className={styles.summary}>
+        {/* Pronunciation from Wiktionary; each recording is credited with its Commons page. */}
+        {(word.audioUrl || word.ipa) && (
+          <div className={styles.pronunciation}>
+            {word.audioUrl && <SpeakerButton url={word.audioUrl} word={back.headword} />}
+            {word.ipa && <span className={styles.ipa}>{word.ipa}</span>}
+            {word.audioUrl && word.audioFile && (
+              <a
+                className={styles.credit}
+                href={commonsFileUrl(word.audioFile)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Recording: Wikimedia Commons <span aria-hidden="true">↗</span>
+              </a>
+            )}
+          </div>
+        )}
         <p className={styles.pos}>{word.pos}</p>
         <p className={styles.translation}>{displayTranslation(word)}</p>
       </section>

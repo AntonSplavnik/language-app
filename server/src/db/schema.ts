@@ -53,6 +53,12 @@ export const words = pgTable(
     forms: jsonb().$type<VerbForms>(),
     formsSource: text().$type<FormsSource>(),
     exampleDe: text(),
+    /** Pronunciation from Wiktionary, copied by enrichment (§6.6); null when it has none. */
+    ipa: text(),
+    /** Wikimedia Commons file name of the recording, for the credit link. */
+    audioFile: text(),
+    /** The recording as MP3 on upload.wikimedia.org, streamed by the browser when played. */
+    audioUrl: text(),
     checkStatus: text().$type<CheckStatus>().notNull(),
     enrichedAt: timestampTz(),
     createdAt: createdAt(),
@@ -160,6 +166,9 @@ export const dictionaryEntries = pgTable(
     plurals: text().array().notNull().default(emptyArray),
     forms: jsonb().$type<VerbForms>(),
     glossesEn: text().array().notNull().default(emptyArray),
+    ipa: text(),
+    audioFile: text(),
+    audioUrl: text(),
   },
   (t) => [
     index("dictionary_entries_lemma_pos").on(t.lemma, t.pos),

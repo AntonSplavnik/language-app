@@ -24,6 +24,8 @@ const db = useTestDb();
 const app = () => buildTestApp(db);
 
 const DAY = 24 * 60 * 60 * 1000;
+const TISCH_MP3 =
+  "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/de/De-Tisch2.ogg/De-Tisch2.ogg.mp3";
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
 
 /** A word in the learner's list with the given progress. Returns its user_words id. */
@@ -199,7 +201,14 @@ describe("POST /api/sessions (§8.1)", () => {
     const [row] = await db.select().from(userWords).where(eq(userWords.id, id));
     await db
       .update(words)
-      .set({ plural: "Tische", exampleDe: "Der Tisch ist neu.", enrichedAt: new Date() })
+      .set({
+        plural: "Tische",
+        exampleDe: "Der Tisch ist neu.",
+        enrichedAt: new Date(),
+        ipa: "/tɪʃ/",
+        audioFile: "De-Tisch2.ogg",
+        audioUrl: TISCH_MP3,
+      })
       .where(eq(words.id, row?.wordId as number));
     await db
       .update(wordTranslations)
@@ -223,6 +232,9 @@ describe("POST /api/sessions (§8.1)", () => {
       exampleTranslation: "The table is new.",
       note: "lesson 4",
       enriched: true,
+      ipa: "/tɪʃ/",
+      audioFile: "De-Tisch2.ogg",
+      audioUrl: TISCH_MP3,
     });
   });
 

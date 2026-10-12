@@ -12,6 +12,7 @@
     "ai:try": "tsx scripts/ai-try.ts",
     "import:wiktionary": "tsx scripts/import-wiktionary.ts",
     "dict:lookup": "tsx scripts/dict-lookup.ts",
+    "backfill:pronunciation": "tsx scripts/backfill-pronunciation.ts",
     "demo:import": "tsx scripts/demo-import.ts"
   },
   "dependencies": {

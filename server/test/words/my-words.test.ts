@@ -35,6 +35,8 @@ import { first, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const app = () => buildTestApp(db);
+const GEHEN_MP3 =
+  "https://upload.wikimedia.org/wikipedia/commons/transcoded/5/5f/De-gehen2.ogg/De-gehen2.ogg.mp3";
 
 type Seed = {
   pos?: Pos;
@@ -224,6 +226,9 @@ describe("GET /api/words/:id (§10 Word detail)", () => {
         exampleDe: "Ich gehe nach Hause.",
         checkStatus: "mismatch_kept",
         enrichedAt: new Date(),
+        ipa: "/ˈɡeːən/",
+        audioFile: "De-gehen2.ogg",
+        audioUrl: GEHEN_MP3,
       })
       .where(eq(words.id, wordId));
     await db
@@ -248,6 +253,9 @@ describe("GET /api/words/:id (§10 Word detail)", () => {
       exampleTranslation: "I am going home.",
       note: "irregular",
       enriched: true,
+      ipa: "/ˈɡeːən/",
+      audioFile: "De-gehen2.ogg",
+      audioUrl: GEHEN_MP3,
       status: "learning",
       formsSource: "dictionary",
       checkStatus: "mismatch_kept",
@@ -263,6 +271,9 @@ describe("GET /api/words/:id (§10 Word detail)", () => {
   it("a word that was never practised or enriched", async () => {
     expect(await detail(await seedWord("Tisch"))).toMatchObject({
       enriched: false,
+      ipa: null,
+      audioFile: null,
+      audioUrl: null,
       formsSource: null,
       lastResult: null,
       lastPracticedAt: null,

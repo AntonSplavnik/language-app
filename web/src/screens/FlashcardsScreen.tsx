@@ -11,7 +11,7 @@ import { api } from "../api";
 import { Page } from "../components/Page";
 import { readJson, removeItem, writeJson } from "../lib/storage";
 import { errorMessage, useToast } from "../lib/toast";
-import { Card } from "../practice/Card";
+import { Card, isCardControl } from "../practice/Card";
 import { createResultQueue } from "../practice/resultQueue";
 import { decideSwipe, SWIPE_DISTANCE } from "../practice/swipe";
 import ui from "../styles/ui.module.css";
@@ -146,16 +146,21 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
   );
 
   // The card follows the finger; a long or quick enough swipe answers, otherwise it snaps back.
+  // A swipe may start anywhere, the speaker button included. A tap on the speaker is the
+  // button's (its click plays the recording), so it doesn't flip the card; after a real drag,
+  // filterTaps swallows the click, so a swipe never plays.
   const bind = useDrag(
-    ({ active, tap, movement: [mx, my], velocity: [vx, vy], direction: [dirX, dirY] }) => {
+    ({ active, tap, event, movement: [mx, my], velocity: [vx, vy], direction: [dirX, dirY] }) => {
       if (busy) return;
-      if (tap) return flip();
+      if (tap) return isCardControl(event.target) ? undefined : flip();
       if (active) return setDrag({ x: mx, y: my, active: true });
       const decision = decideSwipe({ dx: mx, dy: my, vx: vx * dirX, vy: vy * dirY });
       setDrag({ x: decision ? mx : 0, y: decision ? my : 0, active: false });
       if (decision) answer(decision);
     },
-    { filterTaps: true },
+    // Keys are handled below for the whole screen; the card itself must not move with them
+    // while the speaker button has the focus.
+    { filterTaps: true, keys: false },
   );
 
   // iOS Safari uses a sideways swipe anywhere on the page for "go back". On this screen the card
@@ -178,7 +183,8 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
         ArrowUp: () => answer("skipped"),
       };
       const action = actions[event.key];
-      if (!action) return;
+      // Space on the focused speaker button plays the recording rather than flipping the card.
+      if (!action || (event.key === " " && isCardControl(event.target))) return;
       event.preventDefault();
       action();
     };

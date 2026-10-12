@@ -23,6 +23,8 @@ export type CardBack = {
   note: string | null;
   /** Enrichment has not run yet, so some details may be missing. */
   detailsPending: boolean;
+  /** The recording a speaker button plays on tap; null when there is none. Never on the front. */
+  audioUrl: string | null;
 };
 
 const AUXILIARY_3SG: Record<Auxiliary, string> = { haben: "hat", sein: "ist" };
@@ -38,6 +40,7 @@ export function cardBack(word: WordView): CardBack {
     example: word.exampleDe ? { de: word.exampleDe, translation: word.exampleTranslation } : null,
     note: word.note,
     detailsPending: !word.enriched,
+    audioUrl: word.audioUrl,
   };
 }
 

@@ -14,10 +14,23 @@ describe("loadDictionary (§7)", () => {
   it("loads the mapped entries and reports counts per part of speech", async () => {
     const result = await loadDictionary(db, SAMPLE);
 
-    expect(result.read).toBe(50);
+    expect(result.read).toBe(53);
     expect(result.inserted).toBe(await rowCount());
-    expect(result.byPos.noun).toBe(16);
+    expect(result.byPos.noun).toBe(18);
     expect(result.byPos.verb).toBe(5);
+  });
+
+  it("stores the pronunciation of each entry", async () => {
+    await loadDictionary(db, SAMPLE);
+    const found = await lookupWords(db, [{ lemma: "Tisch", pos: "noun" }]);
+    expect(found.get("Tisch|noun")).toMatchObject([
+      {
+        ipa: "/tɪʃ/",
+        audioFile: "De-Tisch2.ogg",
+        audioUrl:
+          "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/de/De-Tisch2.ogg/De-Tisch2.ogg.mp3",
+      },
+    ]);
   });
 
   it("loading again replaces the table instead of adding to it", async () => {

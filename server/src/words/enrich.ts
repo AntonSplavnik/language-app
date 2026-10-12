@@ -3,10 +3,11 @@ import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
 import type { Db } from "../db/client";
 import { users, userWords, words, wordTranslations } from "../db/schema";
-import { type DictionaryEntry, lookupWords, wordKey } from "../dictionary/lookup";
+import { type DictionaryEntry, entriesForWord, lookupWords, wordKey } from "../dictionary/lookup";
+import { pronunciationOf } from "./pronunciation";
 
 // Enrichment (docs/design.md §6.6): example sentences for every word, plus the plural or verb
-// forms the dictionary doesn't have.
+// forms the dictionary doesn't have; the pronunciation comes from the dictionary only.
 
 export const ENRICH_BATCH_SIZE = 30;
 /** Batches sent to the AI at the same time. */
@@ -44,19 +45,19 @@ export async function enrichWords(
   const pendingWords = await loadPending(db, wordIds, language);
   if (pendingWords.length === 0) return { enriched: 0, pending: 0 };
 
-  // 1. Dictionary first. Copied now, so a word keeps its dictionary forms even if the AI fails.
-  const dictionary = await lookupWords(
-    db,
-    pendingWords.filter((w) => w.pos === "noun" || w.pos === "verb"),
-  );
+  // 1. Dictionary first: forms and pronunciation. Copied now, so a word keeps them even if the AI
+  // fails.
+  const dictionary = await lookupWords(db, pendingWords);
   const fromDictionary = new Map<number, Forms>();
   for (const word of pendingWords) {
-    const forms = dictionaryForms(word, dictionary.get(wordKey(word)) ?? []);
-    if (!forms) continue;
-    fromDictionary.set(word.id, forms);
+    const entries = entriesForWord(word, dictionary.get(wordKey(word)) ?? []);
+    const forms = dictionaryForms(word, entries);
+    const pronunciation = pronunciationOf(entries);
+    if (forms) fromDictionary.set(word.id, forms);
+    if (!forms && !pronunciation) continue;
     await db
       .update(words)
-      .set({ ...forms, formsSource: "dictionary" })
+      .set({ ...(forms ? { ...forms, formsSource: "dictionary" as const } : {}), ...pronunciation })
       .where(and(eq(words.id, word.id), isNull(words.enrichedAt)));
   }
 
@@ -164,14 +165,13 @@ async function loadPending(db: Db, wordIds: number[], language: string) {
 }
 
 /**
- * Forms the dictionary has for a word: a noun's plural from an entry with the word's own gender
- * (der Band → Bände, die Band → Bands), a verb's forms from its entry.
+ * Forms the dictionary has for a word, from the entries that describe it (`entriesForWord`): a
+ * noun's plural from an entry with the word's own gender (der Band → Bände, die Band → Bands), a
+ * verb's forms from its entry.
  */
 function dictionaryForms(word: PendingWord, entries: DictionaryEntry[]): Forms | null {
   if (word.pos === "noun") {
-    const article = word.article;
-    const sameGender = article ? entries.filter((e) => e.genders.includes(article)) : entries;
-    const plural = sameGender.find((e) => e.plurals.length > 0)?.plurals[0];
+    const plural = entries.find((e) => e.plurals.length > 0)?.plurals[0];
     return plural ? { plural, forms: null } : null;
   }
   if (word.pos === "verb") {

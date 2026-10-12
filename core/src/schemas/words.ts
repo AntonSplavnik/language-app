@@ -26,6 +26,12 @@ export const WordView = z.object({
   note: z.string().nullable(),
   /** False until enrichment has run (`words.enriched_at`). */
   enriched: z.boolean(),
+  /** Pronunciation from Wiktionary (§7), e.g. "/tɪʃ/"; null when it has none. */
+  ipa: z.string().nullable(),
+  /** Wikimedia Commons file name of the recording, for the credit link (`commonsFileUrl`). */
+  audioFile: z.string().nullable(),
+  /** The recording as MP3, played from upload.wikimedia.org on tap; null when there is none. */
+  audioUrl: z.string().nullable(),
 });
 export type WordView = z.infer<typeof WordView>;
 

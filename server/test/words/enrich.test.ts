@@ -72,6 +72,9 @@ async function word(id: number) {
       exampleDe: words.exampleDe,
       enrichedAt: words.enrichedAt,
       exampleTranslation: wordTranslations.exampleTranslation,
+      ipa: words.ipa,
+      audioFile: words.audioFile,
+      audioUrl: words.audioUrl,
     })
     .from(words)
     .leftJoin(wordTranslations, eq(wordTranslations.wordId, words.id))
@@ -130,6 +133,41 @@ describe("enrichWords (§6.6)", () => {
     expect((await word(dieBand))?.plural).toBe("Bands");
   });
 
+  it("copies the pronunciation from the dictionary: a noun's from an entry with its gender", async () => {
+    const tisch = await addWord("Tisch", "noun", "der", "table");
+    const derBand = await addWord("Band", "noun", "der", "volume");
+    const dieBand = await addWord("Band", "noun", "die", "band");
+    // Plural-only: its entry has no gender, which contradicts nothing.
+    const eltern = await addWord("Eltern", "noun", "die", "parents");
+    await setup().enrich([tisch, derBand, dieBand, eltern]);
+
+    expect(await word(tisch)).toMatchObject({
+      ipa: "/tɪʃ/",
+      audioFile: "De-Tisch2.ogg",
+      audioUrl:
+        "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/de/De-Tisch2.ogg/De-Tisch2.ogg.mp3",
+    });
+    expect(await word(derBand)).toMatchObject({ ipa: "/bant/", audioFile: "De-Band.oga" });
+    expect(await word(dieBand)).toMatchObject({ ipa: "/bɛnt/", audioFile: "De-Band2.ogg" });
+    expect(await word(eltern)).toMatchObject({ ipa: "/ˈɛltərn/", audioFile: "De-Eltern.ogg" });
+  });
+
+  it("copies the pronunciation of other words, also through the non-noun fallback", async () => {
+    const schnell = await addWord("schnell", "adjective", null, "fast");
+    // Claude calls nicht a particle; Wiktionary files it as an adverb.
+    const nicht = await addWord("nicht", "particle", null, "not");
+    const kuehlschrank = await addWord("Kühlschrank", "noun", "der", "fridge"); // not in the sample
+    // An article the dictionary contradicts: no entry describes this word.
+    const dieTisch = await addWord("Tisch", "noun", "die", "table");
+    await setup().enrich([schnell, nicht, kuehlschrank, dieTisch]);
+
+    expect(await word(schnell)).toMatchObject({ ipa: "/ʃnɛl/", audioFile: "De-schnell.ogg" });
+    expect(await word(nicht)).toMatchObject({ ipa: "/nɪçt/", audioFile: "De-nicht2.ogg" });
+    for (const id of [kuehlschrank, dieTisch]) {
+      expect(await word(id)).toMatchObject({ ipa: null, audioFile: null, audioUrl: null });
+    }
+  });
+
   it("skips words that are already enriched, without an AI call", async () => {
     const done = await addWord("Tisch", "noun", "der", "table", { enriched: true });
     const s = setup();
@@ -161,12 +199,19 @@ describe("enrichWords (§6.6)", () => {
     expect((await word(ids[0] as number))?.enrichedAt).toBeNull();
   });
 
-  it("keeps dictionary forms even when the AI call fails", async () => {
+  it("keeps dictionary forms and pronunciation even when the AI call fails", async () => {
     const tisch = await addWord("Tisch", "noun", "der", "table");
-    await setup(() => apiError(529)).enrich([tisch]);
+    const schnell = await addWord("schnell", "adjective", null, "fast");
+    await setup(() => apiError(529)).enrich([tisch, schnell]);
     expect(await word(tisch)).toMatchObject({
       plural: "Tische",
       formsSource: "dictionary",
+      audioFile: "De-Tisch2.ogg",
+      enrichedAt: null,
+    });
+    expect(await word(schnell)).toMatchObject({
+      formsSource: null,
+      audioFile: "De-schnell.ogg",
       enrichedAt: null,
     });
   });

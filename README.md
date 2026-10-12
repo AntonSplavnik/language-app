@@ -12,8 +12,8 @@ It is a working prototype for one learner: a web app served from your Mac on the
 4. **Check.** Each new word is looked up in a local copy of Wiktionary (from kaikki.org). A noun whose article differs from the dictionary is flagged.
 5. **Review.** You mark each word Add or Skip, and can apply the dictionary's article with one tap.
 6. **Save.** Added words go into your list as "learning", skipped ones as "ignored".
-7. **Enrich.** Each saved word gets an example sentence with a translation, plus its plural (nouns) or Präteritum, Partizip II and auxiliary (verbs). Forms come from the dictionary first; the AI fills the gaps.
-8. **Practise.** A card shows the English translation and part of speech; flip it for the German word with article, forms and example. Swipe right if you knew it, left if you didn't, up to skip. Three "knew it" in a row marks a word learned; a miss moves it back to learning.
+7. **Enrich.** Each saved word gets an example sentence with a translation, plus its plural (nouns) or Präteritum, Partizip II and auxiliary (verbs). Forms come from the dictionary first; the AI fills the gaps. The pronunciation (IPA and a native speaker's recording) comes from the dictionary only.
+8. **Practise.** A card shows the English translation and part of speech; flip it for the German word with article, forms and example, and tap the speaker to hear it. Swipe right if you knew it, left if you didn't, up to skip. Three "knew it" in a row marks a word learned; a miss moves it back to learning.
 
 ## Features
 
@@ -21,9 +21,10 @@ It is a working prototype for one learner: a web app served from your Mac on the
 - **Review:** Add / Skip per word, Add all / Skip all, one-tap article fixes from the dictionary, and a collapsed list of words already in your list. Decisions survive a reload.
 - **Enrichment:** runs right after saving ("Adding details…"). If the AI fails, the words are still saved and Home offers **Add details** to try again.
 - **Practice:** three sources (Last import, Last 7 days, Not learned yet), up to 20 words per session, started in two taps. 3D card flip, swipes, buttons, and Space / arrow keys on a desktop. A summary lists the words you missed.
+- **Pronunciation:** the back of a card has a speaker button that plays a native speaker's recording of the word from Wikimedia Commons (via Wiktionary). It plays only when tapped, never on the front, and is streamed when played, not stored. About three quarters of the dictionary's words have a recording; words without one show no button.
 - **Offline answers:** an answer that fails to send waits in a queue and is retried every 5 s and when the connection comes back. A reload continues at the same card.
 - **My words:** Learning / Learned / Ignored tabs with counts, search in German and English, and a progress mark per word ("new", "1/3").
-- **Word detail:** change the status, add your own translation and a note (shown on the card), see where the forms came from and what the dictionary check found, delete the word.
+- **Word detail:** listen to the word and see its IPA (e.g. /tɪʃ/) with a link to the recording's Commons page, change the status, add your own translation and a note (shown on the card), see where the forms came from and what the dictionary check found, delete the word.
 - **Home Screen app:** add it to the iPhone Home Screen to run full screen. Light and dark mode follow the system.
 
 ## Tech stack and layout
@@ -76,6 +77,14 @@ pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.
 ```
 
 The import writes about 98,000 entries in roughly 11 s. Running it again replaces the table.
+
+Words saved before pronunciation existed get theirs once the dictionary has been re-imported with the command above:
+
+```sh
+pnpm db:migrate                                   # adds the pronunciation columns
+pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl
+pnpm --filter server backfill:pronunciation       # fills IPA and recordings; safe to run again
+```
 
 kaikki.org marks this file as deprecated. If it disappears, the importer also accepts the raw all-languages dump (`raw-wiktextract-data.jsonl.gz`, listed on [kaikki.org's raw data page](https://kaikki.org/dictionary/rawdata.html)) and keeps only the German entries.
 
@@ -140,6 +149,7 @@ Server scripts. Paths are relative to the directory you run them from.
 pnpm --filter server ai:try extract <photo> [--save <name>]      # one real extract call: words, tokens, time, cost
 pnpm --filter server ai:try enrich <words.json> [--save <name>]  # the same for enrich
 pnpm --filter server dict:lookup See noun die                    # what the dictionary check sees for a word
+pnpm --filter server backfill:pronunciation                     # pronunciation for words saved before it existed
 pnpm --filter server demo:import <photo> [--save]                # the whole import flow against a running pnpm dev
 ```
 
@@ -151,6 +161,7 @@ pnpm --filter server demo:import <photo> [--save]                # the whole imp
 ## Data and licences
 
 - **Wiktionary data** comes via kaikki.org and is licensed CC BY-SA. The app credits it in the footer of the Home screen. Commercial use would need a licence review. The small committed sample `server/test/fixtures/kaikki-sample.jsonl` is the same data.
+- **Recordings** are audio files on Wikimedia Commons, linked from Wiktionary. Each file has its own free licence and author (those checked were CC BY-SA or CC BY), shown on its Commons page. The app stores only the file name and URL and streams the MP3 from `upload.wikimedia.org` when you tap play. Home's footer mentions Wikimedia Commons, and Word detail links each recording's file page as its credit.
 - **Textbook photos are never committed.** `server/test/live/photos/` and `data/` (the dictionary download and any local photos) are git-ignored, and the server does not store uploaded photos.
 - **AI fixtures:** `server/test/fixtures/ai/` holds Claude responses recorded from a few real textbook pages, so they contain the word lists read from those pages. That is fine in this private repo; review them before making the repo public.
 
@@ -167,7 +178,7 @@ pnpm --filter server demo:import <photo> [--save]                # the whole imp
 From [docs/design.md §15](docs/design.md#15-later):
 
 - Spaced repetition ("smart review").
-- Listening and speaking practice: text-to-speech, and pronunciation assessment (needs HTTPS for the microphone).
+- Listening and speaking practice: text-to-speech for example sentences and for words without a recording, and pronunciation assessment (needs HTTPS for the microphone).
 - An AI quality test on 20–30 hand-checked pages, to decide whether a cheaper model such as Haiku 5.5 is good enough.
 - Accounts for several learners, and a React Native phone app reusing `core/` and `server/`.
 - Grammar topics, levels, more practice modes, starter word lists, and Korean as a learner language.

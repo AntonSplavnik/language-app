@@ -22,6 +22,10 @@ describe("mapEntry: kaikki JSONL → dictionary_entries (§7)", () => {
         plurals: ["Tische"],
         forms: null,
         glossesEn: expect.arrayContaining(["dining table, dinner table"]),
+        ipa: "/tɪʃ/",
+        audioFile: "De-Tisch2.ogg",
+        audioUrl:
+          "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/de/De-Tisch2.ogg/De-Tisch2.ogg.mp3",
       },
     ]);
   });
@@ -107,5 +111,79 @@ describe("mapEntry: kaikki JSONL → dictionary_entries (§7)", () => {
     expect(mapEntry({ ...tisch, lang_code: "en" })).toBeNull();
     expect(mapEntry({ ...tisch, pos: "suffix" })).toBeNull();
     expect(mapEntry({ nonsense: true })).toBeNull();
+  });
+});
+
+describe("mapEntry: pronunciation (§7)", () => {
+  const tisch = entries.find((e) => (e as { word: string }).word === "Tisch") as object;
+  const withSounds = (sounds: unknown) => mapEntry({ ...tisch, sounds });
+  const recording = (audio: string, tags?: string[]) => ({
+    audio,
+    mp3_url: `https://upload.wikimedia.org/wikipedia/commons/transcoded/x/xy/${audio}/${audio}.mp3`,
+    ...(tags ? { tags } : {}),
+  });
+
+  it("prefers a recording tagged Germany over an untagged one (always the mp3)", () => {
+    // Tisch: De-Tisch.ogg (untagged) comes first, De-Tisch2.ogg (Germany, Berlin) second.
+    expect(rowsFor("Tisch")[0]).toMatchObject({
+      audioFile: "De-Tisch2.ogg",
+      audioUrl: expect.stringMatching(/\/De-Tisch2\.ogg\.mp3$/),
+    });
+  });
+
+  it("prefers a recording tagged Germany over one tagged Austria that comes first", () => {
+    expect(rowsFor("Zeitung")[0]?.audioFile).toBe("De-Zeitung.ogg");
+    expect(rowsFor("Freundin")[0]?.audioFile).toBe("De-Freundin.ogg");
+  });
+
+  it("without a Germany recording, prefers an untagged one over another region", () => {
+    // Zimmer: De-at-Zimmer.ogg (Austria), then De-Zimmer.oga (untagged).
+    expect(rowsFor("Zimmer")[0]?.audioFile).toBe("De-Zimmer.oga");
+  });
+
+  it("takes any recording when there is no better one", () => {
+    expect(withSounds([recording("De-at-Tisch.ogg", ["Austria"])])?.audioFile).toBe(
+      "De-at-Tisch.ogg",
+    );
+  });
+
+  it("each meaning keeps its own recording: das/der Band /bant/, die Band /bɛnt/", () => {
+    expect(rowsFor("Band").map((r) => `${r.genders.join()} ${r.ipa} ${r.audioFile}`)).toEqual([
+      "das /bant/ De-Band.oga",
+      "der /bant/ De-Band.oga",
+      "die /bɛnt/ De-Band2.ogg",
+    ]);
+  });
+
+  it("IPA: the first transcription, unless a later one is tagged Germany", () => {
+    expect(rowsFor("Tisch")[0]?.ipa).toBe("/tɪʃ/");
+    expect(rowsFor("schnell").map((r) => r.ipa)).toEqual(["/ʃnɛl/", "/ʃnɛl/"]);
+    // November: /noˈfɛmbɐ/ is tagged Austria and listed first.
+    expect(rowsFor("November")[0]?.ipa).toBe("/noˈvɛmbɐ/");
+  });
+
+  it("an entry without sounds has no IPA and no recording", () => {
+    expect(withSounds(undefined)).toMatchObject({ ipa: null, audioFile: null, audioUrl: null });
+    expect(withSounds([{ rhymes: "-ɪʃ" }])).toMatchObject({ ipa: null, audioFile: null });
+  });
+
+  it("IPA without a recording, and a recording without IPA", () => {
+    expect(withSounds([{ ipa: "/tɪʃ/" }])).toMatchObject({ ipa: "/tɪʃ/", audioFile: null });
+    expect(withSounds([recording("De-Tisch.ogg")])).toMatchObject({
+      ipa: null,
+      audioFile: "De-Tisch.ogg",
+    });
+  });
+
+  it("ignores malformed sounds and recordings not hosted on upload.wikimedia.org", () => {
+    const row = withSounds([
+      { ipa: 42 },
+      { audio: "De-Tisch.ogg", mp3_url: "https://example.com/De-Tisch.ogg.mp3" },
+      { audio: "De-Tisch.ogg" },
+      "nonsense",
+      { ipa: "/tɪʃ/" },
+    ]);
+    // The entry itself is still kept.
+    expect(row).toMatchObject({ lemma: "Tisch", ipa: "/tɪʃ/", audioFile: null, audioUrl: null });
   });
 });

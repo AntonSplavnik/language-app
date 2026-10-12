@@ -52,7 +52,10 @@ export function Home() {
         <a href="https://en.wiktionary.org/" target="_blank" rel="noreferrer">
           Wiktionary
         </a>{" "}
-        (CC BY-SA)
+        (CC BY-SA), recordings from{" "}
+        <a href="https://commons.wikimedia.org/" target="_blank" rel="noreferrer">
+          Wikimedia Commons
+        </a>
       </footer>
     </div>
   );
