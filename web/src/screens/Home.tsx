@@ -1,9 +1,10 @@
-import type { StatsResponse, WordStatus } from "@language-app/core";
+import type { StatsResponse } from "@language-app/core";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
 import { PendingDetails } from "../components/PendingDetails";
 import ui from "../styles/ui.module.css";
+import { countsText, hasWords, practiceText } from "../words/counts";
 import { wordsUrl } from "../words/listQuery";
 import styles from "./Home.module.css";
 
@@ -43,60 +44,7 @@ export function Home() {
           </div>
         )}
 
-        {state.kind === "ready" && (
-          <>
-            <section className={styles.counters} aria-label="Your words">
-              <Counter label="Learning" status="learning" value={state.stats.learning} />
-              <Counter label="Learned" status="learned" value={state.stats.learned} />
-            </section>
-
-            {state.stats.detailsPending > 0 && (
-              <PendingDetails key={state.stats.detailsPending} count={state.stats.detailsPending} />
-            )}
-
-            {state.stats.unfinishedImports.map((item) => (
-              <Link
-                key={item.id}
-                to={
-                  item.status === "reviewing" ? `/imports/${item.id}/review` : `/imports/${item.id}`
-                }
-                className={styles.banner}
-              >
-                <span>
-                  {item.status === "reviewing" ? "Finish reviewing" : "Continue importing"}{" "}
-                  <strong>{item.name ?? `the import from ${formatDate(item.createdAt)}`}</strong>
-                </span>
-                <span aria-hidden>›</span>
-              </Link>
-            ))}
-
-            {state.stats.learning + state.stats.learned > 0 && (
-              <Link to="/practice" className={`${ui.button} ${ui.primary} ${styles.bigAction}`}>
-                Practice
-              </Link>
-            )}
-            <Link
-              to="/imports/new"
-              className={`${ui.button} ${
-                state.stats.learning + state.stats.learned > 0 ? ui.secondary : ui.primary
-              } ${styles.bigAction}`}
-            >
-              <span aria-hidden className={styles.camera}>
-                +
-              </span>
-              New import
-            </Link>
-            <p className={styles.muted}>
-              Photograph the pages you studied to collect their new words.
-            </p>
-            <Link
-              to={wordsUrl({ status: "learning", q: "" })}
-              className={`${ui.button} ${ui.secondary}`}
-            >
-              My words
-            </Link>
-          </>
-        )}
+        {state.kind === "ready" && <Ready stats={state.stats} />}
       </main>
 
       <footer className={styles.footer}>
@@ -110,15 +58,62 @@ export function Home() {
   );
 }
 
-/** A counter that opens its tab of My words. */
-function Counter({ label, status, value }: { label: string; status: WordStatus; value: number }) {
+/** Home once the stats are in (§10 screen 1). */
+function Ready({ stats }: { stats: StatsResponse }) {
+  const practice = practiceText(stats);
   return (
-    <Link to={wordsUrl({ status, q: "" })} className={styles.counter}>
-      <span className={styles.counterValue}>{value}</span>
-      <span className={styles.counterLabel}>
-        {label} <span aria-hidden>›</span>
-      </span>
-    </Link>
+    <>
+      {/* The only way to My words: the counts open the Learning tab, which links the others. */}
+      <Link to={wordsUrl({ status: "learning", q: "" })} className={styles.wordsCard}>
+        <span className={styles.wordsText}>
+          <span className={styles.wordsTitle}>My words</span>
+          <span className={styles.muted}>{countsText(stats)}</span>
+        </span>
+        <span aria-hidden className={styles.chevron}>
+          ›
+        </span>
+      </Link>
+
+      {stats.unfinishedImports.map((item) => (
+        <Link
+          key={item.id}
+          to={item.status === "reviewing" ? `/imports/${item.id}/review` : `/imports/${item.id}`}
+          className={styles.banner}
+        >
+          <span>
+            {item.status === "reviewing" ? "Finish reviewing" : "Continue importing"}{" "}
+            <strong>{item.name ?? `the import from ${formatDate(item.createdAt)}`}</strong>
+          </span>
+          <span aria-hidden>›</span>
+        </Link>
+      ))}
+
+      {stats.detailsPending > 0 && (
+        <PendingDetails key={stats.detailsPending} count={stats.detailsPending} />
+      )}
+
+      {practice && (
+        <Link
+          to="/practice"
+          className={`${ui.button} ${ui.primary} ${styles.bigAction} ${styles.twoLines}`}
+        >
+          Practice
+          <span className={styles.subline}>{practice}</span>
+        </Link>
+      )}
+      <Link
+        to="/imports/new"
+        className={`${ui.button} ${hasWords(stats) ? ui.secondary : ui.primary} ${styles.bigAction}`}
+      >
+        <span aria-hidden className={styles.plus}>
+          +
+        </span>
+        New import
+      </Link>
+      {!hasWords(stats) && (
+        <p className={styles.hint}>Photograph the pages you studied to collect their new words.</p>
+      )}
+    </>
   );
 }
 

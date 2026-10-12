@@ -97,6 +97,7 @@ export function WordDetailScreen() {
   const check = checkLabel(word.checkStatus);
   const changes = changesOf(word, draft);
   const shownStatus = savingStatus ?? word.status;
+  const hasOwnTranslation = Boolean(word.customTranslation?.trim());
 
   const changeStatus = async (status: WordStatus) => {
     if (status === word.status || busy) return;
@@ -145,8 +146,8 @@ export function WordDetailScreen() {
   return (
     <Page title={back.headword} back={listUrl}>
       <section className={styles.summary}>
+        <p className={styles.pos}>{word.pos}</p>
         <p className={styles.translation}>{displayTranslation(word)}</p>
-        <p className={styles.muted}>{word.pos}</p>
       </section>
 
       {/* Native radios for keyboard and screen readers; a tap saves at once. */}
@@ -177,7 +178,10 @@ export function WordDetailScreen() {
 
       <section className={styles.box}>
         <dl className={styles.facts}>
-          <Fact label="Translation">{word.translation || "—"}</Fact>
+          {/* Next to the learner's own translation, the stored one must not pass for it. */}
+          <Fact label={hasOwnTranslation ? "Original translation" : "Translation"}>
+            {word.translation || "—"}
+          </Fact>
           {back.forms && (
             <Fact label="Forms">
               <span lang="de">{back.forms}</span>

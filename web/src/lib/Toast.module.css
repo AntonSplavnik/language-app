@@ -2,8 +2,8 @@
   position: fixed;
   left: 0;
   right: 0;
-  /* Above the action bar at the bottom of most screens. */
-  bottom: calc(env(safe-area-inset-bottom) + 96px);
+  /* Near the bottom edge; a page with a sticky action bar raises it above the bar (Page). */
+  bottom: var(--toast-bottom, calc(env(safe-area-inset-bottom) + 24px));
   display: flex;
   flex-direction: column;
   align-items: center;

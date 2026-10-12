@@ -24,7 +24,7 @@
 
 .primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .secondary {
@@ -35,7 +35,7 @@
 
 .danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--on-danger);
 }
 
 .quiet {
@@ -77,4 +77,14 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Read by screen readers, not shown. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

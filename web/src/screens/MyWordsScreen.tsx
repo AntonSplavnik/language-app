@@ -10,7 +10,7 @@ import { api } from "../api";
 import { Page } from "../components/Page";
 import { errorMessage } from "../lib/toast";
 import ui from "../styles/ui.module.css";
-import { hintLabel, progressHint } from "../words/labels";
+import { progressLabel } from "../words/labels";
 import { type ListQuery, listParams, parseListQuery, TABS, wordsUrl } from "../words/listQuery";
 import styles from "./MyWordsScreen.module.css";
 
@@ -129,7 +129,7 @@ export function MyWordsScreen() {
 }
 
 function WordRow({ word, from }: { word: WordListItem; from: string }) {
-  const hint = progressHint(word);
+  const progress = progressLabel(word);
   return (
     <li>
       <Link to={`/words/${word.userWordId}`} state={{ from }} className={styles.row}>
@@ -139,12 +139,10 @@ function WordRow({ word, from }: { word: WordListItem; from: string }) {
           </span>
           <span className={styles.translation}>{displayTranslation(word)}</span>
         </span>
-        {hint?.kind === "new" && <span className={styles.new}>new</span>}
-        {hint?.kind === "streak" && (
-          <span className={styles.streak} role="img" aria-label={hintLabel(hint)}>
-            {Array.from({ length: hint.of }, (_, i) => i + 1).map((n) => (
-              <span key={n} className={n <= hint.filled ? styles.dotOn : styles.dot} />
-            ))}
+        {progress && (
+          <span className={progress.kind === "new" ? styles.new : styles.streak}>
+            <span aria-hidden>{progress.text}</span>
+            <span className={ui.srOnly}>{progress.spoken}</span>
           </span>
         )}
         <span className={styles.chevron} aria-hidden>

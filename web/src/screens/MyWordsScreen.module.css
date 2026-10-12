@@ -135,22 +135,13 @@
   color: var(--accent);
 }
 
+/* Right answers in a row towards learned, e.g. "2/3". */
 .streak {
   flex: none;
-  display: flex;
-  gap: 3px;
-}
-
-.dot,
-.dotOn {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border);
-}
-
-.dotOn {
-  background: var(--success);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .chevron {

@@ -1,5 +1,6 @@
+import { LEARNED_STREAK } from "@language-app/core";
 import { describe, expect, it } from "vitest";
-import { checkLabel, dayText, hintLabel, progressHint } from "../src/words/labels";
+import { checkLabel, dayText, progressLabel } from "../src/words/labels";
 import { parseListQuery, wordsUrl } from "../src/words/listQuery";
 
 describe("My words URL (§10)", () => {
@@ -25,27 +26,37 @@ describe("My words URL (§10)", () => {
   });
 });
 
-describe("progress hint on a list row", () => {
+describe("progress label on a list row", () => {
   it("marks learning words that were never practised as new", () => {
-    const hint = progressHint({ status: "learning", timesSeen: 0, correctStreak: 0 });
-    expect(hint).toEqual({ kind: "new" });
-    expect(hintLabel(hint)).toBe("Not practised yet");
-  });
-
-  it("shows the streak towards learned, capped at three", () => {
-    const hint = progressHint({ status: "learning", timesSeen: 4, correctStreak: 2 });
-    expect(hint).toEqual({ kind: "streak", filled: 2, of: 3 });
-    expect(hintLabel(hint)).toBe("2 of 3 right in a row");
-    expect(progressHint({ status: "learned", timesSeen: 9, correctStreak: 7 })).toEqual({
-      kind: "streak",
-      filled: 3,
-      of: 3,
+    expect(progressLabel({ status: "learning", timesSeen: 0, correctStreak: 0 })).toEqual({
+      kind: "new",
+      text: "new",
+      spoken: "Not practised yet",
     });
   });
 
-  it("shows nothing for ignored words or learned words never practised", () => {
-    expect(progressHint({ status: "ignored", timesSeen: 3, correctStreak: 1 })).toBeNull();
-    expect(progressHint({ status: "learned", timesSeen: 0, correctStreak: 0 })).toBeNull();
+  it("counts right answers in a row towards learned", () => {
+    expect(progressLabel({ status: "learning", timesSeen: 4, correctStreak: 2 })).toEqual({
+      kind: "streak",
+      text: `2/${LEARNED_STREAK}`,
+      spoken: `2 of ${LEARNED_STREAK} right in a row`,
+    });
+    expect(progressLabel({ status: "learning", timesSeen: 1, correctStreak: 0 })?.text).toBe(
+      `0/${LEARNED_STREAK}`,
+    );
+  });
+
+  it("never counts past the streak that makes a word learned", () => {
+    expect(progressLabel({ status: "learning", timesSeen: 9, correctStreak: 7 })?.text).toBe(
+      `${LEARNED_STREAK}/${LEARNED_STREAK}`,
+    );
+  });
+
+  it("shows nothing for learned or ignored words", () => {
+    expect(progressLabel({ status: "learned", timesSeen: 9, correctStreak: 7 })).toBeNull();
+    expect(progressLabel({ status: "learned", timesSeen: 0, correctStreak: 0 })).toBeNull();
+    expect(progressLabel({ status: "ignored", timesSeen: 3, correctStreak: 1 })).toBeNull();
+    expect(progressLabel({ status: "ignored", timesSeen: 0, correctStreak: 0 })).toBeNull();
   });
 });
 

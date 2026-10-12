@@ -5,29 +5,22 @@ import {
   type WordListItem,
 } from "@language-app/core";
 
-/** The small progress mark on a My words row. */
-export type ProgressHint = { kind: "new" } | { kind: "streak"; filled: number; of: number };
+/** The short progress text on a My words row, and what a screen reader says instead. */
+export type ProgressLabel = { kind: "new" | "streak"; text: string; spoken: string };
 
-export function progressHint(
+export function progressLabel(
   word: Pick<WordListItem, "status" | "timesSeen" | "correctStreak">,
-): ProgressHint | null {
-  // Ignored words are never practised; a learned word nobody practised was marked by hand.
-  if (word.status === "ignored") return null;
-  if (word.timesSeen === 0) return word.status === "learning" ? { kind: "new" } : null;
+): ProgressLabel | null {
+  // Learned words need no mark (their tab says it), and ignored words are never practised.
+  if (word.status !== "learning") return null;
+  if (word.timesSeen === 0) return { kind: "new", text: "new", spoken: "Not practised yet" };
+  const inARow = Math.min(word.correctStreak, LEARNED_STREAK);
   return {
     kind: "streak",
-    filled: Math.min(word.correctStreak, LEARNED_STREAK),
-    of: LEARNED_STREAK,
+    text: `${inARow}/${LEARNED_STREAK}`,
+    spoken: `${inARow} of ${LEARNED_STREAK} right in a row`,
   };
 }
-
-/** The hint for screen readers. */
-export const hintLabel = (hint: ProgressHint | null) =>
-  !hint
-    ? ""
-    : hint.kind === "new"
-      ? "Not practised yet"
-      : `${hint.filled} of ${hint.of} right in a row`;
 
 export const FORMS_SOURCE_LABEL: Record<FormsSource, string> = {
   dictionary: "from Wiktionary",

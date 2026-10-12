@@ -6,12 +6,16 @@
   --muted: #6b6b70;
   --border: #e2e1dc;
   --accent: #2f6fdf;
+  /* Text on an --accent or --danger fill: at least 4.5:1 in both schemes (white on the light
+     fills: 4.7:1 and 5.4:1). */
+  --on-accent: #ffffff;
   --accent-soft: #e8f0fd;
   --success: #1e7d46;
   --success-soft: #e3f4ea;
   --warning: #9a5b00;
   --warning-soft: #fdf1dc;
   --danger: #c4372b;
+  --on-danger: #ffffff;
   --danger-soft: #fbe7e5;
   --radius: 14px;
   --gutter: 16px;
@@ -32,12 +36,15 @@
     --muted: #9a9aa2;
     --border: #2f2f35;
     --accent: #6c9ef8;
+    /* White on these lighter fills would be 2.7:1 and 3:1; dark text is 6.8:1 and 6:1. */
+    --on-accent: #0d1526;
     --accent-soft: #1d2a40;
     --success: #5cc78a;
     --success-soft: #16301f;
     --warning: #f0b45c;
     --warning-soft: #33270f;
     --danger: #ef6b5f;
+    --on-danger: #2a0c08;
     --danger-soft: #3a1b18;
     --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
   }

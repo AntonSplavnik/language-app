@@ -57,3 +57,8 @@
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
 }
+
+/* While the action bar is on screen, toasts appear above it instead of covering it (Toast). */
+:root:has(.footer) {
+  --toast-bottom: calc(env(safe-area-inset-bottom) + 96px);
+}

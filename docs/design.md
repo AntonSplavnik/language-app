@@ -380,9 +380,14 @@ Home ─┬─► Import ──► Review ──► Done ─► (Practice these 
       └─► My words ──► Word detail
 ```
 
-Mobile-first layout, usable on desktop.
+Mobile-first layout, usable on desktop. Light and dark colour schemes follow the system; text on an accent or danger fill (primary and delete buttons) is white in light mode and a dark shade in dark mode, so it keeps at least 4.5:1 against the lighter dark-mode fills. Toasts appear near the bottom edge, or above the sticky action bar on screens that have one.
 
-1. **Home** — Practice, New import, My words; counters (learning / learned) that open the matching My words tab; a banner for each import not yet `done` that has at least one photo ("Continue importing Lesson 4" while collecting, "Finish reviewing Lesson 4" once reviewing; an unnamed import shows its date); "N words without details yet" + **Add details** when enrichment is pending; Wiktionary credit in the footer.
+1. **Home** — top to bottom:
+   - a **My words** card with the counts ("136 learning · 0 learned"); the whole card opens the Learning tab of My words, and it is Home's only way there;
+   - only when there is unfinished work: a banner for each import not yet `done` that has at least one photo ("Continue importing Lesson 4" while collecting, "Finish reviewing Lesson 4" once reviewing; an unnamed import shows its date), and "N words without details yet" + **Add details** when enrichment is pending;
+   - **Practice**, the main button, once there are learning or learned words, with what it draws from on a second line ("136 words to practise"; "Review learned words" when every word is learned);
+   - **+ New import**, the second button; while there are no words yet it is the main button, with the hint "Photograph the pages you studied to collect their new words." below it;
+   - the Wiktionary credit in the footer.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
    - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and cannot be changed later. The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
@@ -390,19 +395,19 @@ Mobile-first layout, usable on desktop.
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
 3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session). With nothing set to Add the button reads **Skip all N words** (or **Finish** when there are no new words) and shows "Saving…".
    - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
-   - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. A reloaded Done screen no longer has the counts and just says "Import saved". On Home, **Practice** is the main button once there are words, **New import** the second, **My words** the third.
+   - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. A reloaded Done screen no longer has the counts and just says "Import saved". On Home, **Practice** is the main button once there are words and **New import** the second (screen 1).
 4. **Practice setup** — three sources with counts, **Start**.
 5. **Flashcards** — progress "5 / 20", card, swipe hints, buttons below the card.
 6. **Summary** — §8.6.
 7. **My words** (`/words?status=learning&q=…`) — tabs Learning / Learned / Ignored with their counts, a search box, the list.
    - The tab and the search live in the URL (replacing the history entry, not adding one), so a reload or Back from a word returns to the same list. Learning is the default tab.
    - The search runs 250 ms after typing stops, or at once on Enter (which also closes the keyboard). It searches every tab: when the current tab has no match, the empty state links to the tabs that have ("2 in Ignored ›"). The field uses a 16 px font so iOS Safari doesn't zoom in.
-   - A row shows the headword (article + lemma, as on the card back), the translation (the learner's own if set) and a small progress mark: "new" for a learning word never practised, otherwise three dots that fill with correct answers in a row; nothing for ignored words. Tapping a row opens Word detail.
+   - A row shows the headword (article + lemma, as on the card back), the translation (the learner's own if set) and a short progress mark: "new" for a learning word never practised, otherwise the right answers in a row towards learned ("0/3", "1/3", "2/3"; `LEARNED_STREAK`); nothing for learned or ignored words. Tapping a row opens Word detail.
    - Empty tabs say what belongs there (Learned: "a word counts as learned after 3 right answers in a row"); the Learning tab offers **New import**.
 8. **Word detail** (`/words/:id`) — the headword as the title, then:
-   - the translation the card shows and the part of speech;
+   - the part of speech under the headword (muted), then the translation the card shows;
    - status as a three-part control (Learning / Learned / Ignored) that saves on tap, with one line on what the status means; moving a word back to Learning resets its streak (§9.1);
-   - the word's facts: the stored translation, the forms line with its source ("from Wiktionary" / "from AI"), the example sentence and its translation, the dictionary check in plain words (`mismatch_kept` in warning colour), and a hint when details are still pending;
+   - the word's facts: the stored translation (labelled "Original translation" when the learner has their own, "Translation" otherwise), the forms line with its source ("from Wiktionary" / "from AI"), the example sentence and its translation, the dictionary check in plain words (`mismatch_kept` in warning colour), and a hint when details are still pending;
    - progress: seen, correct, in a row, when last practised and with what result, when it was added;
    - **Your translation** (the stored one as placeholder; empty uses it) and **Note** (shown on the card back). **Save** and **Discard** appear only when a text really changed (compared trimmed, as stored).
    - **Delete word** asks in place, not with a browser dialog: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, choose Ignored instead." After deleting, the app goes back to the list with a toast.

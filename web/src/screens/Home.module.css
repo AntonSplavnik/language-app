@@ -25,35 +25,47 @@
   color: var(--muted);
 }
 
-.counters {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* My words: one card with the counts, the whole card a link. */
+.wordsCard {
+  display: flex;
+  align-items: center;
   gap: 12px;
-}
-
-.counter {
+  min-height: 64px;
+  padding: 12px 14px 12px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
   color: var(--text);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.counter:active {
+.wordsCard:active {
   background: var(--surface-muted);
 }
 
-.counterValue {
-  font-size: 34px;
+.wordsText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wordsTitle {
+  font-size: 18px;
   font-weight: 650;
+}
+
+.wordsText .muted {
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 
-.counterLabel {
+.chevron {
+  flex: none;
+  font-size: 24px;
+  line-height: 1;
   color: var(--muted);
 }
 
@@ -81,7 +93,7 @@
   border-radius: 10px;
   padding: 10px 16px;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
 }
 
 .footer {
@@ -99,7 +111,25 @@
   font-size: 18px;
 }
 
-.camera {
+/* Practice, with what it will draw from below. */
+.twoLines {
+  flex-direction: column;
+  gap: 0;
+  padding-block: 10px;
+}
+
+.subline {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.plus {
   font-size: 24px;
   line-height: 1;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
 }
