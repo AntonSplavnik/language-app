@@ -1,5 +1,6 @@
 import type { WordView } from "@language-app/core";
 import { and, eq, sql } from "drizzle-orm";
+import type { SelectedFields } from "drizzle-orm/pg-core";
 import type { Executor } from "../db/client";
 import { users, userWords, words, wordTranslations } from "../db/schema";
 
@@ -14,9 +15,14 @@ export async function learnerLanguageOf(db: Executor, userId: number): Promise<s
 
 /**
  * A query for the learner's words as `WordView`s: their `user_words` row, the shared word and its
- * translation in the learner's language. Add joins, a where clause and an order to it.
+ * translation in the learner's language. Add joins, a where clause and an order to it; `extra`
+ * selects more columns next to the `WordView` ones.
  */
-export function wordViewQuery(db: Executor, language: string) {
+export function wordViewQuery<Extra extends SelectedFields = Record<never, never>>(
+  db: Executor,
+  language: string,
+  extra?: Extra,
+) {
   return db
     .select({
       userWordId: userWords.id,
@@ -31,6 +37,7 @@ export function wordViewQuery(db: Executor, language: string) {
       exampleTranslation: wordTranslations.exampleTranslation,
       note: userWords.note,
       enriched: sql<boolean>`${words.enrichedAt} is not null`,
+      ...(extra as Extra),
     })
     .from(userWords)
     .innerJoin(words, eq(userWords.wordId, words.id))

@@ -173,3 +173,88 @@ describe("session endpoints", () => {
     expect(calls[2]?.body).toEqual(result);
   });
 });
+
+describe("word endpoints", () => {
+  const tisch = {
+    userWordId: 4,
+    lemma: "Tisch",
+    pos: "noun",
+    article: "der",
+    plural: "Tische",
+    forms: null,
+    translation: "table",
+    customTranslation: "desk",
+    exampleDe: null,
+    exampleTranslation: null,
+    note: null,
+    enriched: false,
+  };
+  const detail = {
+    ...tisch,
+    status: "learning",
+    formsSource: null,
+    checkStatus: "match",
+    timesSeen: 2,
+    timesCorrect: 1,
+    correctStreak: 1,
+    lastResult: "knew",
+    lastPracticedAt: "2026-10-11T09:00:00.000Z",
+    addedAt: "2026-10-10T09:00:00.000Z",
+  };
+  const listed = {
+    words: [{ ...tisch, status: "learning", timesSeen: 2, correctStreak: 1 }],
+    counts: { learning: 1, learned: 0, ignored: 0 },
+  };
+
+  function recording() {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const api = createApiClient({
+      fetch: async (input, init) => {
+        calls.push({ url: String(input), init });
+        const body =
+          init?.method === "DELETE"
+            ? { deleted: true }
+            : String(input).startsWith("/api/words/")
+              ? detail
+              : listed;
+        return new Response(JSON.stringify(body), { status: 200 });
+      },
+    });
+    return { calls, api };
+  }
+
+  it("listWords puts status and search in the query string, leaving out empty ones", async () => {
+    const { calls, api } = recording();
+    expect(await api.listWords({ status: "learned", q: "der Tisch & co" })).toEqual(listed);
+    await api.listWords({ status: "ignored", q: "" });
+    await api.listWords();
+    expect(calls.map((c) => c.url)).toEqual([
+      "/api/words?status=learned&q=der%20Tisch%20%26%20co",
+      "/api/words?status=ignored",
+      "/api/words",
+    ]);
+  });
+
+  it("getWord, updateWord and deleteWord use the right methods, paths and bodies", async () => {
+    const { calls, api } = recording();
+    expect(await api.getWord(4)).toEqual(detail);
+    expect(await api.updateWord(4, { customTranslation: "desk", status: "learning" })).toEqual(
+      detail,
+    );
+    expect(await api.deleteWord(4)).toEqual({ deleted: true });
+
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "GET /api/words/4",
+      "PATCH /api/words/4",
+      "DELETE /api/words/4",
+    ]);
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({
+      customTranslation: "desk",
+      status: "learning",
+    });
+    expect(new Headers(calls[1]?.init?.headers).get("content-type")).toBe("application/json");
+    // A DELETE without a body must not claim to send JSON (Fastify rejects an empty JSON body).
+    expect(calls[2]?.init?.body).toBeUndefined();
+    expect(new Headers(calls[2]?.init?.headers).get("content-type")).toBeNull();
+  });
+});

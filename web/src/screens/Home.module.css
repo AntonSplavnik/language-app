@@ -38,6 +38,13 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.counter:active {
+  background: var(--surface-muted);
 }
 
 .counterValue {

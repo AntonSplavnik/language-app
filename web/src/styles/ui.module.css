@@ -33,6 +33,11 @@
   border: 1px solid var(--border);
 }
 
+.danger {
+  background: var(--danger);
+  color: #fff;
+}
+
 .quiet {
   background: transparent;
   color: var(--accent);

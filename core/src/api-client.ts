@@ -18,7 +18,14 @@ import {
   SessionSummary,
 } from "./schemas/sessions";
 import { StatsResponse } from "./schemas/stats";
-import { EnrichPendingResponse } from "./schemas/words";
+import {
+  DeleteWordResponse,
+  EnrichPendingResponse,
+  type UpdateWordRequest,
+  WordDetail,
+  type WordListQuery,
+  WordListResponse,
+} from "./schemas/words";
 
 /** Every failed API call: an error from the server, an unexpected response, or no connection. */
 export class ApiClientError extends Error {
@@ -70,12 +77,19 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     return parsed.data;
   }
 
-  const postJson = <S extends z.ZodType>(schema: S, path: string, body?: unknown) =>
+  const sendJson = <S extends z.ZodType>(
+    schema: S,
+    method: "POST" | "PATCH",
+    path: string,
+    body?: unknown,
+  ) =>
     request(schema, path, {
-      method: "POST",
+      method,
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body ?? {}),
     });
+  const postJson = <S extends z.ZodType>(schema: S, path: string, body?: unknown) =>
+    sendJson(schema, "POST", path, body);
 
   return {
     health: () => request(HealthResponse, "/health"),
@@ -95,6 +109,12 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 
     /** Retries enrichment for the learner's words that have no details yet. */
     enrichPending: () => postJson(EnrichPendingResponse, "/words/enrich-pending"),
+    listWords: (query: WordListQuery = {}) =>
+      request(WordListResponse, `/words${queryString(query)}`),
+    getWord: (id: number) => request(WordDetail, `/words/${id}`),
+    updateWord: (id: number, body: UpdateWordRequest) =>
+      sendJson(WordDetail, "PATCH", `/words/${id}`, body),
+    deleteWord: (id: number) => request(DeleteWordResponse, `/words/${id}`, { method: "DELETE" }),
 
     sessionOptions: () => request(SessionOptionsResponse, "/sessions/options"),
     createSession: (body: CreateSessionRequest) => postJson(SessionResponse, "/sessions", body),
@@ -105,3 +125,11 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
+
+/** `?a=1&b=2` from the given values, leaving out empty ones; "" when nothing is left. */
+function queryString(params: Record<string, string | undefined>): string {
+  const pairs = Object.entries(params).flatMap(([key, value]) =>
+    value ? [`${encodeURIComponent(key)}=${encodeURIComponent(value)}`] : [],
+  );
+  return pairs.length > 0 ? `?${pairs.join("&")}` : "";
+}

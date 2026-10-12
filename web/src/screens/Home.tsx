@@ -1,9 +1,10 @@
-import type { StatsResponse } from "@language-app/core";
+import type { StatsResponse, WordStatus } from "@language-app/core";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
 import { PendingDetails } from "../components/PendingDetails";
 import ui from "../styles/ui.module.css";
+import { wordsUrl } from "../words/listQuery";
 import styles from "./Home.module.css";
 
 type State =
@@ -45,8 +46,8 @@ export function Home() {
         {state.kind === "ready" && (
           <>
             <section className={styles.counters} aria-label="Your words">
-              <Counter label="Learning" value={state.stats.learning} />
-              <Counter label="Learned" value={state.stats.learned} />
+              <Counter label="Learning" status="learning" value={state.stats.learning} />
+              <Counter label="Learned" status="learned" value={state.stats.learned} />
             </section>
 
             {state.stats.detailsPending > 0 && (
@@ -88,6 +89,12 @@ export function Home() {
             <p className={styles.muted}>
               Photograph the pages you studied to collect their new words.
             </p>
+            <Link
+              to={wordsUrl({ status: "learning", q: "" })}
+              className={`${ui.button} ${ui.secondary}`}
+            >
+              My words
+            </Link>
           </>
         )}
       </main>
@@ -103,12 +110,15 @@ export function Home() {
   );
 }
 
-function Counter({ label, value }: { label: string; value: number }) {
+/** A counter that opens its tab of My words. */
+function Counter({ label, status, value }: { label: string; status: WordStatus; value: number }) {
   return (
-    <div className={styles.counter}>
+    <Link to={wordsUrl({ status, q: "" })} className={styles.counter}>
       <span className={styles.counterValue}>{value}</span>
-      <span className={styles.counterLabel}>{label}</span>
-    </div>
+      <span className={styles.counterLabel}>
+        {label} <span aria-hidden>›</span>
+      </span>
+    </Link>
   );
 }
 

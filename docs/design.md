@@ -1,7 +1,7 @@
 # Language App — Prototype Design
 
-**Date:** 2026-10-11
-**Status:** Draft for review
+**Date:** 2026-10-11, last updated 2026-10-12
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`); kept in sync with the code
 
 ## 1. Purpose
 
@@ -23,7 +23,7 @@ A companion app for learning German from any book. After each study session the 
 - Flashcard practice (one mode) with three session sources
 - Per-word progress tracking
 - "My words" list with edit, status change and delete
-- AI usage/cost tracking and a daily photo limit
+- AI usage tracking (tokens and time per call, from which the cost is worked out) and a daily photo limit
 - One user, no login; English as the learner language; German as the target language
 
 ### Not in the prototype (see §15 Later)
@@ -67,14 +67,16 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 - **`core/`** — pure TypeScript, no browser or Node-specific APIs, so a future React Native app can use it unchanged.
   - Types and **Zod schemas** for every API request/response and for both AI call outputs.
   - **API client** used by the web app.
-  - **Learning rules**: applying a card result to a word's progress (`applyResult(progress, result) → progress`).
-- **`server/`** — the only unit that talks to the database and to Claude. Holds the API key.
-  - `routes/` — HTTP endpoints (§9).
+  - **Learning rules**: applying a card result to a word's progress (`applyResult(progress, result, now) → progress`).
+  - **Card formatting** (`card.ts`): what the front and back of a card show, and which translation to show (`displayTranslation`: the learner's own wins).
+- **`server/`** — the only unit that talks to the database and to Claude. Holds the API key. Each feature folder has its own `routes.ts` with its HTTP endpoints (§9); `app.ts` wires them together.
   - `db/` — Drizzle schema and migrations.
-  - `ai/` — Claude client behind an interface (`extractWords(photo)`, `enrichWords(words)`), so tests can substitute recorded responses.
-  - `dictionary/` — Wiktionary lookups; `scripts/import-wiktionary.ts` loads the reference table.
-  - `imports/` — import flow: merge, compare, dictionary check, save, enrich.
+  - `ai/` — the Claude client (`AiClient`: `extractWords(jpeg, ctx)`, `enrichWords(words, ctx)`) on a swappable message transport, so tests replay recorded responses; the prompts; `ai_usage` rows.
+  - `dictionary/` — Wiktionary lookups and the check rules; `scripts/import-wiktionary.ts` loads the reference table.
+  - `imports/` — import flow: merge, compare, dictionary check, save.
+  - `words/` — enrichment (`enrich.ts`), the learner's word list: list, detail, edit, delete (`service.ts`), and the query every word view is built on (`views.ts`).
   - `practice/` — session word selection and result recording.
+  - `routes/stats.ts` — Home's counters; `http/errors.ts` — error responses (§12); `config.ts` — `.env` validation.
 - **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`), so a phone app only needs to replace those.
 
 ### Technology
@@ -90,9 +92,10 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Validation | Zod (shared in `core/`) |
 | AI | Anthropic TypeScript SDK (`@anthropic-ai/sdk`), structured outputs |
 | Tests | Vitest |
+| Lint / format | Biome |
 
 ### Single user
-A single user row is created by the first migration. The server uses its fixed id for every request. Every learner-owned table has `user_id`, so adding accounts later does not change the schema.
+A single user row is created by a seed migration (`0001_seed-single-user.sql`). The server uses its fixed id (`SINGLE_USER_ID`) for every request. Every learner-owned table has `user_id`, so adding accounts later does not change the schema.
 
 ## 5. Data model
 
@@ -123,7 +126,7 @@ users ──< user_words >── words ──< word_translations
 | `article` | `der` / `die` / `das` for nouns, `null` otherwise |
 | `plural` | Nouns only, nullable |
 | `forms` | JSON, depends on pos. Verbs: `{ praeteritum, partizip2, auxiliary }` |
-| `forms_source` | `dictionary` / `ai` / `null` (not enriched yet) |
+| `forms_source` | `dictionary` / `ai`; `null` until enrichment has filled forms, and for parts of speech without forms |
 | `example_de` | AI-written example sentence |
 | `check_status` | `match` / `mismatch_fixed` / `mismatch_kept` / `not_in_dictionary` |
 | `enriched_at` | `null` until enrichment has run |
@@ -151,6 +154,8 @@ users ──< user_words >── words ──< word_translations
 | `times_seen`, `times_correct`, `correct_streak` | Progress counters |
 | `last_result` | `knew` / `didnt_know` / `null` |
 | `last_practiced_at` | |
+
+Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCADE`); the shared `words` row and its translations stay.
 
 ### `imports`
 | Field | Notes |
@@ -195,7 +200,7 @@ users ──< user_words >── words ──< word_translations
 | `id`, `user_id`, `import_id` | |
 | `call_type` | `extract` / `enrich` |
 | `model` | |
-| `input_tokens`, `output_tokens` | From the API response `usage` |
+| `input_tokens`, `output_tokens` | From the API response `usage`; input includes cache-creation and cache-read tokens |
 | `stop_reason` | |
 | `ok` | Whether the result was usable |
 | `duration_ms` | Wall-clock time of the attempt, including SDK retries; tracks the "under a minute" goal |
@@ -211,7 +216,7 @@ One row per API attempt: a retry after invalid output and a failed call each get
 2. Each photo sent separately → AI call 1 (extract) → words + page quality
 3. Server merges into the import's candidate list, removing duplicates
 4. Server compares candidates with the learner's user_words (any status)
-5. Server checks each new candidate against dictionary_entries
+5. Server checks each candidate the photo added against dictionary_entries
 6. Review screen: Add / Skip per word, one-tap fixes for dictionary mismatches
 7. Save: words + user_words created (added → learning, skipped → ignored)
 8. AI call 2 (enrich) for added words that are not yet enriched
@@ -219,7 +224,7 @@ One row per API attempt: a retry after invalid output and a failed call each get
 
 ### 6.2 Photos
 - Picked with `<input type="file" accept="image/*" multiple>`, which on iPhone offers camera or photo library and works over plain HTTP.
-- Shrunk in the browser with `createImageBitmap` + canvas → JPEG (quality 0.85, longest side 1600px). HEIC is decoded by Safari; if the browser cannot decode a file, the learner gets an error for that file only.
+- Shrunk in the browser with `createImageBitmap` (an `<img>` when that fails) + canvas → JPEG (quality 0.85, longest side 1600px). HEIC is decoded by Safari; if the browser cannot decode a file, the learner gets an error for that file only.
 - Photos are uploaded one per request, extracted, and **not stored** on the server. The browser keeps them in memory until the import moves to review, so a failed photo can be retried without picking it again.
 
 ### 6.3 Candidates
@@ -229,10 +234,10 @@ Each candidate in `imports.candidates`:
   existing: "none" | "in_my_words",
   dictionary: { status: "match" | "mismatch" | "not_found", genders?: [...] } }
 ```
-- `key` is `lemma|pos|article` (empty article for non-nouns).
+- `key` is `lemma|pos|article` (empty article for non-nouns). Lemmas are trimmed (empty ones dropped), and an article on a word that is not a noun is dropped.
 - **Duplicates** within an import are merged by `(lemma, pos, article)`; the first translation wins.
-- **Comparison:** a candidate is `in_my_words` if the learner has a `user_words` row (any status, including `ignored`) for a `words` row with the same identity.
-- **Dictionary check** (new candidates only): look up `dictionary_entries` by `lemma` + `pos` (exact match first, then case-insensitive). Words other than nouns that are not found under their own part of speech fall back to any non-noun entry with the same lemma, because sources label small words differently (Claude calls *nicht* a particle, Wiktionary an adverb). Nouns never fall back. Genders are merged across all entries found (*der See* and *die See*).
+- **Comparison:** a candidate is `in_my_words` if the learner has a `user_words` row (any status, including `ignored`) for a `words` row with the same identity. A word the learner deleted from their list (§10, Word detail) has no such row, so a later import offers it as new again.
+- **Dictionary check** (each candidate when a photo first adds it to the import): look up `dictionary_entries` by `lemma` + `pos` (exact match first, then case-insensitive). Words other than nouns that are not found under their own part of speech fall back to any non-noun entry with the same lemma, because sources label small words differently (Claude calls *nicht* a particle, Wiktionary an adverb). Nouns never fall back. Genders are merged across all entries found (*der See* and *die See*).
   - Found and `article` is one of `genders` (or the word is not a noun) → `match`
   - Found noun whose dictionary entries carry no gender (plural-only nouns such as *Eltern*) → `match`: nothing contradicts it
   - Found and the noun's `article` is not in `genders`, or the AI gave no article → `mismatch`, with the dictionary genders attached
@@ -251,7 +256,7 @@ For each decided candidate (candidates without a decision are not saved and will
 2. Create the `user_words` row: **Add** → `learning`, **Skip** → `ignored`, with `import_id`. When an article fix makes two candidates the same word, **Add** wins.
 3. Mark the import `done`.
 
-The whole save is one transaction that locks the import row. Every decision is validated first, so a rejected request changes nothing: an unknown `key` is `unknown_candidate`; an `article` other than the candidate's own is accepted only for a `mismatch` and only if it is one of the dictionary genders (`invalid_article`). Words are created in a fixed order so that two imports saving the same word at the same time create it once and cannot deadlock.
+The whole save is one transaction that locks the import row. Every decision is validated first, so a rejected request changes nothing: an unknown `key` is `unknown_candidate`; two decisions for one key are `invalid_request`; an `article` other than the candidate's own is accepted only for a `mismatch` and only if it is one of the dictionary genders (`invalid_article`). Words are created in a fixed order so that two imports saving the same word at the same time create it once and cannot deadlock.
 
 Photo uploads run the AI call outside any transaction, then lock the import row to merge, so photos uploaded at the same time don't overwrite each other's candidates.
 
@@ -282,7 +287,7 @@ A word already enriched by a previous import (any user) needs no AI call — thi
   - A test loads a 50-entry sample cut from the real file (`server/test/fixtures/kaikki-sample.jsonl`, made with `server/scripts/make-kaikki-sample.ts`).
 - **Check from the command line:** `pnpm --filter server dict:lookup <lemma> <pos> [article]` prints the entries and the check result.
 - **Re-running** the import replaces the table (truncate + insert in one transaction).
-- **Licence:** CC BY-SA. The app footer shows "Grammar data from Wiktionary (CC BY-SA)". Commercial use needs a licence review.
+- **Licence:** CC BY-SA. Home's footer shows "Grammar data from Wiktionary (CC BY-SA)". Commercial use needs a licence review.
 - **Known limits:** long compound nouns are often missing (→ `not_found`, AI data used); glosses are English only; plurals belong to the entry, not the meaning (*der Stock* lists *Stöcke*, the plural for "stick", also for the "floor" meaning); plural-only nouns have no gender.
 - **Measured coverage (2026-10-11):** of the 218 words extracted from three real book pages, 205 were found and none had a different article. The 13 not found were textbook compounds (*Kinderbibliothek*, *Terminvereinbarung*), *TV* and *möchten* (filed as a form of *mögen*).
 
@@ -298,7 +303,7 @@ Before starting, the learner chooses one source. Each option shows how many word
 | `not_learned` | `learning` words | First words with `last_result = didnt_know` (most recently practised first), then the rest by `added_at` newest first |
 
 ### 8.2 Card
-- **Front:** translation (`custom_translation` if set, otherwise `word_translations.translation`) and part of speech, e.g. "table (noun)".
+- **Front:** translation (`custom_translation` if set, otherwise `word_translations.translation`) with the part of speech below it, e.g. "table" over "noun".
 - **Back:**
   - nouns: "der Tisch", "pl. die Tische"
   - verbs: "gehen", "ging · ist gegangen"
@@ -320,7 +325,7 @@ The card follows the finger, tilts, and slides out in the swipe direction; a sho
 **iOS Safari:** a sideways swipe anywhere on a page means "go back" in Safari, which clashed with the right swipe. The flashcard screen cancels native touch movement (`touchmove` with `preventDefault`; the screen doesn't scroll), which stops it. A swipe that starts at the very screen edge is a system gesture no page can cancel, so the card keeps 32 px from each edge. Added to the Home Screen, the app runs full screen without Safari's navigation gestures (§14). Answering is allowed with or without flipping; `flipped` means the card was turned over at any point before the answer, and `flip_ms` is the time to the first flip.
 
 ### 8.4 Recording
-Each answer is sent immediately (`POST /api/sessions/:id/results`). If the request fails, answers are queued in memory, in order, and retried every 5 s and as soon as the browser reports it is online again. An answer the server rejects for good (4xx, e.g. the word was deleted meanwhile) is dropped with a message. After the last card, the session is finished only once every answer has been sent; while offline the screen says the answers are kept. Leaving mid-session loses nothing already answered. The session's cards and the current position are kept in the tab (`sessionStorage`), so a reload continues at the same card. Each card can be answered once per session (`UNIQUE (session_id, user_word_id)`): a retried request returns `recorded: false` and changes nothing.
+Each answer is sent immediately (`POST /api/sessions/:id/results`). If the request fails, answers are queued in memory, in order, and retried every 5 s and as soon as the browser reports it is online again. An answer the server rejects for good (4xx, e.g. the word was deleted meanwhile) is dropped with a message. After the last card, the session is finished only once every answer has been sent (tried again every 3 s); while offline the screen says the answers are kept. Leaving mid-session loses only answers that never reached the server, because the queue lives in memory. The session's cards and the current position are kept in the tab (`sessionStorage`), so a reload continues at the same card. Each card can be answered once per session (`UNIQUE (session_id, user_word_id)`): a retried request returns `recorded: false` and changes nothing.
 
 ### 8.5 Learning rules (`core/`)
 | Result | Effect on `user_words` |
@@ -340,21 +345,32 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/health` | `{ status: "ok" }` |
 | GET | `/stats` | Home counters (learning, learned), `detailsPending` (the learner's non-ignored words without details) and unfinished imports |
-| POST | `/imports` | Create import `{ name? }` → 201 + import |
+| POST | `/imports` | Create import `{ name? }` (trimmed, at most 100 characters) → 201 + import |
 | POST | `/imports/:id/photos` | Upload one JPEG (multipart field `photo`, at most 10 MB) → extract, merge, compare, check → `{ pageQuality, wordsFound, import }`. Only while the import is `collecting` |
 | GET | `/imports/:id` | Import with candidates; `existing` is recomputed on every read |
-| POST | `/imports/:id/review` | Move import to `reviewing` (no more photos) |
-| POST | `/imports/:id/save` | Decisions `[{ key, action: add \| skip, article? }]` → save, then enrich → `{ added, skipped, detailsPending }`. Allowed once, from `collecting` or `reviewing` |
+| POST | `/imports/:id/review` | Move import to `reviewing` (no more photos) → import; 409 `import_closed` once it is done |
+| POST | `/imports/:id/save` | `{ decisions: [{ key, action: add \| skip, article? }] }` → save, then enrich → `{ added, skipped, detailsPending }`. Allowed once, from `collecting` or `reviewing` |
 | POST | `/words/enrich-pending` | Retry enrichment for the learner's `learning` / `learned` words with `enriched_at = null` → `{ enriched, pending }` |
-| GET | `/words?status=&q=` | Word list, filter by status, search German or English |
-| GET | `/words/:userWordId` | Word detail with progress |
-| PATCH | `/words/:userWordId` | `{ status?, customTranslation?, note? }` |
-| DELETE | `/words/:userWordId` | Remove from the learner's list (shared `words` row stays) |
+| GET | `/words?status=&q=` | The learner's words → `{ words, counts }`, see below |
+| GET | `/words/:userWordId` | → `WordDetail`, see below |
+| PATCH | `/words/:userWordId` | `{ status?, customTranslation?, note? }` → `WordDetail`, see below |
+| DELETE | `/words/:userWordId` | → `{ deleted: true }`, see below |
 | GET | `/sessions/options` | `{ options: [{ source, count }] }`, in display order |
 | POST | `/sessions` | `{ source }` → `{ id, source, cards }`; 400 `no_words` for a source without words |
 | POST | `/sessions/:id/results` | `{ userWordId, result, flipped, flipMs, answerMs }` → `{ recorded }` |
 | POST | `/sessions/:id/finish` | → `{ knew, didntKnow, skipped, missed }` |
+
+Errors are listed in §12. Ids of another learner's rows answer like unknown ids (404).
+
+### 9.1 Word endpoints
+A `WordView` is what a card shows (§8.2): `userWordId`, `lemma`, `pos`, `article`, `plural`, `forms`, `translation`, `customTranslation`, `exampleDe`, `exampleTranslation`, `note`, `enriched`.
+
+- **`GET /words?status=&q=`** — `status` (`learning` / `learned` / `ignored`) filters; absent means all. `q` is a case-insensitive substring of the German lemma, the stored translation or the learner's custom translation; `%` and `_` match themselves, a blank `q` is no search. Words are ordered by lemma, ignoring case. Each word is a `WordView` plus `status`, `timesSeen` and `correctStreak` (for the progress mark). `counts` gives the words per status that match `q`, whatever `status` asked for, so the tabs can show where the matches are. No paging: the prototype's list has a few hundred words.
+- **`GET /words/:userWordId`** — `WordDetail`: a `WordView` plus `status`, `formsSource`, `checkStatus`, `timesSeen`, `timesCorrect`, `correctStreak`, `lastResult`, `lastPracticedAt`, `addedAt`. 404 `word_not_found`.
+- **`PATCH /words/:userWordId`** — fields left out stay as they are. Texts are trimmed; an empty or blank text, or `null`, clears the field (stored as `NULL`). At most 200 characters for the translation and 2000 for the note (400 `invalid_request`). Changing the status to `learning` resets `correct_streak` to 0, so the next correct answer does not mark the word learned again at once; `times_seen` and `times_correct` stay. Answers with the updated `WordDetail`; 404 `word_not_found`.
+- **`DELETE /words/:userWordId`** — deletes the `user_words` row and its `card_results`. The shared `words` row and its translations stay, so a later import offers the word again as new, and adding it again reuses its details without an AI call. 404 `word_not_found`.
 
 ## 10. Screens
 
@@ -366,25 +382,36 @@ Home ─┬─► Import ──► Review ──► Done ─► (Practice these 
 
 Mobile-first layout, usable on desktop.
 
-1. **Home** — New import, Practice, My words; counters (learning / learned); banner for each import not yet `done` that has at least one photo ("Finish reviewing Lesson 4"); "N words without details yet" + **Add details** when enrichment is pending; Wiktionary credit in the footer.
+1. **Home** — Practice, New import, My words; counters (learning / learned) that open the matching My words tab; a banner for each import not yet `done` that has at least one photo ("Continue importing Lesson 4" while collecting, "Finish reviewing Lesson 4" once reviewing; an unnamed import shows its date); "N words without details yet" + **Add details** when enrichment is pending; Wiktionary credit in the footer.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
    - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and cannot be changed later. The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
-   - A photo can be removed before it is sent or after it failed; once read, its words stay in the import (they can be skipped in review). **Retry** appears only for failures worth retrying with the same photo (AI busy, invalid output, network); otherwise the message says what to do (e.g. "photograph it in two parts").
+   - A photo can be removed before it is sent or after it failed; once read, its words stay in the import (they can be skipped in review). **Retry** appears only for failures worth retrying with the same photo (AI busy, invalid output, network, an unexpected server error); otherwise the message says what to do (e.g. "photograph it in two parts").
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
-3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session).
+3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session). With nothing set to Add the button reads **Skip all N words** (or **Finish** when there are no new words) and shows "Saving…".
    - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
-   - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. On Home, **Practice** is the main button once there are words, **New import** the second; My words follows in M8.
+   - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. A reloaded Done screen no longer has the counts and just says "Import saved". On Home, **Practice** is the main button once there are words, **New import** the second, **My words** the third.
 4. **Practice setup** — three sources with counts, **Start**.
 5. **Flashcards** — progress "5 / 20", card, swipe hints, buttons below the card.
 6. **Summary** — §8.6.
-7. **My words** — tabs Learning / Learned / Ignored, search box, list.
-8. **Word detail** — all word data, source of forms (dictionary / AI), progress (seen, correct, streak, last practised); edit custom translation and note; change status; delete.
+7. **My words** (`/words?status=learning&q=…`) — tabs Learning / Learned / Ignored with their counts, a search box, the list.
+   - The tab and the search live in the URL (replacing the history entry, not adding one), so a reload or Back from a word returns to the same list. Learning is the default tab.
+   - The search runs 250 ms after typing stops, or at once on Enter (which also closes the keyboard). It searches every tab: when the current tab has no match, the empty state links to the tabs that have ("2 in Ignored ›"). The field uses a 16 px font so iOS Safari doesn't zoom in.
+   - A row shows the headword (article + lemma, as on the card back), the translation (the learner's own if set) and a small progress mark: "new" for a learning word never practised, otherwise three dots that fill with correct answers in a row; nothing for ignored words. Tapping a row opens Word detail.
+   - Empty tabs say what belongs there (Learned: "a word counts as learned after 3 right answers in a row"); the Learning tab offers **New import**.
+8. **Word detail** (`/words/:id`) — the headword as the title, then:
+   - the translation the card shows and the part of speech;
+   - status as a three-part control (Learning / Learned / Ignored) that saves on tap, with one line on what the status means; moving a word back to Learning resets its streak (§9.1);
+   - the word's facts: the stored translation, the forms line with its source ("from Wiktionary" / "from AI"), the example sentence and its translation, the dictionary check in plain words (`mismatch_kept` in warning colour), and a hint when details are still pending;
+   - progress: seen, correct, in a row, when last practised and with what result, when it was added;
+   - **Your translation** (the stored one as placeholder; empty uses it) and **Note** (shown on the card back). **Save** and **Discard** appear only when a text really changed (compared trimmed, as stored).
+   - **Delete word** asks in place, not with a browser dialog: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, choose Ignored instead." After deleting, the app goes back to the list with a toast.
+   - Back returns to the list the word was opened from (tab and search). A word that no longer exists says "This word is not in your list any more".
 
 ## 11. AI calls
 
 ### 11.1 Common settings
-- **SDK:** `@anthropic-ai/sdk`, beta client (`client.beta.messages.create`, needed for `fallbacks`). Structured outputs: the Zod schemas from `core/` converted with the SDK's `betaZodOutputFormat` into `output_config.format`. The SDK turns enum values into schema descriptions rather than hard constraints, so every response is validated again with Zod before use. `thinking` is never sent (Opus 5.5 always thinks adaptively; disabling it is a 400).
+- **SDK:** `@anthropic-ai/sdk`, beta client (`client.beta.messages.create`, needed for `fallbacks`). Structured outputs: the Zod schemas from `core/` are converted to JSON Schema with the SDK's `betaZodOutputFormat` and sent as `output_config.format`; responses are parsed by our own code, not `messages.parse()`. The SDK turns enum values into schema descriptions rather than hard constraints, so every response is validated again with Zod before use. `thinking` is never sent (Opus 5.5 always thinks adaptively; disabling it is a 400).
 - **Model:** `claude-opus-5-5` by default, configured separately per call (`AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`).
 - **Effort:** `low` (`AI_EFFORT`). Opus 5.5 defaults to `medium`, so it is set explicitly.
 - **Refusal fallback:** server-side fallback enabled (`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta) for models that support it (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5). Haiku 5.5 has no server-side fallback and must not be sent the parameter, so a Haiku refusal is final. `stop_reason` is checked before reading content.
@@ -445,10 +472,10 @@ Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cent
 
 On the vocabulary-list page all models matched Opus closely (Sonnet 53, Haiku 50 vs 52 words), and no noun article differed from Opus on any page. Enrichment of the 11-word batch gave identical plurals and verb forms on all three models (Opus 10 s / 2.7¢, Sonnet `low` 6 s / 1.3¢, Haiku `medium` 5 s / 0.07¢).
 
-Error kinds differ: Sonnet's mistakes are mostly extra words the learner can skip, while Haiku's split separable verbs produce a wrong lemma. For development the `.env` uses Haiku 5.5 at `medium`; the code defaults stay Opus 5.5 at `low`.
+Error kinds differ: Sonnet's mistakes are mostly extra words the learner can skip, while Haiku's split separable verbs produce a wrong lemma. The author's development `.env` uses Haiku 5.5 at `medium`; the code defaults and `.env.example` stay Opus 5.5 at `low`.
 
 ### 11.5 Daily limit
-`DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage`. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
+`DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage` and checked before each upload. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
 
 ## 12. Errors
 
@@ -462,7 +489,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Other Claude API errors (bad request, invalid API key) | Not retried; surfaces as an unexpected server error |
 | `stop_reason = refusal` (after fallback) | Treated as a failed photo |
 | Output fails Zod validation | One automatic retry, then failed photo |
-| `stop_reason = max_tokens` | Failed photo: "Page too long — photograph it in two parts" |
+| `stop_reason = max_tokens` (or `model_context_window_exceeded`) | Failed photo: "Page too long — photograph it in two parts" |
 | Enrichment fails | Words stay saved; cards show "Details pending"; Done screen and Home show "N words without details" + **Add details** (`/words/enrich-pending`) |
 | Learner leaves during review | Import stays `reviewing`; Home shows a banner to finish it |
 | Same word saved twice concurrently | Unique constraints + upsert; no duplicates |
@@ -472,18 +499,26 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Problem | Behaviour |
 |---|---|
 | Result request fails | Queued in memory, retried when back online |
-| Learner leaves mid-session | Answered cards are saved; session stays unfinished |
+| Learner leaves mid-session | Answers that reached the server are saved; session stays unfinished |
 | Source has no words | Option disabled |
+| A word in the session was deleted meanwhile | Its answer gets 404 `word_not_found` and is dropped with a message (§8.4) |
+
+### My words
+| Problem | Behaviour |
+|---|---|
+| Word detail opened for a word that was deleted | "This word is not in your list any more" + link to My words |
+| Loading the list or a word fails | Inline message with **Try again** |
+| Saving a change or deleting fails | Toast; typed texts stay, a status change is undone on screen |
 
 ### Error codes
 | HTTP | `code` | When |
 |---|---|---|
-| 400 | `invalid_request` | Body or parameters fail validation, or no photo was sent |
+| 400 | `invalid_request` | Body, query or parameters fail validation, no photo was sent, or two save decisions for one key. Fastify's own client errors (malformed JSON, wrong content type) keep their 4xx status |
 | 400 | `invalid_image` | The upload is not a JPEG |
 | 400 | `unknown_candidate`, `invalid_article` | Save decisions don't fit the import (§6.5) |
 | 400 | `no_words` | Practice source without words |
-| 404 | `import_not_found`, `session_not_found`, `word_not_found`, `not_found` | |
-| 409 | `import_closed` | Photo for an import that is no longer collecting; save of an import that is done |
+| 404 | `import_not_found`, `session_not_found`, `word_not_found`, `not_found` | Unknown id, or one of another learner; `not_found`: no such route |
+| 409 | `import_closed` | Photo for an import that is no longer collecting; review or save of an import that is done |
 | 413 | `file_too_large` | Photo over 10 MB |
 | 422 | `ai_refused`, `ai_invalid_output`, `page_too_long` | The photo failed (§12 Import) |
 | 429 | `daily_limit` | §11.5 |
@@ -491,17 +526,17 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | 500 | `internal` | Anything unexpected; the message includes the request id |
 
 ### General
-Every error response has the body `{ "error": { "code": "...", "message": "..." } }` (`ApiError` in `core/`). Unexpected server errors return it with a message; the web app shows it in a toast. Server logs include the request id.
+Every error response has the body `{ "error": { "code": "...", "message": "..." } }` (`ApiError` in `core/`). An unexpected server error answers 500 `internal` with "Something went wrong (request <id>)"; the details stay in the server log under that request id. The API client turns every failed call into an `ApiClientError` with the server's code, or `network` (no response), `http_error` (an error without that body) or `invalid_response` (a body that fails its schema). The web app shows the message in a toast, or inline with **Try again** where the screen has nothing else to show.
 
 ## 13. Testing
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, candidate merging, dictionary match logic, session ordering | Vitest in `core/` and `server/` | Free |
-| Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection per source, result recording, daily limit, error paths (429, refusal, invalid output, max_tokens) | Vitest + real PostgreSQL test database (Docker), AI client replaced by **recorded real Claude responses** (fixtures) | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, photo / review / word-form helpers | Vitest in `core/`, `server/` and `web/` | Free |
+| Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / edit / delete, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` | Vitest on a small sample file with expected rows | Free |
-| Live | 2 real photos and one small enrich batch through the real Claude API; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run |
-| AI quality (optional) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models | ~$2–3 per run on Opus |
+| Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`) and a 3-word enrich batch through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
+| AI quality (optional, not built yet) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models; needs the hand-checked pages first | ~$2–3 per run on Opus |
 | Manual | Layout, gestures, photo flow on the real device | iPhone on the local network | — |
 
 Fixtures are created by running a few real photos through Claude once and saving the raw responses (`pnpm --filter server ai:try extract <photo> --save <name>`, `… enrich <words.json> --save <name>`; stored in `server/test/fixtures/ai/` with the prompt hash and timing). Cases that cannot or should not be provoked for real (refusal, `max_tokens`, invalid output, fallback, 429/5xx/connection errors) are built in the tests from a recorded response. Implementation follows test-first development.
@@ -509,7 +544,9 @@ Fixtures are created by running a few real photos through Claude once and saving
 ## 14. Development setup
 
 - `docker compose up -d` starts PostgreSQL (dev and test databases).
-- `pnpm dev` starts the server (port 3000) and Vite (port 5173, `--host`). Vite proxies `/api` to the server, so the browser needs only one address.
+- `pnpm dev` migrates the dev database, then starts the server (127.0.0.1:3000) and Vite (all interfaces, port 5173, `strictPort`). Vite proxies `/api` to the server, so the browser needs only one address.
+- The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`.
+- Checks: `pnpm test` (never calls Claude), `pnpm typecheck`, `pnpm check` (Biome; `pnpm format` fixes formatting). `ai:try` and `pnpm test:live` shrink photos with macOS `sips`.
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Words", without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
 - Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
 - No login: anyone on the home network can open the app. Acceptable for the prototype.
@@ -523,6 +560,7 @@ Recorded here so decisions already made are not lost.
 - **Levels:** learner picks A1.1 … B1+, placement test checks it.
 - **Practice modes:** fill-in-the-blank, listening, speaking, mixed; choosing specific topics or combinations; "practise missed words again".
 - **Spaced repetition** ("smart review").
+- **My words at scale:** paging, sorting by date added or progress, undo for delete.
 - **Pictures** on card fronts.
 - **Example sentences from Tatoeba** as a second source.
 - **Starter word lists** (e.g. Goethe A1–B1) as an optional import into a learner's list.
