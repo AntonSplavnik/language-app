@@ -10,3 +10,6 @@ data/
 
 # Real textbook photos used by live tests (copyrighted)
 server/test/live/photos/
+
+# Screenshots of every screen (light/ and dark/), taken locally; regenerate rather than commit
+docs/screenshots/
