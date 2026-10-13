@@ -1,7 +1,8 @@
 import {
   type CheckStatus,
-  type FormsSource,
+  cardBack,
   LEARNED_STREAK,
+  type WordDetail,
   type WordListItem,
 } from "@language-app/core";
 
@@ -22,10 +23,23 @@ export function progressLabel(
   };
 }
 
-export const FORMS_SOURCE_LABEL: Record<FormsSource, string> = {
-  dictionary: "from Wiktionary",
-  ai: "from AI",
-};
+/**
+ * Right answers in a row towards learned, as bars on Word detail (§10). Unlike the list's mark, a
+ * word never practised shows the empty bars rather than "new".
+ */
+export type StreakLabel = { filled: number; text: string; spoken: string };
+
+export function streakLabel(
+  word: Pick<WordDetail, "status" | "correctStreak">,
+): StreakLabel | null {
+  if (word.status !== "learning") return null;
+  const filled = Math.min(word.correctStreak, LEARNED_STREAK);
+  return {
+    filled,
+    text: `${filled}/${LEARNED_STREAK}`,
+    spoken: `${filled} of ${LEARNED_STREAK} right in a row`,
+  };
+}
 
 /** How the word was checked against the dictionary when it was saved (§6.3, §6.5). */
 export function checkLabel(check: CheckStatus): { text: string; warning: boolean } {
@@ -39,6 +53,33 @@ export function checkLabel(check: CheckStatus): { text: string; warning: boolean
     case "not_in_dictionary":
       return { text: "Not in Wiktionary, so the grammar comes from the AI", warning: false };
   }
+}
+
+/**
+ * The one line on Word detail about where the word's grammar came from, only when it is worth
+ * knowing (§10): an article Wiktionary disagrees with, or forms the AI wrote. Null for the usual
+ * case, a word found in Wiktionary with its forms from there.
+ */
+export function sourceNote(word: WordDetail): { text: string; warning: boolean } | null {
+  if (word.checkStatus !== "match") return checkLabel(word.checkStatus);
+  if (word.formsSource === "ai" && cardBack(word).forms) {
+    return { text: "Forms from AI", warning: false };
+  }
+  return null;
+}
+
+/** "Seen 4 times · Last: didn't know, yesterday · Added 3 Oct" (§10 Word detail). */
+export function historyLine(
+  word: Pick<WordDetail, "timesSeen" | "lastResult" | "lastPracticedAt" | "addedAt">,
+  now: Date = new Date(),
+): string {
+  const parts = [`Seen ${word.timesSeen} ${word.timesSeen === 1 ? "time" : "times"}`];
+  if (word.lastPracticedAt) {
+    const result = word.lastResult === "knew" ? "knew it" : "didn't know";
+    parts.push(`Last: ${result}, ${dayText(word.lastPracticedAt, now)}`);
+  }
+  parts.push(`Added ${dayText(word.addedAt, now)}`);
+  return parts.join(" · ");
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

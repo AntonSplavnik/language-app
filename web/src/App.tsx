@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router";
 import { DoneScreen } from "./screens/DoneScreen";
+import { EditWordScreen } from "./screens/EditWordScreen";
 import { FlashcardsScreen } from "./screens/FlashcardsScreen";
 import { Home } from "./screens/Home";
 import { ImportScreen } from "./screens/ImportScreen";
@@ -24,6 +25,8 @@ export function App() {
       {/* The tab and search live in the query: /words?status=learned&q=tisch */}
       <Route path="/words" element={<MyWordsScreen />} />
       <Route path="/words/:id" element={<WordDetailScreen />} />
+      {/* A screen, not a modal: a swipe back closes it and leaves the word open. */}
+      <Route path="/words/:id/edit" element={<EditWordScreen />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

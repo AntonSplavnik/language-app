@@ -1,0 +1,118 @@
+/* Edit word (§10): an iOS-style sheet with text buttons in the header. */
+
+.cancel,
+.save {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+/* The text lines up with the page's edges; the tap area reaches past them. */
+.cancel {
+  margin-left: -8px;
+}
+
+.save {
+  margin-right: -8px;
+  font-weight: 700;
+}
+
+.cancel:disabled,
+.save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cancel:focus-visible,
+.save:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* 16px or more, or iOS Safari zooms the page when the field gets focus. */
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 17px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.help {
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* Set apart from the texts, at the bottom. */
+.delete {
+  margin-top: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.deleteButton {
+  align-self: center;
+  background: transparent;
+  color: var(--danger);
+}
+
+.confirm {
+  border-radius: var(--radius);
+  border: 1px solid var(--danger);
+  background: var(--danger-soft);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}

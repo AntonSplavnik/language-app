@@ -12,7 +12,7 @@ import { userWords, words, wordTranslations } from "../db/schema";
 import { HttpError } from "../http/errors";
 import { learnerLanguageOf, wordViewQuery } from "./views";
 
-// The learner's word list: My words and Word detail (docs/design.md §9, §10).
+// The learner's word list: My words, Word detail and Edit word (docs/design.md §9, §10).
 
 /** `%` and `_` in the search are plain characters, not LIKE wildcards. */
 const escapeLike = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`);

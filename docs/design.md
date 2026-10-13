@@ -242,7 +242,7 @@ Each candidate in `imports.candidates`:
 ```
 - `key` is `lemma|pos|article` (empty article for non-nouns). Lemmas are trimmed (empty ones dropped), and an article on a word that is not a noun is dropped.
 - **Duplicates** within an import are merged by `(lemma, pos, article)`; the first translation wins.
-- **Comparison:** a candidate is `in_my_words` if the learner has a `user_words` row (any status, including `ignored`) for a `words` row with the same identity. A word the learner deleted from their list (§10, Word detail) has no such row, so a later import offers it as new again.
+- **Comparison:** a candidate is `in_my_words` if the learner has a `user_words` row (any status, including `ignored`) for a `words` row with the same identity. A word the learner deleted from their list (§10, Edit word) has no such row, so a later import offers it as new again.
 - **Dictionary check** (each candidate when a photo first adds it to the import): look up `dictionary_entries` by `lemma` + `pos` (exact match first, then case-insensitive). Words other than nouns that are not found under their own part of speech fall back to any non-noun entry with the same lemma, because sources label small words differently (Claude calls *nicht* a particle, Wiktionary an adverb). Nouns never fall back. Genders are merged across all entries found (*der See* and *die See*).
   - Found and `article` is one of `genders` (or the word is not a noun) → `match`
   - Found noun whose dictionary entries carry no gender (plural-only nouns such as *Eltern*) → `match`: nothing contradicts it
@@ -389,7 +389,7 @@ A `WordView` is what a card shows (§8.2): `userWordId`, `lemma`, `pos`, `articl
 ```
 Home ─┬─► Import ──► Review ──► Done ─► (Practice these now)
       ├─► Practice setup ──► Flashcards ──► Summary
-      └─► My words ──► Word detail
+      └─► My words ──► Word detail ──► Edit word
 ```
 
 Mobile-first layout, usable on desktop. Light and dark colour schemes follow the system; text on an accent or danger fill (primary and delete buttons) is white in light mode and a dark shade in dark mode, so it keeps at least 4.5:1 against the lighter dark-mode fills. Toasts appear near the bottom edge, or above the sticky action bar on screens that have one.
@@ -416,15 +416,20 @@ Mobile-first layout, usable on desktop. Light and dark colour schemes follow the
    - The search runs 250 ms after typing stops, or at once on Enter (which also closes the keyboard). It searches every tab: when the current tab has no match, the empty state links to the tabs that have ("2 in Ignored ›"). The field uses a 16 px font so iOS Safari doesn't zoom in.
    - A row shows the headword (article + lemma, as on the card back), the translation (the learner's own if set) and a short progress mark: "new" for a learning word never practised, otherwise the right answers in a row towards learned ("0/3", "1/3", "2/3"; `LEARNED_STREAK`); nothing for learned or ignored words. Tapping a row opens Word detail.
    - Empty tabs say what belongs there (Learned: "a word counts as learned after 3 right answers in a row"); the Learning tab offers **New import**.
-8. **Word detail** (`/words/:id`) — the header shows the back chevron, the headword as on the card back (with the article for nouns) as a larger title (28 px bold, only on this screen), and, when the word has a recording, the speaker button (as on the card back, §8.2) at its right end. A long word wraps (hyphenated where the browser can) instead of being cut off, and the button never shrinks, so it stays on screen. The recording has no credit of its own here: recordings are credited in Home's footer (screen 1, §7). Then:
-   - the IPA when Wiktionary has one (e.g. /tɪʃ/);
-   - the part of speech (muted), then the translation the card shows;
-   - status as a three-part control (Learning / Learned / Ignored) that saves on tap, with one line on what the status means; moving a word back to Learning resets its streak (§9.1);
-   - the word's facts: the stored translation (labelled "Original translation" when the learner has their own, "Translation" otherwise), the forms line with its source ("from Wiktionary" / "from AI"), the example sentence and its translation, the dictionary check in plain words (`mismatch_kept` in warning colour), and a hint when details are still pending;
-   - progress: seen, correct, in a row, when last practised and with what result, when it was added;
-   - **Your translation** (the stored one as placeholder; empty uses it) and **Note** (shown on the card back). **Save** and **Discard** appear only when a text really changed (compared trimmed, as stored).
-   - **Delete word** asks in place, not with a browser dialog: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, choose Ignored instead." After deleting, the app goes back to the list with a toast.
+8. **Word detail** (`/words/:id`) — a page to read, without boxes: whitespace, and a thin line between sections (only between two that both have content). The header has just the back chevron and, at its right end, a round **Edit** button (a pencil; opens Edit word). Then:
+   - the headword as on the card back (with the article for nouns) as the screen's title, large (36 px bold). A noun's article sits on a soft badge in its gender's colour, der blue, die red, das green (only on this screen so far; the article has at least 4.5:1 on its badge in both colour schemes). A long word wraps (hyphenated where the browser can). When the word has a recording, the speaker button (as on the card back, §8.2) sits at the right end of the word's first line and never shrinks, so it stays on screen. The recording has no credit of its own here: recordings are credited in Home's footer (screen 1, §7);
+   - the IPA and the part of speech on one muted line ("/tɪʃ/ · noun"; just the part of speech when Wiktionary has no IPA);
+   - the translation the cards show, large (30 px bold) and only once; when the learner has their own, a small line under it gives the stored one (originally “table”). Then the forms line in the card's wording ("pl. die Tische", "ging · ist gegangen");
+   - at most one small line on where the grammar came from, only when it is unusual: "Wiktionary gives a different article; the AI's was kept" (`mismatch_kept`, in warning colour), "Article corrected to match Wiktionary" (`mismatch_fixed`), "Not in Wiktionary, so the grammar comes from the AI" (`not_in_dictionary`), or "Forms from AI" for a word found in Wiktionary whose shown forms came from the AI. A word found in Wiktionary with its forms from there shows nothing;
+   - **Example**: the sentence with the word itself in bold, and its translation. A word of the sentence is bold when it equals, ignoring case, the lemma, the plural, the Präteritum, the Partizip II or the verb's stem (the lemma without -en, else without -n: *geh*, *wander*), or starts with one of these (3 letters or more) followed by at most 3 letters: *Anrufe*, *Anrufs*, *gehst*, *gingen* and *Häuser* (through the plural) are bold, *Anrufbeantworter* is not, and "an" bolds only "an". A form of several words ("fing an", "zum Beispiel") only matches as a whole phrase, so the split present tense of a separable verb ("Bitte kreuzen Sie … an") is not bolded (`highlightWord` in `core/`). A word without details yet shows "Example and forms not added yet. Use Add details on Home." instead;
+   - **Note**: the learner's note, read-only with its line breaks, when there is one;
+   - status and progress: the status as a pill-shaped native select (Learning / Learned / Ignored; 16 px or more, so iOS Safari doesn't zoom) that saves when changed, with a toast ("Moved to Learned"); it shows a spinner while saving, and the saved status again if saving fails. Moving a word back to Learning resets its streak (§9.1). Next to it, for a learning word only, the streak towards learned: "Streak", `LEARNED_STREAK` bars with one filled per right answer in a row, and "1/3"; a word never practised shows the empty bars and "0/3". Below, one muted line: "Seen 4 times · Last: didn't know, yesterday · Added 3 Oct", or "Seen 0 times · Added yesterday";
    - Back returns to the list the word was opened from (tab and search). A word that no longer exists says "This word is not in your list any more".
+9. **Edit word** (`/words/:id/edit`) — the learner's own texts and deleting the word. A screen of its own, not a modal: on the iPhone a swipe back over a modal would leave the word, and bottom sheets fight Safari's keyboard. It looks like an iOS sheet: **Cancel** at the left of the header, the headword as the title, **Save** at the right (bold; enabled only when a text really changed, compared trimmed as stored), no back chevron.
+   - **Your translation** (the stored one as placeholder, "Shown on cards instead of “table”. Leave empty to use it."; Enter saves) and **Note** (shown on the card back).
+   - **Save** stores the changes, shows "Saved" and returns to Word detail, which loads the word again. **Cancel**, like the browser's Back, drops the typed texts without asking. Neither adds a history entry: opened from Word detail, they go back to it; opened directly (a typed URL), the detail replaces the edit screen. Either way the detail's Back still goes to the list it was opened from.
+   - **Delete word**, set apart at the bottom, asks in place, not with a browser dialog: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, set its status to Ignored instead." After deleting, a toast "“der Tisch” deleted" and the list; Back must not lead to the deleted word. When the history is list → detail → edit, the app goes back two entries, to that list; otherwise the list replaces the edit screen.
+   - A word that no longer exists says "This word is not in your list any more", as on Word detail.
 
 ## 11. AI calls
 
@@ -525,7 +530,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 ### My words
 | Problem | Behaviour |
 |---|---|
-| Word detail opened for a word that was deleted | "This word is not in your list any more" + link to My words |
+| Word detail or Edit word opened for a word that was deleted | "This word is not in your list any more" + link to My words |
 | Loading the list or a word fails | Inline message with **Try again** |
 | Saving a change or deleting fails | Toast; typed texts stay, a status change is undone on screen |
 | A recording can't be played | Toast "Couldn't play the recording" |
@@ -552,7 +557,7 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers | Vitest in `core/`, `server/` and `web/` | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's history steps | Vitest in `core/`, `server/` and `web/` | Free |
 | Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / edit / delete, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`) and a 3-word enrich batch through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |

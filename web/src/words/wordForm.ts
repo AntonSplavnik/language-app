@@ -1,6 +1,6 @@
 import type { UpdateWordRequest, WordDetail } from "@language-app/core";
 
-/** The editable texts on Word detail, as typed. */
+/** The editable texts on Edit word, as typed. */
 export type WordDraft = { customTranslation: string; note: string };
 
 type Saved = Pick<WordDetail, "customTranslation" | "note">;
@@ -12,7 +12,7 @@ export const draftOf = (word: Saved): WordDraft => ({
 
 /**
  * What Save sends: the texts that differ from the saved ones, trimmed as the server stores them.
- * An emptied text clears the field. Null when nothing changed, which keeps Save hidden.
+ * An emptied text clears the field. Null when nothing changed, which keeps Save disabled.
  */
 export function changesOf(saved: Saved, draft: WordDraft): UpdateWordRequest | null {
   const changes: UpdateWordRequest = {};

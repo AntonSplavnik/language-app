@@ -1,5 +1,6 @@
 export * from "./api-client";
 export * from "./card";
+export * from "./highlight";
 export * from "./learning";
 export * from "./schemas/ai";
 export * from "./schemas/common";

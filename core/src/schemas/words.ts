@@ -44,7 +44,7 @@ export const EnrichPendingResponse = z.object({
 });
 export type EnrichPendingResponse = z.infer<typeof EnrichPendingResponse>;
 
-/** Longest custom translation and note the learner can save (§10 Word detail). */
+/** Longest custom translation and note the learner can save (§10 Edit word). */
 export const CUSTOM_TRANSLATION_MAX = 200;
 export const NOTE_MAX = 2000;
 

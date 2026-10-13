@@ -41,24 +41,38 @@
   white-space: nowrap;
 }
 
-/* A German word as the title: bigger, and a long one wraps (hyphenated where the browser can)
-   rather than being cut off, so the whole word stays readable and the action stays on screen. */
-.wordTitle {
-  font-size: 28px;
-  line-height: 1.2;
-  overflow: visible;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  -webkit-hyphens: auto;
-  hyphens: auto;
-}
-
 /* Never shrinks, so a long title can't push it off screen. */
 .action {
   flex: none;
   display: flex;
   margin-left: auto;
   padding-left: 8px;
+}
+
+/* Cancel · title · Save: the side columns share the space left, so the title stays centred,
+   and a long title is cut off rather than pushing the buttons away. */
+.sheet {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+}
+
+.leading {
+  grid-column: 1;
+  display: flex;
+  justify-self: start;
+}
+
+.sheet .title {
+  grid-column: 2;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sheet .action {
+  grid-column: 3;
+  justify-self: end;
+  padding-left: 0;
 }
 
 .main {

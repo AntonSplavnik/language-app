@@ -24,7 +24,8 @@ It is a working prototype for one learner: a web app served from your Mac on the
 - **Pronunciation:** the back of a card has a speaker button that plays a native speaker's recording of the word from Wikimedia Commons (via Wiktionary). It plays only when tapped, never on the front, and is streamed when played, not stored. About three quarters of the dictionary's words have a recording; words without one show no button.
 - **Offline answers:** an answer that fails to send waits in a queue and is retried every 5 s and when the connection comes back. A reload continues at the same card.
 - **My words:** Learning / Learned / Ignored tabs with counts, search in German and English, and a progress mark per word ("new", "1/3").
-- **Word detail:** listen to the word (speaker button next to it) and see its IPA (e.g. /tɪʃ/), change the status, add your own translation and a note (shown on the card), see where the forms came from and what the dictionary check found, delete the word.
+- **Word detail:** the word with its article colour-coded by gender (der blue, die red, das green), a speaker button to hear it, its IPA (e.g. /tɪʃ/), the translation, forms and an example sentence with the word in bold, your note, and the streak towards learned. Change the status right there; a note appears only when the grammar's source is unusual (an article Wiktionary disagrees with, forms from the AI).
+- **Edit word:** a separate sheet-style screen (pencil button) for your own translation and a note (shown on the card), and for deleting the word.
 - **Home Screen app:** add it to the iPhone Home Screen to run full screen. Light and dark mode follow the system.
 
 ## Tech stack and layout

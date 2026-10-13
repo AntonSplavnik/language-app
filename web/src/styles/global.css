@@ -17,6 +17,14 @@
   --danger: #c4372b;
   --on-danger: #ffffff;
   --danger-soft: #fbe7e5;
+  /* A noun's article on Word detail, as gendered text on a soft badge: der blue, die red, das
+     green. The text has at least 4.5:1 on its badge (5.4, 5.4, 5.5:1) and on --bg (6.0:1). */
+  --der: #1f5bb8;
+  --der-soft: #e3ecfb;
+  --die: #b3261e;
+  --die-soft: #fbe4e1;
+  --das: #1a6b3a;
+  --das-soft: #dcf1e3;
   --radius: 14px;
   --gutter: 16px;
   --shadow: 0 6px 24px rgb(0 0 0 / 0.12);
@@ -46,6 +54,13 @@
     --danger: #ef6b5f;
     --on-danger: #2a0c08;
     --danger-soft: #3a1b18;
+    /* On the badges 6.4, 6.7 and 7.7:1; on --bg 8.3:1 or more. */
+    --der: #82adff;
+    --der-soft: #1c2a45;
+    --die: #ff8b80;
+    --die-soft: #3d1c19;
+    --das: #6dd49b;
+    --das-soft: #15311f;
     --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
   }
 }
@@ -67,6 +82,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
   color: inherit;

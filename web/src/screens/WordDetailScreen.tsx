@@ -1,108 +1,59 @@
 import {
-  ApiClientError,
-  CUSTOM_TRANSLATION_MAX,
   cardBack,
   displayTranslation,
-  NOTE_MAX,
-  type WordDetail,
+  type HighlightSegment,
+  highlightWord,
+  LEARNED_STREAK,
   type WordStatus,
 } from "@language-app/core";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router";
+import { useState } from "react";
+import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api";
 import { Page } from "../components/Page";
 import { SpeakerButton } from "../components/SpeakerButton";
+import { WordLoadState } from "../components/WordLoadState";
 import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
-import { checkLabel, dayText, FORMS_SOURCE_LABEL } from "../words/labels";
+import type { EditState } from "../words/editHistory";
+import { historyLine, sourceNote, streakLabel } from "../words/labels";
 import { TABS, wordsUrl } from "../words/listQuery";
-import { changesOf, draftOf, type WordDraft } from "../words/wordForm";
+import { useWord } from "../words/useWord";
 import styles from "./WordDetailScreen.module.css";
 
-const STATUS_HELP: Record<WordStatus, string> = {
-  learning: "Practised until you know it 3 times in a row.",
-  learned: "Still comes up in Last import and Last 7 days, not in Not learned yet.",
-  ignored: "Never practised, and never offered again by an import.",
-};
+/** One bar per right answer in a row that it takes to learn a word: 1, 2, 3. */
+const STREAK_BARS = Array.from({ length: LEARNED_STREAK }, (_, index) => index + 1);
 
-type Load = { kind: "loading" } | { kind: "missing" } | { kind: "failed"; message: string };
-
-/** Everything about one word; edit the learner's own texts, change status, delete (§10). */
+/** One word, to read; its status changes here, the learner's texts in Edit word (§10). */
 export function WordDetailScreen() {
   const id = Number(useParams().id);
   // The list the learner came from, with its tab and search; the word's own tab otherwise.
   const from = (useLocation().state as { from?: string } | null)?.from;
-  const navigate = useNavigate();
   const toast = useToast();
-
-  const [word, setWord] = useState<WordDetail | null>(null);
-  const [loading, setLoading] = useState<Load>({ kind: "loading" });
-  const latestRequest = useRef(0);
-  const [draft, setDraft] = useState<WordDraft>({ customTranslation: "", note: "" });
-  const [busy, setBusy] = useState<null | "status" | "save" | "delete">(null);
+  const { word, setWord, loading, load } = useWord(id);
   const [savingStatus, setSavingStatus] = useState<WordStatus | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const load = useCallback(() => {
-    const request = ++latestRequest.current;
-    setLoading({ kind: "loading" });
-    api.getWord(id).then(
-      (loaded) => {
-        if (request !== latestRequest.current) return;
-        setWord(loaded);
-        setDraft(draftOf(loaded));
-      },
-      (error) => {
-        if (request !== latestRequest.current) return;
-        // Deleted meanwhile, or a mistyped URL.
-        const gone =
-          error instanceof ApiClientError && (error.status === 404 || error.status === 400);
-        setLoading(gone ? { kind: "missing" } : { kind: "failed", message: errorMessage(error) });
-      },
-    );
-  }, [id]);
-
-  useEffect(load, [load]);
 
   const listUrl = from ?? wordsUrl({ status: word?.status ?? "learning", q: "" });
 
   if (!word) {
     return (
-      <Page title="Word" back={listUrl}>
-        {loading.kind === "loading" && <p className={styles.muted}>Loading…</p>}
-        {loading.kind === "missing" && (
-          <div className={styles.gone}>
-            <p>This word is not in your list any more.</p>
-            <Link to={listUrl} className={`${ui.button} ${ui.secondary}`}>
-              My words
-            </Link>
-          </div>
-        )}
-        {loading.kind === "failed" && (
-          <div className={styles.failed} role="alert">
-            <span>{loading.message}</span>
-            <button
-              type="button"
-              className={`${ui.button} ${ui.secondary} ${ui.small}`}
-              onClick={load}
-            >
-              Try again
-            </button>
-          </div>
-        )}
+      <Page back={listUrl}>
+        <WordLoadState loading={loading} listUrl={listUrl} onRetry={load} />
       </Page>
     );
   }
 
   const back = cardBack(word);
-  const check = checkLabel(word.checkStatus);
-  const changes = changesOf(word, draft);
+  // The headword as on the card back, with the article on its own to colour it by gender.
+  const article = word.pos === "noun" ? word.article : null;
+  const note = sourceNote(word);
+  const streak = streakLabel(word);
   const shownStatus = savingStatus ?? word.status;
   const hasOwnTranslation = Boolean(word.customTranslation?.trim());
+  // Edit word returns here by going back, so this entry keeps its list for Back.
+  const editState: EditState = { from, fromDetail: true };
 
   const changeStatus = async (status: WordStatus) => {
-    if (status === word.status || busy) return;
-    setBusy("status");
+    if (status === word.status || savingStatus) return;
     setSavingStatus(status);
     try {
       setWord(await api.updateWord(word.userWordId, { status }));
@@ -111,241 +62,145 @@ export function WordDetailScreen() {
       toast.show(errorMessage(error));
     } finally {
       setSavingStatus(null);
-      setBusy(null);
-    }
-  };
-
-  const save = async () => {
-    if (!changes || busy) return;
-    const sent = draft;
-    setBusy("save");
-    try {
-      const updated = await api.updateWord(word.userWordId, changes);
-      setWord(updated);
-      // Show the texts as stored (trimmed), unless the learner kept typing meanwhile.
-      setDraft((current) => (current === sent ? draftOf(updated) : current));
-      toast.show("Saved");
-    } catch (error) {
-      toast.show(errorMessage(error));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const remove = async () => {
-    setBusy("delete");
-    try {
-      await api.deleteWord(word.userWordId);
-      toast.show(`“${back.headword}” deleted`);
-      navigate(listUrl, { replace: true });
-    } catch (error) {
-      toast.show(errorMessage(error));
-      setBusy(null);
     }
   };
 
   return (
     <Page
-      title={back.headword}
-      wordTitle
       back={listUrl}
-      // Pronunciation from Wiktionary; recordings are credited in Home's footer.
-      action={back.audioUrl && <SpeakerButton url={back.audioUrl} word={back.headword} />}
-    >
-      <section className={styles.summary}>
-        {word.ipa && <p className={styles.ipa}>{word.ipa}</p>}
-        <p className={styles.pos}>{word.pos}</p>
-        <p className={styles.translation}>{displayTranslation(word)}</p>
-      </section>
-
-      {/* Native radios for keyboard and screen readers; a tap saves at once. */}
-      <fieldset className={styles.status}>
-        <legend className={styles.legend}>Status</legend>
-        <div className={styles.segmented}>
-          {TABS.map((tab) => (
-            <label
-              key={tab.status}
-              className={`${styles.segment} ${shownStatus === tab.status ? styles.selected : ""}`}
-            >
-              <input
-                type="radio"
-                name="status"
-                value={tab.status}
-                className={styles.radio}
-                checked={shownStatus === tab.status}
-                disabled={busy !== null}
-                onChange={() => changeStatus(tab.status)}
-              />
-              {savingStatus === tab.status && <span className={ui.spinner} />}
-              {tab.label}
-            </label>
-          ))}
-        </div>
-        <p className={styles.help}>{STATUS_HELP[shownStatus]}</p>
-      </fieldset>
-
-      <section className={styles.box}>
-        <dl className={styles.facts}>
-          {/* Next to the learner's own translation, the stored one must not pass for it. */}
-          <Fact label={hasOwnTranslation ? "Original translation" : "Translation"}>
-            {word.translation || "—"}
-          </Fact>
-          {back.forms && (
-            <Fact label="Forms">
-              <span lang="de">{back.forms}</span>
-              {word.formsSource && (
-                <span className={styles.source}>{FORMS_SOURCE_LABEL[word.formsSource]}</span>
-              )}
-            </Fact>
-          )}
-          {back.example && (
-            <Fact label="Example">
-              <span className={styles.example} lang="de">
-                {back.example.de}
-              </span>
-              {back.example.translation && (
-                <span className={styles.muted}>{back.example.translation}</span>
-              )}
-            </Fact>
-          )}
-          <Fact label="Dictionary">
-            <span className={check.warning ? styles.warning : undefined}>{check.text}</span>
-          </Fact>
-        </dl>
-        {back.detailsPending && (
-          <p className={styles.pending}>
-            No example sentence or forms yet. Use Add details on the Home screen.
-          </p>
-        )}
-      </section>
-
-      <section className={styles.box} aria-label="Progress">
-        <div className={styles.stats}>
-          <Stat label="Seen" value={word.timesSeen} />
-          <Stat label="Correct" value={word.timesCorrect} />
-          <Stat label="In a row" value={word.correctStreak} />
-        </div>
-        <p className={styles.history}>
-          {word.lastPracticedAt
-            ? `Last practised ${dayText(word.lastPracticedAt)}: ${
-                word.lastResult === "knew" ? "knew it" : "didn't know"
-              }`
-            : "Not practised yet"}
-          {" · "}Added {dayText(word.addedAt)}
-        </p>
-      </section>
-
-      <form
-        className={`${styles.box} ${styles.form}`}
-        onSubmit={(event) => {
-          event.preventDefault();
-          save();
-        }}
-      >
-        <label className={styles.field}>
-          <span className={styles.label}>Your translation</span>
-          <input
-            className={styles.input}
-            value={draft.customTranslation}
-            placeholder={word.translation}
-            maxLength={CUSTOM_TRANSLATION_MAX}
-            autoCapitalize="none"
-            enterKeyHint="done"
-            onChange={(event) => {
-              const customTranslation = event.target.value;
-              setDraft((current) => ({ ...current, customTranslation }));
-            }}
-          />
-          <span className={styles.help}>
-            Shown on cards instead of “{word.translation}”. Leave empty to use it.
-          </span>
-        </label>
-        <label className={styles.field}>
-          <span className={styles.label}>Note</span>
-          <textarea
-            className={styles.input}
-            rows={3}
-            value={draft.note}
-            placeholder="Shown on the back of the card"
-            maxLength={NOTE_MAX}
-            onChange={(event) => {
-              const note = event.target.value;
-              setDraft((current) => ({ ...current, note }));
-            }}
-          />
-        </label>
-        {changes && (
-          <div className={styles.buttons}>
-            <button
-              type="button"
-              className={`${ui.button} ${ui.secondary}`}
-              disabled={busy === "save"}
-              onClick={() => setDraft(draftOf(word))}
-            >
-              Discard
-            </button>
-            <button type="submit" className={`${ui.button} ${ui.primary}`} disabled={busy !== null}>
-              {busy === "save" && <span className={ui.spinner} />}
-              Save
-            </button>
-          </div>
-        )}
-      </form>
-
-      {confirmingDelete ? (
-        <section className={styles.confirm} aria-label="Delete word">
-          <p>
-            <strong>Delete “{back.headword}” from your words?</strong> Its progress and note are
-            lost, and a later import may offer it again as a new word. To stop practising it for
-            good, choose Ignored instead.
-          </p>
-          <div className={styles.buttons}>
-            <button
-              type="button"
-              className={`${ui.button} ${ui.secondary}`}
-              disabled={busy === "delete"}
-              onClick={() => setConfirmingDelete(false)}
-            >
-              Keep
-            </button>
-            <button
-              type="button"
-              className={`${ui.button} ${ui.danger}`}
-              disabled={busy !== null}
-              onClick={remove}
-            >
-              {busy === "delete" && <span className={ui.spinner} />}
-              Delete
-            </button>
-          </div>
-        </section>
-      ) : (
-        <button
-          type="button"
-          className={`${ui.button} ${styles.deleteButton}`}
-          onClick={() => setConfirmingDelete(true)}
+      action={
+        <Link
+          to={`/words/${word.userWordId}/edit`}
+          state={editState}
+          className={styles.edit}
+          aria-label="Edit word"
         >
-          Delete word
-        </button>
-      )}
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"
+              fill="currentColor"
+            />
+          </svg>
+        </Link>
+      }
+    >
+      {/* Sections without content are left out, so a divider only ever sits between two. */}
+      <div className={styles.detail}>
+        <section className={styles.top}>
+          <div className={styles.wordRow}>
+            {/* lang="de" lets the browser hyphenate a long compound where it wraps. */}
+            <h1 className={styles.word} lang="de">
+              {article && (
+                <>
+                  <span className={`${styles.article} ${styles[article]}`}>{article}</span>{" "}
+                </>
+              )}
+              {word.lemma}
+            </h1>
+            {/* Pronunciation from Wiktionary; recordings are credited in Home's footer. */}
+            {back.audioUrl && <SpeakerButton url={back.audioUrl} word={back.headword} />}
+          </div>
+          <p className={styles.meta}>{word.ipa ? `${word.ipa} · ${word.pos}` : word.pos}</p>
+
+          <p className={styles.translation}>{displayTranslation(word)}</p>
+          {hasOwnTranslation && <p className={styles.small}>originally “{word.translation}”</p>}
+          {back.forms && (
+            <p className={styles.forms} lang="de">
+              {back.forms}
+            </p>
+          )}
+          {note && <p className={note.warning ? styles.warning : styles.small}>{note.text}</p>}
+        </section>
+
+        {(back.detailsPending || back.example || back.note) && (
+          <section className={styles.texts}>
+            {back.detailsPending ? (
+              <p className={styles.pending}>
+                Example and forms not added yet. Use Add details on Home.
+              </p>
+            ) : (
+              back.example && (
+                <div className={styles.block}>
+                  <h2 className={styles.label}>Example</h2>
+                  <p className={styles.example} lang="de">
+                    <Highlighted segments={highlightWord(back.example.de, word)} />
+                  </p>
+                  {back.example.translation && (
+                    <p className={styles.exampleTranslation}>{back.example.translation}</p>
+                  )}
+                </div>
+              )
+            )}
+            {back.note && (
+              <div className={styles.block}>
+                <h2 className={styles.label}>Note</h2>
+                <p className={styles.note}>{back.note}</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        <section>
+          <div className={styles.statusRow}>
+            {/* A native select: the phone's own picker, and a change saves at once. */}
+            <div className={styles.pill}>
+              <select
+                className={styles.select}
+                aria-label="Status"
+                value={shownStatus}
+                disabled={savingStatus !== null}
+                onChange={(event) => changeStatus(event.target.value as WordStatus)}
+              >
+                {TABS.map((tab) => (
+                  <option key={tab.status} value={tab.status}>
+                    {tab.label}
+                  </option>
+                ))}
+              </select>
+              {savingStatus ? (
+                <span className={`${ui.spinner} ${styles.pillIcon}`} />
+              ) : (
+                <svg className={styles.pillIcon} viewBox="0 0 10 6" aria-hidden="true">
+                  <path d="M0 0h10L5 6z" fill="currentColor" />
+                </svg>
+              )}
+            </div>
+            {streak && (
+              <div className={styles.streak}>
+                <span className={styles.streakShown} aria-hidden>
+                  Streak
+                  <span className={styles.bars}>
+                    {STREAK_BARS.map((bar) => (
+                      <span
+                        key={bar}
+                        className={`${styles.bar} ${bar <= streak.filled ? styles.filled : ""}`}
+                      />
+                    ))}
+                  </span>
+                  {streak.text}
+                </span>
+                <span className={ui.srOnly}>{streak.spoken}</span>
+              </div>
+            )}
+          </div>
+          <p className={styles.history}>{historyLine(word)}</p>
+        </section>
+      </div>
     </Page>
   );
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className={styles.fact}>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className={styles.stat}>
-      <span className={styles.statValue}>{value}</span>
-      <span className={styles.statLabel}>{label}</span>
-    </div>
-  );
+/** The example sentence with the word it illustrates in bold. */
+function Highlighted({ segments }: { segments: HighlightSegment[] }) {
+  // Keyed by where each piece starts in the sentence.
+  let start = 0;
+  return segments.map((segment) => {
+    const key = start;
+    start += segment.text.length;
+    return segment.bold ? (
+      <strong key={key}>{segment.text}</strong>
+    ) : (
+      <span key={key}>{segment.text}</span>
+    );
+  });
 }
