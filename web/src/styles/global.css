@@ -1,66 +1,99 @@
+/* Design tokens (§10). The app follows the system's light or dark setting; every text colour
+   below has at least 4.5:1 on the grounds it is used on (ratios noted beside it). */
 :root {
-  --bg: #f7f6f2;
+  --bg: #f4f4f6;
   --surface: #ffffff;
-  --surface-muted: #efeee9;
-  --text: #1c1c1e;
-  --muted: #6b6b70;
-  --border: #e2e1dc;
-  --accent: #2f6fdf;
-  /* Text on an --accent or --danger fill: at least 4.5:1 in both schemes (white on the light
-     fills: 4.7:1 and 5.4:1). */
-  --on-accent: #ffffff;
-  --accent-soft: #e8f0fd;
+  /* Icon wells, segmented control track. */
+  --surface-muted: #ededf1;
+  /* Pills and the status select, a step above --surface-muted. */
+  --surface-raised: #e4e4ea;
+  /* 17.2:1 on --bg, 18.9:1 on --surface, 14.9:1 on --surface-raised. */
+  --text: #111114;
+  /* 5.8:1 on --bg, 6.4:1 on --surface, 5.5:1 on --surface-muted, 5:1 on --surface-raised. */
+  --muted: #5f5e6b;
+  /* 1 px card borders and row dividers. */
+  --border: #e2e2e8;
+  /* Empty progress bar, streak segments and dots. */
+  --track: #dcdce3;
+  /* Lime, as a fill only (Practice, primary buttons, the speaker on Word detail); on a light
+     ground it is too pale for text, icons, outlines or small marks: use --accent-ink. */
+  --accent: #d7f26a;
+  /* Text and icons on an --accent fill: 14.6:1, and 7.2:1 at 75% opacity. */
+  --on-accent: #14160a;
+  /* The accent as text, icon, outline or small mark (quiet buttons, links, focus rings, filled
+     progress): 6.3:1 on --bg, 6.9:1 on --surface, 6.2:1 on --accent-soft; as a filled segment
+     5.1:1 against --track (lime would be 1.1:1). */
+  --accent-ink: #4d6100;
+  /* The "New" pill's ground, under --accent-ink text. */
+  --accent-soft: #eef7c9;
   --success: #1e7d46;
   --success-soft: #e3f4ea;
   --warning: #9a5b00;
   --warning-soft: #fdf1dc;
   --danger: #c4372b;
+  /* Text on a --danger fill: 5.4:1. */
   --on-danger: #ffffff;
   --danger-soft: #fbe7e5;
-  /* A noun's article on Word detail, as gendered text on a soft badge: der blue, die red, das
-     green. The text has at least 4.5:1 on its badge (5.4, 5.4, 5.5:1) and on --bg (6.0:1). */
+  /* A noun's article (and its example word) in its gender's colour, as text: der blue, die red,
+     das teal (not green, so it can't be taken for the accent). On --bg 5.9, 6 and 5.6:1, on
+     --surface 6.5, 6.5 and 6.1:1, and on its soft chip 5.4, 5.4 and 5.3:1. */
   --der: #1f5bb8;
   --der-soft: #e3ecfb;
   --die: #b3261e;
   --die-soft: #fbe4e1;
-  --das: #1a6b3a;
-  --das-soft: #dcf1e3;
+  --das: #0f6e63;
+  --das-soft: #d9f3ef;
+  /* Small controls; cards, tiles and lists; Home's deck card, Practice and Word detail's top. */
   --radius: 14px;
-  --gutter: 16px;
+  --radius-card: 24px;
+  --radius-hero: 28px;
+  --gutter: 20px;
   --shadow: 0 6px 24px rgb(0 0 0 / 0.12);
+  /* Screen titles, big numbers, Practice, the word on Word detail and its meaning, letter
+     headings. Self-hosted (main.tsx), so nothing is fetched from another site. */
+  --font-display: "Bricolage Grotesque Variable", "DM Sans Variable", system-ui, sans-serif;
+  --font-body: "DM Sans Variable", system-ui, -apple-system, sans-serif;
 
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   line-height: 1.4;
   -webkit-text-size-adjust: 100%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111113;
-    --surface: #1c1c1f;
-    --surface-muted: #26262a;
-    --text: #f2f2f4;
-    --muted: #9a9aa2;
-    --border: #2f2f35;
-    --accent: #6c9ef8;
-    /* White on these lighter fills would be 2.7:1 and 3:1; dark text is 6.8:1 and 6:1. */
-    --on-accent: #0d1526;
-    --accent-soft: #1d2a40;
+    --bg: #0e0e11;
+    --surface: #17171c;
+    --surface-muted: #1e1e25;
+    --surface-raised: #24242c;
+    /* 17.5:1 on --bg, 16.2:1 on --surface, 13.9:1 on --surface-raised. */
+    --text: #f4f3f7;
+    /* 7:1 on --bg, 6.5:1 on --surface, 6:1 on --surface-muted, 5.6:1 on --surface-raised. */
+    --muted: #9c9ba8;
+    --border: #24242b;
+    --track: #2a2a33;
+    --accent: #d7f26a;
+    --on-accent: #14160a;
+    /* The lime itself reads as text here: 15.4:1 on --bg, 14.3:1 on --surface, 10.6:1 on
+       --accent-soft; 11.4:1 against --track. */
+    --accent-ink: #d7f26a;
+    --accent-soft: rgb(215 242 106 / 0.12);
     --success: #5cc78a;
     --success-soft: #16301f;
     --warning: #f0b45c;
     --warning-soft: #33270f;
     --danger: #ef6b5f;
+    /* White on this lighter fill would be 3:1; dark text is 6:1. */
     --on-danger: #2a0c08;
     --danger-soft: #3a1b18;
-    /* On the badges 6.4, 6.7 and 7.7:1; on --bg 8.3:1 or more. */
-    --der: #82adff;
-    --der-soft: #1c2a45;
-    --die: #ff8b80;
-    --die-soft: #3d1c19;
-    --das: #6dd49b;
-    --das-soft: #15311f;
+    /* On --bg 8.1, 8.9 and 10.9:1, on --surface 7.5, 8.3 and 10.1:1, and on its soft chip (over
+       --surface) 5.9, 6.4 and 7.6:1. */
+    --der: #7aa7ff;
+    --der-soft: rgb(122 167 255 / 0.14);
+    --die: #ff8fa3;
+    --die-soft: rgb(255 143 163 / 0.14);
+    --das: #5ed6c4;
+    --das-soft: rgb(94 214 196 / 0.14);
     --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
   }
 }

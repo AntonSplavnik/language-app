@@ -49,7 +49,7 @@ export function PendingDetails({
       </span>
       <button
         type="button"
-        className={`${ui.button} ${ui.secondary} ${ui.small}`}
+        className={`${ui.button} ${ui.secondary} ${ui.small} ${styles.action}`}
         disabled={running}
         onClick={run}
       >

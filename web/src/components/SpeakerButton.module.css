@@ -1,4 +1,5 @@
-/* A round speaker button: soft accent at rest, filled accent with pulsing waves while playing. */
+/* A round speaker button: soft accent at rest, filled accent with pulsing waves while playing.
+   Word detail passes a class that keeps it filled at rest, larger (§10). */
 
 .speaker {
   appearance: none;
@@ -11,7 +12,7 @@
   display: inline-grid;
   place-items: center;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -19,7 +20,7 @@
 }
 
 .speaker:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
 

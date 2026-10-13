@@ -97,12 +97,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* Per-status accents on the thumbnail and status line. */
 .reading .thumb {
-  border-color: var(--accent);
+  border-color: var(--accent-ink);
 }
 
 .done .status {

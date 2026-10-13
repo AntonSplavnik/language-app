@@ -1,7 +1,72 @@
 import { LEARNED_STREAK } from "@language-app/core";
 import { describe, expect, it } from "vitest";
+import { wordCount } from "../src/words/counts";
+import { groupByLetter } from "../src/words/groupByLetter";
 import { checkLabel, dayText, progressLabel } from "../src/words/labels";
 import { parseListQuery, wordsUrl } from "../src/words/listQuery";
+
+describe("letter sections of the list (§10)", () => {
+  const words = (...lemmas: string[]) => lemmas.map((lemma, id) => ({ id, lemma }));
+  const shape = (groups: ReturnType<typeof groupByLetter<{ lemma: string }>>) =>
+    groups.map((group) => [group.letter, group.words.map((word) => word.lemma)]);
+
+  it("groups the words under their first letter, keeping their order", () => {
+    const list = words("ab", "Anruf", "Balkon", "bei", "Cent");
+    const groups = groupByLetter(list);
+    expect(shape(groups)).toEqual([
+      ["A", ["ab", "Anruf"]],
+      ["B", ["Balkon", "bei"]],
+      ["C", ["Cent"]],
+    ]);
+    // The same objects, so a row still gets the whole word.
+    expect(groups[0]?.words[1]).toBe(list[1]);
+  });
+
+  it("puts umlauts and other accented letters under their base letter", () => {
+    expect(shape(groupByLetter(words("alt", "Ärger", "Öl", "oben", "über", "Übung")))).toEqual([
+      ["A", ["alt", "Ärger"]],
+      ["O", ["Öl", "oben"]],
+      ["U", ["über", "Übung"]],
+    ]);
+  });
+
+  it("gathers words that don't start with a letter under #", () => {
+    expect(shape(groupByLetter(words("3D-Drucker", "(sich) freuen", "Abend")))).toEqual([
+      ["#", ["3D-Drucker", "(sich) freuen"]],
+      ["A", ["Abend"]],
+    ]);
+  });
+
+  it("starts a new group only where the letter changes, never reordering", () => {
+    expect(shape(groupByLetter(words("Zug", "Ärger", "Apfel")))).toEqual([
+      ["Z", ["Zug"]],
+      ["A", ["Ärger", "Apfel"]],
+    ]);
+    expect(shape(groupByLetter(words("Apfel", "Zug", "Ärger")))).toEqual([
+      ["A", ["Apfel"]],
+      ["Z", ["Zug"]],
+      ["A", ["Ärger"]],
+    ]);
+  });
+
+  it("makes one group when every word starts alike, and none for no words", () => {
+    expect(shape(groupByLetter(words("Tisch", "tun", "Tür")))).toEqual([
+      ["T", ["Tisch", "tun", "Tür"]],
+    ]);
+    expect(groupByLetter([])).toEqual([]);
+  });
+});
+
+describe("word count in the header (§10)", () => {
+  it("adds up every tab", () => {
+    expect(wordCount({ learning: 149, learned: 3, ignored: 12 })).toBe("164 words");
+  });
+
+  it("says word for one", () => {
+    expect(wordCount({ learning: 0, learned: 1, ignored: 0 })).toBe("1 word");
+    expect(wordCount({ learning: 0, learned: 0, ignored: 0 })).toBe("0 words");
+  });
+});
 
 describe("My words URL (§10)", () => {
   it("reads the tab and the search, Learning by default", () => {
@@ -32,24 +97,28 @@ describe("progress label on a list row", () => {
       kind: "new",
       text: "new",
       spoken: "Not practised yet",
+      filled: 0,
     });
   });
 
-  it("counts right answers in a row towards learned", () => {
+  it("counts right answers in a row towards learned, one filled dot each", () => {
     expect(progressLabel({ status: "learning", timesSeen: 4, correctStreak: 2 })).toEqual({
       kind: "streak",
       text: `2/${LEARNED_STREAK}`,
       spoken: `2 of ${LEARNED_STREAK} right in a row`,
+      filled: 2,
     });
-    expect(progressLabel({ status: "learning", timesSeen: 1, correctStreak: 0 })?.text).toBe(
-      `0/${LEARNED_STREAK}`,
-    );
+    expect(progressLabel({ status: "learning", timesSeen: 1, correctStreak: 0 })).toMatchObject({
+      text: `0/${LEARNED_STREAK}`,
+      filled: 0,
+    });
   });
 
   it("never counts past the streak that makes a word learned", () => {
-    expect(progressLabel({ status: "learning", timesSeen: 9, correctStreak: 7 })?.text).toBe(
-      `${LEARNED_STREAK}/${LEARNED_STREAK}`,
-    );
+    expect(progressLabel({ status: "learning", timesSeen: 9, correctStreak: 7 })).toMatchObject({
+      text: `${LEARNED_STREAK}/${LEARNED_STREAK}`,
+      filled: LEARNED_STREAK,
+    });
   });
 
   it("shows nothing for learned or ignored words", () => {

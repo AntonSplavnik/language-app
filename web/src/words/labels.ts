@@ -6,26 +6,38 @@ import {
   type WordListItem,
 } from "@language-app/core";
 
-/** The short progress text on a My words row, and what a screen reader says instead. */
-export type ProgressLabel = { kind: "new" | "streak"; text: string; spoken: string };
+/**
+ * The progress mark on a My words row: a "new" pill, or one dot per right answer in a row
+ * (`filled` of `LEARNED_STREAK`). `text` is the short form ("2/3"), `spoken` what a screen reader
+ * says instead.
+ */
+export type ProgressLabel = {
+  kind: "new" | "streak";
+  text: string;
+  spoken: string;
+  filled: number;
+};
 
 export function progressLabel(
   word: Pick<WordListItem, "status" | "timesSeen" | "correctStreak">,
 ): ProgressLabel | null {
   // Learned words need no mark (their tab says it), and ignored words are never practised.
   if (word.status !== "learning") return null;
-  if (word.timesSeen === 0) return { kind: "new", text: "new", spoken: "Not practised yet" };
+  if (word.timesSeen === 0) {
+    return { kind: "new", text: "new", spoken: "Not practised yet", filled: 0 };
+  }
   const inARow = Math.min(word.correctStreak, LEARNED_STREAK);
   return {
     kind: "streak",
     text: `${inARow}/${LEARNED_STREAK}`,
     spoken: `${inARow} of ${LEARNED_STREAK} right in a row`,
+    filled: inARow,
   };
 }
 
 /**
- * Right answers in a row towards learned, as bars on Word detail (§10). Unlike the list's mark, a
- * word never practised shows the empty bars rather than "new".
+ * Right answers in a row towards learned, as segments on Word detail (§10). Unlike the list's
+ * mark, a word never practised shows the empty segments rather than "new".
  */
 export type StreakLabel = { filled: number; text: string; spoken: string };
 

@@ -1,4 +1,5 @@
 import {
+  type Article,
   cardBack,
   displayTranslation,
   type HighlightSegment,
@@ -9,6 +10,8 @@ import {
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api";
+import { Headword } from "../components/Headword";
+import { ChevronDownIcon, PencilIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { SpeakerButton } from "../components/SpeakerButton";
 import { WordLoadState } from "../components/WordLoadState";
@@ -20,8 +23,11 @@ import { TABS, wordsUrl } from "../words/listQuery";
 import { useWord } from "../words/useWord";
 import styles from "./WordDetailScreen.module.css";
 
-/** One bar per right answer in a row that it takes to learn a word: 1, 2, 3. */
-const STREAK_BARS = Array.from({ length: LEARNED_STREAK }, (_, index) => index + 1);
+/** One segment per right answer in a row that it takes to learn a word: 1, 2, 3. */
+const STREAK_SEGMENTS = Array.from({ length: LEARNED_STREAK }, (_, index) => index + 1);
+
+/** The gender chip over a noun: "der · masculine". */
+const GENDER: Record<Article, string> = { der: "masculine", die: "feminine", das: "neuter" };
 
 /** One word, to read; its status changes here, the learner's texts in Edit word (§10). */
 export function WordDetailScreen() {
@@ -43,7 +49,7 @@ export function WordDetailScreen() {
   }
 
   const back = cardBack(word);
-  // The headword as on the card back, with the article on its own to colour it by gender.
+  // A noun's gender colours its chip and its word in the example.
   const article = word.pos === "noun" ? word.article : null;
   const note = sourceNote(word);
   const streak = streakLabel(word);
@@ -72,76 +78,96 @@ export function WordDetailScreen() {
         <Link
           to={`/words/${word.userWordId}/edit`}
           state={editState}
-          className={styles.edit}
+          className={ui.round}
           aria-label="Edit word"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"
-              fill="currentColor"
-            />
-          </svg>
+          <PencilIcon size={18} />
         </Link>
       }
     >
-      {/* Sections without content are left out, so a divider only ever sits between two. */}
+      {/* Cards without content are left out. */}
       <div className={styles.detail}>
-        <section className={styles.top}>
+        <section className={`${ui.card} ${styles.top}`}>
+          {article && (
+            <span className={`${styles.chip} ${styles[article]}`}>
+              {article} · {GENDER[article]}
+            </span>
+          )}
           <div className={styles.wordRow}>
-            {/* lang="de" lets the browser hyphenate a long compound where it wraps. */}
-            <h1 className={styles.word} lang="de">
-              {article && (
-                <>
-                  <span className={`${styles.article} ${styles[article]}`}>{article}</span>{" "}
-                </>
-              )}
-              {word.lemma}
+            {/* Headword is lang="de", so the browser hyphenates a long compound where it wraps. */}
+            <h1 className={styles.word}>
+              <Headword word={word} />
             </h1>
             {/* Pronunciation from Wiktionary; recordings are credited in Home's footer. */}
-            {back.audioUrl && <SpeakerButton url={back.audioUrl} word={back.headword} />}
+            {back.audioUrl && (
+              <SpeakerButton url={back.audioUrl} word={back.headword} className={styles.speaker} />
+            )}
           </div>
-          <p className={styles.meta}>{word.ipa ? `${word.ipa} · ${word.pos}` : word.pos}</p>
-
-          <p className={styles.translation}>{displayTranslation(word)}</p>
-          {hasOwnTranslation && <p className={styles.small}>originally “{word.translation}”</p>}
-          {back.forms && (
-            <p className={styles.forms} lang="de">
-              {back.forms}
+          {/* Forms join the line when they fit, else wrap onto their own line (no leading dot). */}
+          <div className={styles.metaClip}>
+            <p className={styles.meta}>
+              <span>{word.ipa ? `${word.ipa} · ${word.pos}` : word.pos}</span>
+              {back.forms && <span lang="de">{back.forms}</span>}
             </p>
-          )}
-          {note && <p className={note.warning ? styles.warning : styles.small}>{note.text}</p>}
+          </div>
+
+          <div className={styles.meaning}>
+            <h2 className={styles.label}>Meaning</h2>
+            <p className={styles.translation}>{displayTranslation(word)}</p>
+            {hasOwnTranslation && <p className={styles.small}>originally “{word.translation}”</p>}
+            {note && <p className={note.warning ? styles.warning : styles.small}>{note.text}</p>}
+          </div>
         </section>
 
-        {(back.detailsPending || back.example || back.note) && (
-          <section className={styles.texts}>
+        {(back.detailsPending || back.example) && (
+          <section className={`${ui.card} ${styles.card}`}>
+            <h2 className={styles.label}>Example</h2>
             {back.detailsPending ? (
               <p className={styles.pending}>
                 Example and forms not added yet. Use Add details on Home.
               </p>
             ) : (
               back.example && (
-                <div className={styles.block}>
-                  <h2 className={styles.label}>Example</h2>
-                  <p className={styles.example} lang="de">
+                <>
+                  <p className={`${styles.example} ${article ? styles[article] : ""}`} lang="de">
                     <Highlighted segments={highlightWord(back.example.de, word)} />
                   </p>
                   {back.example.translation && (
                     <p className={styles.exampleTranslation}>{back.example.translation}</p>
                   )}
-                </div>
+                </>
               )
-            )}
-            {back.note && (
-              <div className={styles.block}>
-                <h2 className={styles.label}>Note</h2>
-                <p className={styles.note}>{back.note}</p>
-              </div>
             )}
           </section>
         )}
 
-        <section>
+        {back.note && (
+          <section className={`${ui.card} ${styles.card}`}>
+            <h2 className={styles.label}>Note</h2>
+            <p className={styles.note}>{back.note}</p>
+          </section>
+        )}
+
+        <section className={`${ui.card} ${styles.progress}`}>
+          {streak && (
+            <div className={styles.streak}>
+              <div className={styles.streakHead} aria-hidden>
+                <span className={styles.streakTitle}>Streak</span>
+                <span className={styles.streakText}>{streak.text}</span>
+              </div>
+              <div className={styles.segments} aria-hidden>
+                {STREAK_SEGMENTS.map((segment) => (
+                  <span
+                    key={segment}
+                    className={`${styles.segment} ${segment <= streak.filled ? styles.filled : ""}`}
+                  />
+                ))}
+              </div>
+              <span className={ui.srOnly}>{streak.spoken}</span>
+            </div>
+          )}
           <div className={styles.statusRow}>
+            <p className={styles.history}>{historyLine(word)}</p>
             {/* A native select: the phone's own picker, and a change saves at once. */}
             <div className={styles.pill}>
               <select
@@ -160,30 +186,10 @@ export function WordDetailScreen() {
               {savingStatus ? (
                 <span className={`${ui.spinner} ${styles.pillIcon}`} />
               ) : (
-                <svg className={styles.pillIcon} viewBox="0 0 10 6" aria-hidden="true">
-                  <path d="M0 0h10L5 6z" fill="currentColor" />
-                </svg>
+                <ChevronDownIcon size={16} className={styles.pillIcon} />
               )}
             </div>
-            {streak && (
-              <div className={styles.streak}>
-                <span className={styles.streakShown} aria-hidden>
-                  Streak
-                  <span className={styles.bars}>
-                    {STREAK_BARS.map((bar) => (
-                      <span
-                        key={bar}
-                        className={`${styles.bar} ${bar <= streak.filled ? styles.filled : ""}`}
-                      />
-                    ))}
-                  </span>
-                  {streak.text}
-                </span>
-                <span className={ui.srOnly}>{streak.spoken}</span>
-              </div>
-            )}
           </div>
-          <p className={styles.history}>{historyLine(word)}</p>
         </section>
       </div>
     </Page>

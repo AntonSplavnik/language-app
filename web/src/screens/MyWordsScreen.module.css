@@ -1,19 +1,39 @@
+/* My words (§10): search, the status tabs, and the list in letter sections. */
+
 .muted {
   margin: 0;
   color: var(--muted);
 }
 
+/* "164 words" at the right of the header. */
+.total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .search {
+  position: relative;
   margin: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
 }
 
 /* 16px or more, or iOS Safari zooms the page when the field gets focus. */
 .searchInput {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 14px;
+  height: 48px;
+  padding: 0 14px 0 44px;
   font-size: 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -21,45 +41,65 @@
   appearance: none;
 }
 
+.searchInput::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 .searchInput:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: -1px;
 }
 
+/* A segmented control; the current tab is a high-contrast pill. */
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
-  background: var(--surface-muted);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .tab {
-  min-height: 40px;
+  min-width: 0;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: 9px;
+  border-radius: 12px;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 
+.tab:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 1px;
+}
+
 .activeTab {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  background: var(--text);
+  color: var(--bg);
 }
 
 .tabCount {
-  font-weight: 500;
-  font-size: 13px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-raised);
   color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.activeTab .tabCount {
+  background: var(--bg);
+  color: var(--text);
 }
 
 .error {
@@ -67,44 +107,58 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: var(--danger-soft);
+  padding: 14px 16px 14px 18px;
   color: var(--danger);
 }
 
+/* Dimmed while another search loads. */
+.results {
+  transition: opacity 120ms ease;
+}
+
+.results[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.letter {
+  margin: 0;
+  padding: 14px 4px 6px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* No box: rows sit on the page, with a hairline under each. */
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  overflow: hidden;
-  transition: opacity 120ms ease;
 }
 
-.list[aria-busy="true"] {
-  opacity: 0.6;
-}
-
-.list li + li {
-  border-top: 1px solid var(--border);
+.list li {
+  border-bottom: 1px solid var(--border);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 10px 12px 10px 14px;
+  gap: 14px;
+  min-height: 62px;
+  padding: 8px 4px;
   color: var(--text);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 
 .row:active {
-  background: var(--surface-muted);
+  background: var(--surface);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 8px;
 }
 
 .text {
@@ -112,11 +166,15 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 3px;
 }
 
 .headword {
-  font-size: 17px;
-  font-weight: 600;
+  --article-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
@@ -126,29 +184,37 @@
   overflow-wrap: anywhere;
 }
 
+/* A learning word never practised. */
 .new {
   flex: none;
-  font-size: 12px;
-  padding: 1px 8px;
+  padding: 5px 9px;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
-}
-
-/* Right answers in a row towards learned, e.g. "2/3". */
-.streak {
-  flex: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.chevron {
-  flex: none;
-  font-size: 22px;
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1;
-  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Right answers in a row towards learned, one dot each. */
+.dots {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--track);
+}
+
+/* --accent-ink, not --accent: lime would vanish against the light track. */
+.filled {
+  background: var(--accent-ink);
 }
 
 .empty {
@@ -156,12 +222,32 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 32px 8px;
+  padding: 40px 12px;
   text-align: center;
   color: var(--muted);
+  font-size: 15px;
 }
 
 .empty p {
   margin: 0;
-  max-width: 360px;
+  max-width: 320px;
+}
+
+.emptyIcon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.empty .emptyTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }

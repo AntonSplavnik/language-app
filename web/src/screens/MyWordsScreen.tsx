@@ -1,21 +1,28 @@
 import {
-  cardBack,
   displayTranslation,
+  LEARNED_STREAK,
   type WordListItem,
   type WordListResponse,
 } from "@language-app/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../api";
+import { Headword } from "../components/Headword";
+import { BookIcon, SearchIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { errorMessage } from "../lib/toast";
 import ui from "../styles/ui.module.css";
+import { wordCount } from "../words/counts";
+import { groupByLetter } from "../words/groupByLetter";
 import { progressLabel } from "../words/labels";
 import { type ListQuery, listParams, parseListQuery, TABS, wordsUrl } from "../words/listQuery";
 import styles from "./MyWordsScreen.module.css";
 
 /** Typing waits this long before searching. */
 const SEARCH_DELAY_MS = 250;
+
+/** One dot per right answer in a row that it takes to learn a word: 1, 2, 3. */
+const STREAK_DOTS = Array.from({ length: LEARNED_STREAK }, (_, index) => index + 1);
 
 type Loaded = { query: ListQuery; data: WordListResponse };
 
@@ -58,9 +65,15 @@ export function MyWordsScreen() {
   // While another search loads, the previous results of the same tab stay on screen.
   const shown = loaded?.query.status === status ? loaded : null;
   const here = wordsUrl(query);
+  // How many words there are in all; a search's counts are only its matches.
+  const total = loaded && !loaded.query.q ? wordCount(loaded.data.counts) : null;
 
   return (
-    <Page title="My words" back="/">
+    <Page
+      largeTitle="My words"
+      back="/"
+      action={total && <span className={styles.total}>{total}</span>}
+    >
       <form
         className={styles.search}
         onSubmit={(event) => {
@@ -70,6 +83,7 @@ export function MyWordsScreen() {
           (document.activeElement as HTMLElement | null)?.blur();
         }}
       >
+        <SearchIcon size={18} className={styles.searchIcon} />
         <input
           type="search"
           className={styles.searchInput}
@@ -100,7 +114,7 @@ export function MyWordsScreen() {
       </nav>
 
       {error && (
-        <div className={styles.error} role="alert">
+        <div className={`${ui.card} ${styles.error}`} role="alert">
           <span>{error}</span>
           <button
             type="button"
@@ -118,52 +132,91 @@ export function MyWordsScreen() {
         (shown.data.words.length === 0 ? (
           <EmptyList query={shown.query} counts={shown.data.counts} />
         ) : (
-          <ul className={styles.list} aria-busy={shown.query.q !== q}>
-            {shown.data.words.map((word) => (
-              <WordRow key={word.userWordId} word={word} from={here} />
-            ))}
-          </ul>
+          <div className={styles.results} aria-busy={shown.query.q !== q}>
+            {shown.query.q ? (
+              // While searching: one flat list, without letter headings.
+              <WordList words={shown.data.words} from={here} />
+            ) : (
+              groupByLetter(shown.data.words).map((group) => (
+                // Keyed by its first word: a letter can come back later in the server's order.
+                <section key={group.words[0]?.userWordId}>
+                  <h2 className={styles.letter}>{group.letter}</h2>
+                  <WordList words={group.words} from={here} />
+                </section>
+              ))
+            )}
+          </div>
         ))}
     </Page>
   );
 }
 
+function WordList({ words, from }: { words: WordListItem[]; from: string }) {
+  return (
+    <ul className={styles.list}>
+      {words.map((word) => (
+        <WordRow key={word.userWordId} word={word} from={from} />
+      ))}
+    </ul>
+  );
+}
+
+/** Headword over translation, the progress mark at the right; the whole row opens the word. */
 function WordRow({ word, from }: { word: WordListItem; from: string }) {
   const progress = progressLabel(word);
   return (
     <li>
       <Link to={`/words/${word.userWordId}`} state={{ from }} className={styles.row}>
         <span className={styles.text}>
-          <span className={styles.headword} lang="de">
-            {cardBack(word).headword}
-          </span>
+          <Headword word={word} className={styles.headword} />
           <span className={styles.translation}>{displayTranslation(word)}</span>
         </span>
-        {progress && (
-          <span className={progress.kind === "new" ? styles.new : styles.streak}>
-            <span aria-hidden>{progress.text}</span>
-            <span className={ui.srOnly}>{progress.spoken}</span>
-          </span>
-        )}
-        <span className={styles.chevron} aria-hidden>
-          ›
-        </span>
+        {progress &&
+          (progress.kind === "new" ? (
+            <span className={styles.new}>
+              <span aria-hidden>{progress.text}</span>
+              <span className={ui.srOnly}>{progress.spoken}</span>
+            </span>
+          ) : (
+            <span className={styles.dots}>
+              {STREAK_DOTS.map((dot) => (
+                <span
+                  key={dot}
+                  aria-hidden
+                  className={`${styles.dot} ${dot <= progress.filled ? styles.filled : ""}`}
+                />
+              ))}
+              <span className={ui.srOnly}>{progress.spoken}</span>
+            </span>
+          ))}
       </Link>
     </li>
   );
 }
 
-const EMPTY: Record<ListQuery["status"], string> = {
-  learning: "No words to learn. Import the pages you studied to collect their new words.",
-  learned: "No learned words yet. A word counts as learned after 3 right answers in a row.",
-  ignored: "No ignored words. Words you skip in a review land here and are never offered again.",
+/** What an empty tab says: a headline, then what belongs there. */
+const EMPTY: Record<ListQuery["status"], { title: string; text: string }> = {
+  learning: {
+    title: "No words to learn.",
+    text: "Import the pages you studied to collect their new words.",
+  },
+  learned: {
+    title: "No learned words yet.",
+    text: "A word counts as learned after 3 right answers in a row.",
+  },
+  ignored: {
+    title: "No ignored words.",
+    text: "Words you skip in a review land here and are never offered again.",
+  },
 };
 
 function EmptyList({ query, counts }: { query: ListQuery; counts: WordListResponse["counts"] }) {
   if (!query.q) {
     return (
       <div className={styles.empty}>
-        <p>{EMPTY[query.status]}</p>
+        <EmptyIcon />
+        <p className={styles.emptyTitle}>{EMPTY[query.status].title}</p>
+        <p>{EMPTY[query.status].text}</p>
         {query.status === "learning" && (
           <Link to="/imports/new" className={`${ui.button} ${ui.secondary}`}>
             New import
@@ -176,7 +229,8 @@ function EmptyList({ query, counts }: { query: ListQuery; counts: WordListRespon
   const elsewhere = TABS.filter((tab) => tab.status !== query.status && counts[tab.status] > 0);
   return (
     <div className={styles.empty}>
-      <p>
+      <EmptyIcon />
+      <p className={styles.emptyTitle}>
         No {TABS.find((tab) => tab.status === query.status)?.label.toLowerCase()} words match “
         {query.q}”.
       </p>
@@ -193,3 +247,9 @@ function EmptyList({ query, counts }: { query: ListQuery; counts: WordListRespon
     </div>
   );
 }
+
+const EmptyIcon = () => (
+  <span className={styles.emptyIcon}>
+    <BookIcon size={28} />
+  </span>
+);

@@ -11,7 +11,7 @@
   max-height: 560px;
   display: flex;
   /* Keeps the card (and so the start of every swipe) clear of the screen edges, where a sideways
-     swipe is the system's "go back". Together with the page gutter: 32 px from each edge. */
+     swipe is the system's "go back". Together with the page gutter: 36 px from each edge. */
   padding: 0 16px;
   perspective: 1200px;
   -webkit-perspective: 1200px;

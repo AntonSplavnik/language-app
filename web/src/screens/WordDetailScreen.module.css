@@ -1,14 +1,10 @@
-/* Word detail (§10): no boxes, just whitespace and a thin line between sections. */
+/* Word detail (§10): cards. The word and its meaning on top, then the example, the note, and
+   the progress with the status. */
 
 .detail {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-.detail > section + section {
-  border-top: 1px solid var(--border);
-  padding-top: 24px;
+  gap: 14px;
 }
 
 /* No specificity, so each paragraph's own margin below wins. */
@@ -16,31 +12,42 @@
   margin: 0;
 }
 
-/* The round Edit button in the header. */
-.edit {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--surface-muted);
-  color: var(--accent);
-  -webkit-tap-highlight-color: transparent;
+/* A noun's gender, for its chip and its word in the example. */
+.der {
+  --gender: var(--der);
+  --gender-soft: var(--der-soft);
 }
 
-.edit:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.die {
+  --gender: var(--die);
+  --gender-soft: var(--die-soft);
 }
 
-.edit svg {
-  width: 20px;
-  height: 20px;
+.das {
+  --gender: var(--das);
+  --gender-soft: var(--das-soft);
 }
 
 .top {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 24px 22px 22px;
+  border-radius: var(--radius-hero);
+}
+
+/* "der · masculine" over a noun. */
+.chip {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--gender-soft);
+  color: var(--gender);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* The word with the speaker button at its right end, level with the word's first line. A long
@@ -55,71 +62,107 @@
 .word {
   flex: 1;
   min-width: 0;
-  margin: 1px 0 0;
-  font-size: 36px;
-  font-weight: 700;
-  line-height: 1.15;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
   overflow-wrap: anywhere;
   -webkit-hyphens: auto;
   hyphens: auto;
 }
 
-/* The article on a soft badge in its gender's colour. One box that never breaks, so the lemma
-   after it wraps and hyphenates as before. */
-.article {
-  display: inline-block;
-  padding: 0 0.18em;
-  border-radius: 8px;
+/* Lime and larger here, even at rest. Centred on the word's 44 px first line: it reaches 6 px
+   into the gaps above and below instead of pushing them apart. */
+.wordRow .speaker {
+  width: 56px;
+  height: 56px;
+  margin-block: -6px;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
-.der {
-  color: var(--der);
-  background: var(--der-soft);
-}
-
-.die {
-  color: var(--die);
-  background: var(--die-soft);
-}
-
-.das {
-  color: var(--das);
-  background: var(--das-soft);
+/* IPA · part of speech, then the forms: on the same line after a dot when they fit, otherwise on
+   their own line. Each part brings its dot in front of it; the dot of a part that starts a line
+   falls into the clipped margin on the left. */
+.metaClip {
+  overflow: hidden;
 }
 
 .meta {
-  margin-top: 4px;
-  font-size: 17px;
+  display: flex;
+  flex-wrap: wrap;
+  margin-left: -0.73em;
+  font-size: 14px;
   color: var(--muted);
 }
 
-/* What the cards show, second only to the word. */
-.translation {
-  margin-top: 20px;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.2;
+/* The dot sits in the part's own left padding, as wide as " · " in the body font so every dot
+   on the line is spaced alike; a part that wraps inside itself keeps its later lines clear of
+   the clipped margin. */
+.meta > span {
+  position: relative;
+  min-width: 0;
+  padding-left: 0.73em;
   overflow-wrap: anywhere;
 }
 
-.forms {
-  margin-top: 8px;
-  font-size: 17px;
+.meta > span::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  width: 0.73em;
+  text-align: center;
+}
+
+/* Below a hairline: what the cards show, second only to the word. */
+.meaning {
+  margin-top: 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+
+.translation {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
 .small {
-  margin-top: 6px;
-  font-size: 15px;
+  margin-top: 4px;
+  font-size: 14px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 
 .warning {
-  margin-top: 6px;
-  font-size: 15px;
+  margin-top: 4px;
+  font-size: 14px;
   color: var(--warning);
+}
+
+/* The example and the note. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 22px;
 }
 
 .pending {
@@ -127,39 +170,25 @@
   color: var(--muted);
 }
 
-.texts {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.label {
-  margin: 0 0 2px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
 .example {
-  font-size: 18px;
-  line-height: 1.45;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
+/* The word itself, in its gender's colour (a noun) or the text colour. */
 .example strong {
   font-weight: 700;
+  color: var(--gender, var(--text));
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
 .exampleTranslation {
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1.45;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -171,16 +200,77 @@
   overflow-wrap: anywhere;
 }
 
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.streak {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.streakHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.streakTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.streakText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One segment per right answer it takes, across the card. */
+.segments {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.segment {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+/* --accent-ink, not --accent: lime would vanish against the light track. */
+.filled {
+  background: var(--accent-ink);
+}
+
+/* The history at the left, the status at the right; the status goes under the history when
+   there is no room for both. */
 .statusRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px 16px;
+  gap: 12px;
+}
+
+.history {
+  flex: 1 1 10em;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 /* The select and its chevron (or spinner) share one grid cell, so no transform is needed. */
 .pill {
+  flex: none;
   display: inline-grid;
   align-items: center;
 }
@@ -193,20 +283,20 @@
 .select {
   appearance: none;
   -webkit-appearance: none;
-  min-height: 44px;
+  height: 44px;
   margin: 0;
-  padding: 0 36px 0 16px;
+  padding: 0 40px 0 16px;
   border: 0;
-  border-radius: 12px;
-  background: var(--surface-muted);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
   color: var(--text);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .select:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
 
@@ -215,49 +305,10 @@
   cursor: default;
 }
 
-/* The ▾ chevron, or the spinner while saving. */
+/* The chevron, or the spinner while saving. */
 .pillIcon {
   justify-self: end;
   margin-right: 14px;
   color: var(--muted);
   pointer-events: none;
-}
-
-svg.pillIcon {
-  width: 10px;
-  height: 6px;
-}
-
-.streak {
-  display: flex;
-}
-
-.streakShown {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
-}
-
-.bars {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.bar {
-  width: 11px;
-  height: 22px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--muted) 28%, transparent);
-}
-
-.filled {
-  background: var(--accent);
-}
-
-.history {
-  margin-top: 12px;
-  font-size: 15px;
-  color: var(--muted);
 }

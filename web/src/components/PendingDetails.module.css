@@ -1,24 +1,33 @@
+/* A card like Home's import banners (§10). */
 .box {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin: 0;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: var(--warning-soft);
-  color: var(--warning);
+  padding: 16px 16px 16px 18px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font-size: 15px;
+  font-weight: 500;
   text-align: left;
 }
 
 .sub {
   display: block;
   font-size: 13px;
-  opacity: 0.85;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Never squeezed onto two lines; the text beside it wraps instead. */
+.action {
+  flex: none;
+  white-space: nowrap;
 }
 
 .done {
-  background: var(--success-soft);
   color: var(--success);
 }

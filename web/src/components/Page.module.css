@@ -6,39 +6,41 @@
   flex-direction: column;
 }
 
+/* The round back button (ui.round), a title, an action; blurred and sticky. */
 .header {
   position: sticky;
   top: 0;
   z-index: 5;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: max(10px, env(safe-area-inset-top)) var(--gutter) 10px;
+  gap: 12px;
+  min-height: 60px;
+  padding: max(12px, env(safe-area-inset-top)) var(--gutter) 10px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
-.back {
-  margin-left: -10px;
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  font-size: 34px;
-  line-height: 1;
-  color: var(--accent);
-  text-decoration: none;
-}
-
 .title {
   min-width: 0;
   margin: 0;
+  font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* My words: the title at the top of the content, under the back button. */
+.largeTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
 
 /* Never shrinks, so a long title can't push it off screen. */
@@ -54,6 +56,7 @@
 .sheet {
   display: grid;
   grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  gap: 4px;
 }
 
 .leading {
@@ -64,8 +67,10 @@
 
 .sheet .title {
   grid-column: 2;
+  font-family: inherit;
   font-size: 17px;
   font-weight: 600;
+  letter-spacing: normal;
   text-align: center;
 }
 

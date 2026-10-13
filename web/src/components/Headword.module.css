@@ -1,0 +1,18 @@
+/* Text colour only. A place can make the article lighter than its lemma by setting
+   `--article-weight` (a list row: 600); unset, the declaration falls back to the inherited
+   weight, so on Word detail the article is as heavy as the word. */
+.article {
+  font-weight: var(--article-weight);
+}
+
+.der {
+  color: var(--der);
+}
+
+.die {
+  color: var(--die);
+}
+
+.das {
+  color: var(--das);
+}

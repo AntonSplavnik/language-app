@@ -40,7 +40,7 @@
 
 .quiet {
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-ink);
   min-height: 40px;
   padding: 8px 10px;
 }
@@ -54,6 +54,37 @@
 
 .block {
   width: 100%;
+}
+
+/* A card (§10): a surface with a hairline border, no shadow. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+/* A 44 px round button in the header: Back, Word detail's Edit. Holds a 20 px stroke icon. */
+.round {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.round:active {
+  background: var(--surface-muted);
+}
+
+.round:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
 }
 
 .hint {
