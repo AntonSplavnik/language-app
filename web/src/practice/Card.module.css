@@ -21,19 +21,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 28px 24px;
+  gap: 14px;
+  padding: 32px;
   text-align: center;
-  border-radius: 22px;
+  border-radius: 32px;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-card);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   overflow: hidden;
 }
 
 .back {
+  gap: 22px;
+  padding: 32px 26px;
   transform: rotateY(180deg);
 }
 
@@ -42,14 +44,42 @@
 }
 
 .translation {
-  font-size: 30px;
-  font-weight: 650;
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
 }
 
 .pos {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--surface-raised);
   color: var(--muted);
-  font-size: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* At the bottom of the front, out of the way of the word. */
+.flipHint {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.word {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 /* The headword with the speaker button after it; a long word pushes the button below. */
@@ -58,46 +88,55 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 6px 12px;
+  gap: 8px 14px;
 }
 
 .headword {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
   overflow-wrap: anywhere;
 }
 
 .forms {
-  font-size: 18px;
+  font-size: 17px;
   color: var(--muted);
+}
+
+.divider {
+  flex: none;
+  width: 48px;
+  height: 1px;
+  background: var(--track);
 }
 
 .example {
-  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 17px;
-  line-height: 1.4;
+  gap: 8px;
 }
 
-.muted {
-  color: var(--muted);
+.exampleTranslation {
   font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .note {
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-muted);
   font-size: 15px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  background: var(--accent-soft);
+  overflow-wrap: anywhere;
 }
 
 .pending {
-  font-size: 13px;
-  color: var(--warning);
-  background: var(--warning-soft);
-  padding: 3px 10px;
+  padding: 5px 12px;
   border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 13px;
+  font-weight: 600;
 }

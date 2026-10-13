@@ -28,12 +28,18 @@
   --accent-soft: #eef7c9;
   --success: #1e7d46;
   --success-soft: #e3f4ea;
+  /* 5.4:1 on --surface, 4.9:1 on --warning-soft (Review's article strip). */
   --warning: #9a5b00;
   --warning-soft: #fdf1dc;
+  /* Text on a --warning fill (Review's Use {article}): 5.4:1. */
+  --on-warning: #ffffff;
+  /* 5.4:1 on --surface, 4.7:1 on --danger-soft. */
   --danger: #c4372b;
   /* Text on a --danger fill: 5.4:1. */
   --on-danger: #ffffff;
-  --danger-soft: #fbe7e5;
+  /* Didn't know, Delete word, the delete confirmation. A shade lighter than #fbe7e5, where
+     --danger text was 4.496:1. */
+  --danger-soft: #fcecea;
   /* A noun's article (and its example word) in its gender's colour, as text: der blue, die red,
      das teal (not green, so it can't be taken for the accent). On --bg 5.9, 6 and 5.6:1, on
      --surface 6.5, 6.5 and 6.1:1, and on its soft chip 5.4, 5.4 and 5.3:1. */
@@ -49,6 +55,15 @@
   --radius-hero: 28px;
   --gutter: 20px;
   --shadow: 0 6px 24px rgb(0 0 0 / 0.12);
+  /* The flashcard, lifted off the page. */
+  --shadow-card: 0 16px 40px rgb(0 0 0 / 0.1);
+  /* Secondary text a step softer than --text, between it and --muted (the delete confirmation,
+     Review's known words). Follows the scheme by itself: 10.1:1 on --danger-soft and 11.1:1 on
+     Review's known card here, 9.3 and 11.1:1 in dark. */
+  --text-soft: color-mix(in srgb, var(--text) 50%, var(--muted));
+  /* Dashed outlines (New import, Import's drop zone) and the skipped share of Summary's bar: a
+     step darker than --track. Not for text. */
+  --track-strong: color-mix(in srgb, var(--muted) 35%, transparent);
   /* Screen titles, big numbers, Practice, the word on Word detail and its meaning, letter
      headings. Self-hosted (main.tsx), so nothing is fetched from another site. */
   --font-display: "Bricolage Grotesque Variable", "DM Sans Variable", system-ui, sans-serif;
@@ -80,8 +95,12 @@
     --accent-soft: rgb(215 242 106 / 0.12);
     --success: #5cc78a;
     --success-soft: #16301f;
+    /* 9.7:1 on --surface, 7.9:1 on --warning-soft. */
     --warning: #f0b45c;
     --warning-soft: #33270f;
+    /* Dark text on the --warning fill: 9.3:1 (white would be 1.8:1). */
+    --on-warning: #241a08;
+    /* 5.9:1 on --surface, 5.1:1 on --danger-soft. */
     --danger: #ef6b5f;
     /* White on this lighter fill would be 3:1; dark text is 6:1. */
     --on-danger: #2a0c08;
@@ -95,6 +114,7 @@
     --das: #5ed6c4;
     --das-soft: rgb(94 214 196 / 0.14);
     --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
+    --shadow-card: 0 24px 60px rgb(0 0 0 / 0.45);
   }
 }
 

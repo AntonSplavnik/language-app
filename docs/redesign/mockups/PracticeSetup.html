@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>German words — Practice setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&amp;display=swap">
+<style>
+body{margin:0;background:#0E0E11}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font:inherit;color:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0E0E11; color: #F4F3F7; font-family: 'DM Sans', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <a href="Home.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #17171C; border: 1px solid #24242B; display: flex; align-items: center; justify-content: center; box-sizing: border-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4F3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif; font-size: 36px; line-height: 1; font-weight: 800; letter-spacing: -0.03em">Practice</h1>
+      <p style="margin: 0; font-size: 15px; color: #9C9BA8">Pick what to practise</p>
+    </div>
+  </div>
+
+  <fieldset style="border: 0; margin: 0; padding: 20px 20px 0; display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0">
+    <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Practice source</legend>
+    <sc-for list="{{options}}" as="o" hint-placeholder-count="3">
+      <label style="{{o.cardStyle}}">
+        <input type="radio" name="source" value="{{o.id}}" checked="{{o.selected}}" onChange="{{o.pick}}" style="position: absolute; opacity: 0; pointer-events: none">
+        <span style="{{o.wellStyle}}">
+          <sc-if value="{{o.isImport}}" hint-placeholder-val="{{ false }}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="13" rx="3"/><path d="M8.5 6l1.5-2h4l1.5 2"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+          </sc-if>
+          <sc-if value="{{o.isWeek}}" hint-placeholder-val="{{ false }}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+          </sc-if>
+          <sc-if value="{{o.isMissed}}" hint-placeholder-val="{{ false }}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>
+          </sc-if>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0">
+          <span style="font-size: 17px; font-weight: 700">{{o.title}}</span>
+          <span style="font-size: 14px; color: #9C9BA8">{{o.sub}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0">
+          <span style="font-family: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums">{{o.count}}</span>
+          <span style="font-size: 12px; color: #9C9BA8">{{o.of}}</span>
+        </span>
+      </label>
+    </sc-for>
+  </fieldset>
+
+  <div style="padding: 16px 20px 28px; display: flex; flex-direction: column; gap: 10px">
+    <a href="CardFront.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 60px; border-radius: 20px; background: #D7F26A; color: #14160A; font-family: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.01em">
+      Start
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
+    </a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 'import' };
+  }
+  renderVals() {
+    const defs = [
+      { id: 'import', title: 'Last import', sub: 'The words you added most recently', count: '2', of: 'words', hint: '2 cards' },
+      { id: 'week', title: 'Last 7 days', sub: 'Everything added this week', count: '20', of: 'of 149 words', hint: '20 cards' },
+      { id: 'missed', title: 'Not learned yet', sub: 'Words you missed come first', count: '20', of: 'of 149 words', hint: '20 cards' }
+    ];
+    const options = defs.map((d) => {
+      const on = this.state.picked === d.id;
+      return {
+        ...d,
+        selected: on,
+        isImport: d.id === 'import',
+        isWeek: d.id === 'week',
+        isMissed: d.id === 'missed',
+        pick: () => this.setState({ picked: d.id }),
+        cardStyle: 'position: relative; cursor: pointer; display: flex; align-items: center; gap: 14px; min-height: 84px; padding: 16px 18px 16px 16px; border-radius: 24px; box-sizing: border-box; background: #17171C; ' + (on ? 'border: 2px solid #D7F26A; padding: 15px 17px 15px 15px' : 'border: 1px solid #24242B'),
+        wellStyle: 'width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; ' + (on ? 'background: #D7F26A; color: #14160A' : 'background: #1E1E25; color: #F4F3F7')
+      };
+    });
+    return { options };
+  }
+}
+</script>
+</body>
+</html>

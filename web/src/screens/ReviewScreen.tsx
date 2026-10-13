@@ -1,7 +1,9 @@
 import type { Article, Candidate, ImportView } from "@language-app/core";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api";
+import { Headword } from "../components/Headword";
+import { CheckIcon, ChevronDownIcon, WarningIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { readJson, removeItem, writeJson } from "../lib/storage";
 import { errorMessage, useToast } from "../lib/toast";
@@ -60,7 +62,7 @@ export function ReviewScreen() {
 
   if (!view) {
     return (
-      <Page title="Review" back="/">
+      <Page largeTitle="Review" back="/">
         <p className={styles.muted}>Loading…</p>
       </Page>
     );
@@ -95,12 +97,12 @@ export function ReviewScreen() {
 
   return (
     <Page
-      title={view.name ?? "Review words"}
+      largeTitle={view.name ?? "Review words"}
       back="/"
       footer={
         <button
           type="button"
-          className={`${ui.button} ${ui.primary} ${ui.block}`}
+          className={`${ui.button} ${ui.primary} ${ui.cta}`}
           disabled={saving}
           onClick={save}
         >
@@ -119,21 +121,21 @@ export function ReviewScreen() {
     >
       <div className={styles.summary}>
         <p>
-          <strong>{fresh.length}</strong> new {fresh.length === 1 ? "word" : "words"} · {adds} to
-          add
+          <strong>{fresh.length}</strong> new {fresh.length === 1 ? "word" : "words"} ·{" "}
+          <strong>{adds}</strong> to add
         </p>
         {fresh.length > 0 && (
           <div className={styles.bulk}>
             <button
               type="button"
-              className={`${ui.button} ${ui.quiet}`}
+              className={styles.pill}
               onClick={() => update({ type: "setAll", action: "add" })}
             >
               Add all
             </button>
             <button
               type="button"
-              className={`${ui.button} ${ui.quiet}`}
+              className={styles.pill}
               onClick={() => update({ type: "setAll", action: "skip" })}
             >
               Skip all
@@ -150,19 +152,25 @@ export function ReviewScreen() {
             aria-expanded={showKnown}
             onClick={() => setShowKnown((open) => !open)}
           >
-            {known.length} already in your words
-            <span aria-hidden>{showKnown ? "▴" : "▾"}</span>
+            <CheckIcon size={16} />
+            <span className={styles.knownText}>{known.length} already in your words</span>
+            <ChevronDownIcon size={16} className={styles.chevron} />
           </button>
           {showKnown && (
             <p className={styles.knownList}>
-              {known.map((c) => withArticle(c.article, c.lemma)).join(", ")}
+              {known.map((c, i) => (
+                <Fragment key={c.key}>
+                  {i > 0 && ", "}
+                  <Headword word={c} />
+                </Fragment>
+              ))}
             </p>
           )}
         </section>
       )}
 
       {fresh.length === 0 && (
-        <p className={styles.muted}>Every word on these pages is already in your list.</p>
+        <p className={styles.empty}>Every word on these pages is already in your list.</p>
       )}
 
       <ul className={styles.list}>
@@ -206,33 +214,33 @@ function WordRow({
     <li className={`${styles.row} ${adding ? styles.adding : styles.skipping}`}>
       <button type="button" className={styles.rowMain} aria-pressed={adding} onClick={onToggle}>
         <span className={styles.word}>
-          <span className={styles.lemma}>{withArticle(article, candidate.lemma)}</span>
+          <Headword word={{ ...candidate, article }} className={styles.lemma} />
           <span className={styles.meta}>
             {candidate.translation} · {candidate.pos}
-            {candidate.dictionary.status === "not_found" && (
-              <span className={styles.notFound}>not in dictionary</span>
-            )}
           </span>
+          {candidate.dictionary.status === "not_found" && (
+            <span className={styles.notFound}>not in dictionary</span>
+          )}
         </span>
-        <span className={styles.choice}>{adding ? "Add" : "Skip"}</span>
+        <span className={styles.choice}>
+          {adding && <CheckIcon size={16} weight={2.8} />}
+          {adding ? "Add" : "Skip"}
+        </span>
       </button>
 
       {mismatch && (
-        <div className={styles.fix}>
+        <div className={`${styles.fix} ${fixed ? styles.fixed : ""}`}>
           {fixed ? (
             <>
-              <span>Dictionary article applied</span>
-              <button
-                type="button"
-                className={`${ui.button} ${ui.quiet} ${ui.small}`}
-                onClick={onUndo}
-              >
+              <span className={styles.fixText}>Dictionary article applied</span>
+              <button type="button" className={styles.undo} onClick={onUndo}>
                 Undo
               </button>
             </>
           ) : (
             <>
-              <span>
+              <WarningIcon size={18} className={styles.fixIcon} />
+              <span className={styles.fixText}>
                 AI: <strong>{withArticle(candidate.article, candidate.lemma)}</strong> · Dictionary:{" "}
                 <strong>
                   {(candidate.dictionary.genders ?? [])
@@ -245,7 +253,7 @@ function WordRow({
                   <button
                     key={gender}
                     type="button"
-                    className={`${ui.button} ${ui.secondary} ${ui.small}`}
+                    className={styles.use}
                     onClick={() => onApply(gender)}
                   >
                     Use {gender}

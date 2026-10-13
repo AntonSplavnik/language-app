@@ -1,25 +1,107 @@
+/* Import (§10): an optional name and a drop zone, then the photos as tiles with their state. */
+
+/* "2 photos read earlier; their words are kept.", under the title. */
+.note {
+  margin: -6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.note svg {
+  flex: none;
+}
+
 .name {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.nameLabel {
   font-size: 14px;
+  font-weight: 600;
+}
+
+.optional {
+  font-weight: 500;
   color: var(--muted);
 }
 
-.name input {
-  /* 16px keeps iOS Safari from zooming in on focus. */
-  font-size: 16px;
-  padding: 12px 14px;
-  border-radius: 12px;
+/* 16px keeps iOS Safari from zooming in on focus. */
+.input {
+  height: 52px;
+  padding: 0 16px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  font-size: 16px;
 }
 
-.note {
-  margin: 0;
+.input:focus {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -1px;
+}
+
+/* Before the first photo: one big target for the camera or the photo library. */
+.drop {
+  appearance: none;
+  min-height: 220px;
+  padding: 28px;
+  margin-top: 4px;
+  border-radius: 28px;
+  border: 1.5px dashed var(--track-strong);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drop:active {
+  background: var(--surface);
+}
+
+.drop:focus-visible,
+.add:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.dropIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.dropText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dropTitle {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.dropHint {
+  font-size: 14px;
   color: var(--muted);
-  font-size: 15px;
 }
 
 .grid {
@@ -27,24 +109,24 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 14px;
+  gap: 10px;
+  padding: 8px 8px 12px;
+  border-radius: 22px;
 }
 
 .thumb {
   position: relative;
-  aspect-ratio: 3 / 4;
-  border-radius: 12px;
+  height: 128px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--surface-muted);
-  border: 2px solid transparent;
 }
 
 .thumb img {
@@ -52,6 +134,14 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* Dimmed while the AI reads the page. */
+.reading .thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(14 14 17 / 0.55);
 }
 
 .placeholder {
@@ -73,65 +163,138 @@
   }
 }
 
+/* On the photo itself, so dark and light-on-dark in both schemes. */
 .remove {
+  appearance: none;
   position: absolute;
+  z-index: 1;
   top: 6px;
   right: 6px;
   width: 32px;
   height: 32px;
+  padding: 0;
   border-radius: 50%;
   border: 0;
-  background: rgb(0 0 0 / 0.55);
-  color: #fff;
-  font-size: 20px;
-  line-height: 1;
+  display: grid;
+  place-items: center;
+  background: rgb(14 14 17 / 0.75);
+  color: #f4f3f7;
   cursor: pointer;
 }
 
-.status {
-  color: var(--muted);
-  min-height: 20px;
+.below {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px;
 }
 
-.busy {
-  display: inline-flex;
+.status {
+  margin: 0;
+  display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--accent-ink);
+  min-height: 20px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
-/* Per-status accents on the thumbnail and status line. */
-.reading .thumb {
-  border-color: var(--accent-ink);
+.status svg {
+  flex: none;
+}
+
+.preparing .status,
+.reading .status {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .done .status {
-  color: var(--success);
-}
-
-.poor .thumb {
-  border-color: var(--warning);
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
 .poor .status {
   color: var(--warning);
-}
-
-.failed .thumb {
-  border-color: var(--danger);
+  font-weight: 600;
 }
 
 .failed .status {
   color: var(--danger);
+  font-weight: 600;
+}
+
+/* Retry, Retake. */
+.again {
+  appearance: none;
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.again:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* Add more photos, the grid's last cell: as tall as the tiles beside it. */
+.addCell {
+  display: flex;
 }
 
 .add {
-  min-height: 64px;
-  border-style: dashed;
-  border-width: 2px;
+  appearance: none;
+  flex: 1;
+  min-height: 180px;
+  border-radius: 22px;
+  border: 1.5px dashed var(--track-strong);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.plus {
-  font-size: 24px;
-  line-height: 1;
+.add:active {
+  background: var(--surface);
+}
+
+.addIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* The candidates so far, in a pill after "Review words". */
+.count {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 88%, var(--on-accent));
+  color: var(--on-accent);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+button:disabled .count {
+  background: var(--surface-muted);
+  color: var(--muted);
 }

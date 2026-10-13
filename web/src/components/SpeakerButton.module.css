@@ -1,22 +1,19 @@
-/* A round speaker button: soft accent at rest, filled accent with pulsing waves while playing.
-   Word detail passes a class that keeps it filled at rest, larger (§10). */
+/* A round lime speaker button, 48 px (the card back), whose waves pulse while it plays. Word
+   detail passes a class that makes it larger (§10). */
 
 .speaker {
   appearance: none;
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   display: inline-grid;
   place-items: center;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--accent);
+  color: var(--on-accent);
   cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
 }
 
 .speaker:focus-visible {
@@ -36,11 +33,6 @@
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
-}
-
-.playing {
-  background: var(--accent);
-  color: var(--on-accent);
 }
 
 .playing .wave {

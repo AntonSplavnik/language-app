@@ -1,3 +1,6 @@
+/* Review (§10): the counts with Add all / Skip all, the words already known, then one card per
+   new word, the whole card an Add/Skip toggle. */
+
 .muted {
   color: var(--muted);
   margin: 0;
@@ -7,45 +10,96 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 8px 12px;
   flex-wrap: wrap;
 }
 
 .summary p {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.summary strong {
+  color: var(--text);
+  font-weight: 700;
 }
 
 .bulk {
   display: flex;
-  margin-right: -10px;
+  gap: 6px;
 }
 
-.known {
-  background: var(--surface);
+/* Add all, Skip all. */
+.pill {
+  appearance: none;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.knownToggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  border: 0;
-  background: none;
-  font-size: 15px;
-  color: var(--muted);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
 }
 
+.pill:active {
+  background: var(--surface-muted);
+}
+
+/* A step below the word cards: the words that are already in the list. */
+.known {
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 50%, var(--bg));
+  overflow: hidden;
+}
+
+.knownToggle {
+  appearance: none;
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.knownToggle svg {
+  flex: none;
+}
+
+.knownText {
+  flex: 1;
+}
+
+.chevron {
+  transition: transform 150ms ease;
+}
+
+[aria-expanded="true"] > .chevron {
+  transform: rotate(180deg);
+}
+
+/* Under the toggle's text, past its check. */
 .knownList {
   margin: 0;
-  padding: 0 14px 14px;
+  padding: 0 16px 14px 42px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.empty {
+  margin: 16px 0;
+  text-align: center;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1.6;
 }
 
 .list {
@@ -60,69 +114,87 @@
 .row {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 20px;
   overflow: hidden;
-  transition: opacity 120ms ease;
 }
 
 .rowMain {
+  appearance: none;
   width: 100%;
+  min-height: 68px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 12px 12px 18px;
   border: 0;
   background: none;
   text-align: left;
   cursor: pointer;
+  transition: opacity 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rowMain:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 20px;
 }
 
 .word {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   min-width: 0;
 }
 
 .lemma {
+  --article-weight: 600;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
 .meta {
   font-size: 14px;
   color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
 }
 
 .notFound {
-  font-size: 12px;
-  padding: 1px 8px;
+  margin-top: 4px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: var(--surface-muted);
+  background: var(--surface-raised);
   color: var(--muted);
-}
-
-.choice {
-  flex: none;
-  min-width: 64px;
-  text-align: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
-.adding .choice {
-  background: var(--success-soft);
-  color: var(--success);
+/* Add or Skip, at the right. */
+.choice {
+  flex: none;
+  height: 40px;
+  min-width: 76px;
+  padding: 0 14px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
-.skipping {
-  opacity: 0.6;
+.adding .choice {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.skipping .rowMain {
+  opacity: 0.55;
 }
 
 .skipping .lemma {
@@ -131,23 +203,83 @@
 }
 
 .skipping .choice {
-  background: var(--surface-muted);
+  background: var(--surface-raised);
   color: var(--muted);
 }
 
+/* The AI and the dictionary disagree on the article: a strip across the card's bottom. */
 .fix {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 8px 12px;
+  padding: 12px 12px 12px 18px;
+  border-top: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
   background: var(--warning-soft);
   color: var(--warning);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.fixIcon {
+  flex: none;
+}
+
+.fixText {
+  flex: 1 1 10em;
+  min-width: 0;
 }
 
 .fixButtons {
   display: flex;
   gap: 6px;
+}
+
+/* Use der, Use das. */
+.use {
+  appearance: none;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--warning);
+  color: var(--on-warning);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* After applying the dictionary's article. */
+.fixed {
+  padding-block: 6px;
+  border-top-color: color-mix(in srgb, var(--das) 18%, transparent);
+  background: var(--das-soft);
+  color: var(--das);
+}
+
+.undo {
+  appearance: none;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pill:focus-visible,
+.use:focus-visible,
+.undo:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* Inside the card's rounded, clipped edge. */
+.knownToggle:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 18px;
 }

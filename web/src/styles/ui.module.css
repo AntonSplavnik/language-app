@@ -27,6 +27,36 @@
   color: var(--on-accent);
 }
 
+/* Grey, not faded lime: lime at 45% almost vanishes on a light ground. */
+.primary:disabled {
+  background: var(--surface-raised);
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* The big action in a sticky footer (§10): Start, Review words, Save N words, Practice these
+   now, New session. Goes with .button and .primary. */
+.cta {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.cta:not(:disabled):active {
+  background: color-mix(in srgb, var(--accent) 90%, var(--on-accent));
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
 .secondary {
   background: var(--surface);
   color: var(--text);
@@ -43,6 +73,13 @@
   color: var(--accent-ink);
   min-height: 40px;
   padding: 8px 10px;
+}
+
+/* A secondary footer button beside or under the big action (.cta): Import more pages, Home. */
+.large {
+  min-height: 56px;
+  border-radius: 18px;
+  font-weight: 700;
 }
 
 .small {

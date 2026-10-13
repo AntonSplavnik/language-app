@@ -21,29 +21,53 @@ type PageProps = {
   leading?: ReactNode;
   /** Something at the right end of the header, e.g. Word detail's Edit button. */
   action?: ReactNode;
+  /**
+   * The whole header row instead of back, title and action, e.g. Flashcards' close button and
+   * progress.
+   */
+  bar?: ReactNode;
   children: ReactNode;
   /** The screen's main action, pinned to the bottom where the thumb reaches it. */
   footer?: ReactNode;
 };
 
-/** Mobile-first screen layout: header, scrolling content, optional sticky action bar. */
-export function Page({ title, largeTitle, back, leading, action, children, footer }: PageProps) {
+/**
+ * Mobile-first screen layout: header, scrolling content, optional sticky action bar. A screen
+ * with nothing for the header (Summary) has none, and its content starts at the top.
+ */
+export function Page({
+  title,
+  largeTitle,
+  back,
+  leading,
+  action,
+  bar,
+  children,
+  footer,
+}: PageProps) {
+  const hasHeader = Boolean(bar || leading || back || title || action);
   return (
     <div className={styles.page}>
-      <header className={`${styles.header} ${leading ? styles.sheet : ""}`}>
-        {leading ? (
-          <div className={styles.leading}>{leading}</div>
-        ) : (
-          back && (
-            <Link to={back} className={ui.round} aria-label="Back">
-              <ChevronLeftIcon />
-            </Link>
-          )
-        )}
-        {title && <h1 className={styles.title}>{title}</h1>}
-        {action && <div className={styles.action}>{action}</div>}
-      </header>
-      <main className={styles.main}>
+      {hasHeader && (
+        <header className={`${styles.header} ${leading ? styles.sheet : ""}`}>
+          {bar ?? (
+            <>
+              {leading ? (
+                <div className={styles.leading}>{leading}</div>
+              ) : (
+                back && (
+                  <Link to={back} className={ui.round} aria-label="Back">
+                    <ChevronLeftIcon />
+                  </Link>
+                )
+              )}
+              {title && <h1 className={styles.title}>{title}</h1>}
+              {action && <div className={styles.action}>{action}</div>}
+            </>
+          )}
+        </header>
+      )}
+      <main className={`${styles.main} ${hasHeader ? "" : styles.headless}`}>
         {largeTitle && <h1 className={styles.largeTitle}>{largeTitle}</h1>}
         {children}
       </main>

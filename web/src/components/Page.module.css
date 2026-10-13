@@ -88,6 +88,11 @@
   gap: 16px;
 }
 
+/* No header above: the content keeps clear of the status bar itself. */
+.headless {
+  padding-top: max(28px, env(safe-area-inset-top));
+}
+
 .footer {
   position: sticky;
   bottom: 0;

@@ -1,82 +1,156 @@
+/* Summary (§8.6): the results card, then the words missed as plain rows. */
+
 .muted {
   margin: 0;
   color: var(--muted);
 }
 
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+  border-radius: var(--radius-hero);
+}
+
+.headline {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
   gap: 10px;
 }
 
-.tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 16px 8px;
-  border-radius: var(--radius);
-  font-size: 14px;
-  text-align: center;
+.knewCount {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
 }
 
-.value {
-  font-size: 32px;
+.of {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* One share per answer given, as wide as its count. */
+.bar {
+  display: flex;
+  gap: 4px;
+  height: 10px;
+}
+
+.bar > span {
+  min-width: 10px;
+  border-radius: 999px;
+}
+
+/* Each answer's colour, on the bar and the dots. --accent-ink, not --accent: lime would vanish
+   on the light card. */
+.knew {
+  background: var(--accent-ink);
+}
+
+.didnt_know {
+  background: var(--danger);
+}
+
+.skipped {
+  background: var(--track-strong);
+}
+
+.counts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.counts dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.counts dd {
+  margin: 4px 0 0;
+  font-size: 22px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.good {
-  background: var(--success-soft);
-  color: var(--success);
-}
-
-.bad {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
-.muted.tile {
-  background: var(--surface-muted);
-  color: var(--muted);
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 .heading {
-  margin: 8px 0;
-  font-size: 17px;
+  margin: 8px 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
+.headingCount {
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rows straight on the page, a hairline under each, as in My words. */
 .missed {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .missed li {
+  min-height: 56px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-}
-
-.missed li + li {
-  border-top: 1px solid var(--border);
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .word {
-  font-weight: 600;
+  --article-weight: 600;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
 .translation {
+  font-size: 15px;
   color: var(--muted);
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+/* As tall and round as New session beside it (two classes: over ui.large). */
+.actions .home {
+  min-height: 60px;
+  border-radius: 20px;
+  font-size: 17px;
 }

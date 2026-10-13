@@ -2,6 +2,7 @@ import { ApiClientError, type ImportView } from "@language-app/core";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api";
+import { CameraIcon, CheckIcon, CloseIcon, PlusIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { pickPhotos } from "../device/pickPhotos";
 import { shrinkImage } from "../device/shrinkImage";
@@ -158,21 +159,25 @@ export function ImportScreen() {
     }
   };
 
+  const nothingYet = state.photos.length === 0 && serverPhotoCount === 0;
+
   return (
     <Page
-      title={view?.name ?? (importId === null ? "New import" : "Import")}
+      largeTitle={view?.name ?? (importId === null ? "New import" : "Import")}
       back="/"
       footer={
         <>
           <button
             type="button"
-            className={`${ui.button} ${ui.primary} ${ui.block}`}
+            className={`${ui.button} ${ui.primary} ${ui.cta}`}
             disabled={!reviewReady || startingReview}
             onClick={startReview}
           >
             {startingReview && <span className={ui.spinner} />}
             Review words
-            {view && view.candidates.length > 0 ? ` (${view.candidates.length})` : ""}
+            {view && view.candidates.length > 0 && (
+              <span className={styles.count}>{view.candidates.length}</span>
+            )}
           </button>
           {!reviewReady && (
             <p className={ui.hint}>
@@ -184,10 +189,23 @@ export function ImportScreen() {
         </>
       }
     >
+      {readEarlier > 0 && (
+        <p className={styles.note}>
+          <CheckIcon size={16} />
+          <span>
+            {readEarlier === 1 ? "1 photo" : `${readEarlier} photos`} read earlier; their words are
+            kept.
+          </span>
+        </p>
+      )}
+
       {importId === null && (
         <label className={styles.name}>
-          <span>Name (optional)</span>
+          <span className={styles.nameLabel}>
+            Name <span className={styles.optional}>(optional)</span>
+          </span>
           <input
+            className={styles.input}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Lesson 4"
@@ -197,14 +215,17 @@ export function ImportScreen() {
         </label>
       )}
 
-      {readEarlier > 0 && (
-        <p className={styles.note}>
-          {readEarlier === 1 ? "1 photo" : `${readEarlier} photos`} read earlier; their words are
-          kept.
-        </p>
-      )}
-
-      {state.photos.length > 0 && (
+      {nothingYet ? (
+        <button type="button" className={styles.drop} onClick={addPhotos}>
+          <span className={styles.dropIcon}>
+            <CameraIcon size={32} />
+          </span>
+          <span className={styles.dropText}>
+            <span className={styles.dropTitle}>Take or choose photos</span>
+            <span className={styles.dropHint}>Photograph the pages you studied</span>
+          </span>
+        </button>
+      ) : (
         <ul className={styles.grid}>
           {state.photos.map((photo) => (
             <PhotoTile
@@ -215,21 +236,16 @@ export function ImportScreen() {
               onRetake={addPhotos}
             />
           ))}
+          <li className={styles.addCell}>
+            <button type="button" className={styles.add} onClick={addPhotos}>
+              <span className={styles.addIcon}>
+                <PlusIcon size={22} weight={2.2} />
+              </span>
+              Add more photos
+            </button>
+          </li>
         </ul>
       )}
-
-      <button
-        type="button"
-        className={`${ui.button} ${ui.secondary} ${styles.add}`}
-        onClick={addPhotos}
-      >
-        <span aria-hidden className={styles.plus}>
-          +
-        </span>
-        {state.photos.length === 0 && serverPhotoCount === 0
-          ? "Take or choose photos"
-          : "Add more photos"}
-      </button>
     </Page>
   );
 }
@@ -246,7 +262,7 @@ function PhotoTile({
   onRetake: () => void;
 }) {
   return (
-    <li className={`${styles.tile} ${styles[photo.status]}`}>
+    <li className={`${ui.card} ${styles.tile} ${styles[photo.status]}`}>
       <div className={styles.thumb}>
         {photo.previewUrl ? (
           <img src={photo.previewUrl} alt="" />
@@ -260,31 +276,25 @@ function PhotoTile({
             onClick={onRemove}
             aria-label="Remove photo"
           >
-            ×
+            <CloseIcon size={14} weight={2.6} />
           </button>
         )}
       </div>
-      <div className={styles.status}>
-        <PhotoStatus photo={photo} />
+      <div className={styles.below}>
+        <p className={styles.status}>
+          <PhotoStatus photo={photo} />
+        </p>
+        {photo.status === "failed" && photo.error?.retryable && (
+          <button type="button" className={styles.again} onClick={onRetry}>
+            Retry
+          </button>
+        )}
+        {photo.status === "poor" && (
+          <button type="button" className={styles.again} onClick={onRetake}>
+            Retake
+          </button>
+        )}
       </div>
-      {photo.status === "failed" && photo.error?.retryable && (
-        <button
-          type="button"
-          className={`${ui.button} ${ui.secondary} ${ui.small}`}
-          onClick={onRetry}
-        >
-          Retry
-        </button>
-      )}
-      {photo.status === "poor" && (
-        <button
-          type="button"
-          className={`${ui.button} ${ui.secondary} ${ui.small}`}
-          onClick={onRetake}
-        >
-          Retake
-        </button>
-      )}
     </li>
   );
 }
@@ -296,18 +306,23 @@ function PhotoStatus({ photo }: { photo: Photo }) {
       return <span>Waiting…</span>;
     case "preparing":
       return (
-        <span className={styles.busy}>
+        <>
           <span className={ui.spinner} /> Preparing
-        </span>
+        </>
       );
     case "reading":
       return (
-        <span className={styles.busy}>
+        <>
           <span className={ui.spinner} /> Reading
-        </span>
+        </>
       );
     case "done":
-      return <span>✓ {photo.wordsFound} words</span>;
+      return (
+        <>
+          <CheckIcon size={16} weight={2.6} />
+          {photo.wordsFound} words
+        </>
+      );
     case "poor":
       return <span>Couldn't read much from this page</span>;
     case "failed":

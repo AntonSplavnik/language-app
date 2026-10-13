@@ -12,7 +12,7 @@
   margin: 0;
 }
 
-/* A noun's gender, for its chip and its word in the example. */
+/* A noun's gender, for its chip. */
 .der {
   --gender: var(--der);
   --gender-soft: var(--der-soft);
@@ -73,14 +73,12 @@
   hyphens: auto;
 }
 
-/* Lime and larger here, even at rest. Centred on the word's 44 px first line: it reaches 6 px
-   into the gaps above and below instead of pushing them apart. */
+/* Larger here. Centred on the word's 44 px first line: it reaches 6 px into the gaps above and
+   below instead of pushing them apart. */
 .wordRow .speaker {
   width: 56px;
   height: 56px;
   margin-block: -6px;
-  background: var(--accent);
-  color: var(--on-accent);
 }
 
 /* IPA · part of speech, then the forms: on the same line after a dot when they fit, otherwise on
@@ -168,22 +166,6 @@
 .pending {
   font-size: 15px;
   color: var(--muted);
-}
-
-.example {
-  font-size: 19px;
-  font-weight: 500;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-/* The word itself, in its gender's colour (a noun) or the text colour. */
-.example strong {
-  font-weight: 700;
-  color: var(--gender, var(--text));
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
 }
 
 .exampleTranslation {

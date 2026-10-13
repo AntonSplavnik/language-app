@@ -1,30 +1,47 @@
+/* Practice setup (§10): the sources as cards, each with an icon, its words and its count. */
+
 .muted {
   margin: 0;
   color: var(--muted);
 }
 
+/* Starts 8 px under the large title (the page's gap is 16 px), so the legend reads as its
+   subtitle. */
 .options {
   border: 0;
-  margin: 0;
+  margin: -8px 0 0;
   padding: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: var(--muted);
 }
 
 .option {
+  position: relative;
   width: 100%;
+  min-height: 84px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px;
-  border-radius: var(--radius);
-  border: 2px solid var(--border);
-  background: var(--surface);
+  gap: 14px;
+  padding: 16px 18px 16px 16px;
   text-align: left;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The border grows to 2 px and the padding shrinks by 1 px, so nothing inside moves. Two
+   classes, so it wins over ui.card's border whatever order the stylesheets load in. */
+.option.selected {
+  border: 2px solid var(--accent-ink);
+  padding: 15px 17px 15px 15px;
 }
 
 .disabled {
@@ -32,7 +49,7 @@
   cursor: default;
 }
 
-/* The native radio stays for keyboard and screen readers; the whole row is its visible control. */
+/* The native radio stays for keyboard and screen readers; the whole card is its visible control. */
 .radio {
   position: absolute;
   opacity: 0;
@@ -44,28 +61,33 @@
   outline-offset: 2px;
 }
 
-.legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+.well {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+  color: var(--text);
 }
 
-.selected {
-  border-color: var(--accent-ink);
-  background: var(--accent-soft);
+.selected .well {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .title {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .description {
@@ -73,9 +95,32 @@
   color: var(--muted);
 }
 
+/* "20" over "of 149 words". */
 .count {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+
+.number {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rest {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* "No words", on its own. */
+.none {
   font-size: 14px;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }

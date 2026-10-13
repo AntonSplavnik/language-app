@@ -249,7 +249,7 @@
 
 /* An outline only, so My words stays the tile that holds something. */
 .newImport {
-  border: 1.5px dashed color-mix(in srgb, var(--muted) 35%, transparent);
+  border: 1.5px dashed var(--track-strong);
   border-radius: var(--radius-card);
 }
 

@@ -1,0 +1,29 @@
+/* Word detail's example card and the card back (§10, §8.2). */
+.sentence {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* The word itself, in its gender's colour (a noun) or the text colour. */
+.sentence strong {
+  font-weight: 700;
+  color: var(--gender, var(--text));
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.der {
+  --gender: var(--der);
+}
+
+.die {
+  --gender: var(--die);
+}
+
+.das {
+  --gender: var(--das);
+}

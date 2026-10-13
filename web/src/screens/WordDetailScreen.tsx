@@ -2,14 +2,13 @@ import {
   type Article,
   cardBack,
   displayTranslation,
-  type HighlightSegment,
-  highlightWord,
   LEARNED_STREAK,
   type WordStatus,
 } from "@language-app/core";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api";
+import { ExampleSentence } from "../components/ExampleSentence";
 import { Headword } from "../components/Headword";
 import { ChevronDownIcon, PencilIcon } from "../components/icons";
 import { Page } from "../components/Page";
@@ -49,7 +48,7 @@ export function WordDetailScreen() {
   }
 
   const back = cardBack(word);
-  // A noun's gender colours its chip and its word in the example.
+  // A noun's gender colours its chip.
   const article = word.pos === "noun" ? word.article : null;
   const note = sourceNote(word);
   const streak = streakLabel(word);
@@ -129,9 +128,7 @@ export function WordDetailScreen() {
             ) : (
               back.example && (
                 <>
-                  <p className={`${styles.example} ${article ? styles[article] : ""}`} lang="de">
-                    <Highlighted segments={highlightWord(back.example.de, word)} />
-                  </p>
+                  <ExampleSentence sentence={back.example.de} word={word} />
                   {back.example.translation && (
                     <p className={styles.exampleTranslation}>{back.example.translation}</p>
                   )}
@@ -194,19 +191,4 @@ export function WordDetailScreen() {
       </div>
     </Page>
   );
-}
-
-/** The example sentence with the word it illustrates in bold. */
-function Highlighted({ segments }: { segments: HighlightSegment[] }) {
-  // Keyed by where each piece starts in the sentence.
-  let start = 0;
-  return segments.map((segment) => {
-    const key = start;
-    start += segment.text.length;
-    return segment.bold ? (
-      <strong key={key}>{segment.text}</strong>
-    ) : (
-      <span key={key}>{segment.text}</span>
-    );
-  });
 }

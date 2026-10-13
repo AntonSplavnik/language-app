@@ -1,38 +1,112 @@
+/* Done (§10): a big check in two thin rings, the result, then the next steps in the footer. */
+
+/* "Done" in the header, small: the result is the big text. */
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .result {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 28px;
+  padding: 24px 8px 40px;
   text-align: center;
-  gap: 8px;
-  padding: 48px 0;
+}
+
+/* The lime circle inside rings at 124 and 168 px. */
+.badge {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  display: grid;
+  place-items: center;
+}
+
+.badge::before,
+.badge::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+.badge::before {
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--accent-ink) 15%, transparent);
+}
+
+.badge::after {
+  inset: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent-ink) 25%, transparent);
 }
 
 .check {
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 36px;
-  background: var(--success-soft);
-  color: var(--success);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.text p {
+  margin: 0;
 }
 
 .headline {
-  margin: 8px 0 0;
-  font-size: 26px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
 }
 
-.detail {
-  margin: 0;
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.45;
   color: var(--muted);
+}
+
+.ready {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--das);
+}
+
+.ready svg {
+  flex: none;
 }
 
 .actions {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Quiet, and not lime: the lime is Practice these now. */
+.actions .home {
+  min-height: 48px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
 }

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>German words — Edit word</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&amp;display=swap">
+<style>
+body{margin:0;background:#0E0E11}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font:inherit;color:inherit;cursor:pointer}
+input::placeholder,textarea::placeholder{color:#8E8D9A}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0E0E11; color: #F4F3F7; font-family: 'DM Sans', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="padding: 20px 20px 0; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: 8px">
+    <a href="Word.dc.html" style="justify-self: start; height: 40px; padding: 0 16px; border-radius: 999px; background: #17171C; border: 1px solid #24242B; display: flex; align-items: center; font-size: 15px; font-weight: 600; box-sizing: border-box">Cancel</a>
+    <h1 lang="de" style="margin: 0; font-size: 17px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: #7AA7FF; font-weight: 600">der</span> Anruf</h1>
+    <button type="button" disabled="disabled" style="all: unset; justify-self: end; height: 40px; padding: 0 18px; border-radius: 999px; background: #1E1E25; color: #8E8D9A; display: flex; align-items: center; font-size: 15px; font-weight: 700; box-sizing: border-box; cursor: default">Save</button>
+  </div>
+
+  <div style="flex: 1; padding: 24px 20px 28px; display: flex; flex-direction: column; gap: 14px">
+    <section style="background: #17171C; border: 1px solid #24242B; border-radius: 24px; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px">
+      <label for="own" style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9C9BA8">Your translation</label>
+      <input id="own" type="text" placeholder="phone call" style="all: unset; box-sizing: border-box; height: 52px; padding: 0 16px; border-radius: 16px; background: #0E0E11; border: 1px solid #2A2A33; font-size: 17px; color: #F4F3F7">
+      <p style="margin: 0; font-size: 13px; line-height: 1.45; color: #9C9BA8">Shown on cards instead of “phone call”. Leave empty to use it.</p>
+    </section>
+
+    <section style="background: #17171C; border: 1px solid #24242B; border-radius: 24px; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px">
+      <label for="note" style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9C9BA8">Note</label>
+      <textarea id="note" rows="4" style="all: unset; box-sizing: border-box; min-height: 120px; padding: 14px 16px; border-radius: 16px; background: #0E0E11; border: 1px solid #2A2A33; font-size: 17px; line-height: 1.45; color: #F4F3F7; white-space: pre-wrap">Verb: anrufen – ich rufe dich an.
+Anrufbeantworter = answering machine</textarea>
+    </section>
+
+    <div style="flex: 1"></div>
+
+    <sc-if value="{{showButton}}" hint-placeholder-val="{{ true }}">
+      <button type="button" onClick="{{ask}}" style="all: unset; box-sizing: border-box; cursor: pointer; height: 56px; border-radius: 18px; background: rgba(255,122,110,0.12); color: #FF8A80; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; font-weight: 700">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7M10 11v5M14 11v5"/></svg>
+        Delete word
+      </button>
+    </sc-if>
+
+    <sc-if value="{{showConfirm}}" hint-placeholder-val="{{ false }}">
+      <section role="alertdialog" aria-labelledby="del-title" style="background: #241416; border: 1px solid rgba(255,138,128,0.45); border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; gap: 12px; align-items: flex-start">
+          <span style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,122,110,0.16); color: #FF8A80; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7"/></svg>
+          </span>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span id="del-title" style="font-size: 17px; font-weight: 700; line-height: 1.3">Delete “der Anruf” from your words?</span>
+            <span style="font-size: 14px; line-height: 1.5; color: #C9C7D2">Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, set its status to Ignored instead.</span>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <button type="button" onClick="{{keep}}" style="all: unset; box-sizing: border-box; cursor: pointer; height: 52px; border-radius: 16px; background: #17171C; border: 1px solid #2A2A33; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700">Keep</button>
+          <button type="button" style="all: unset; box-sizing: border-box; cursor: pointer; height: 52px; border-radius: 16px; background: #FF8A80; color: #2A0C08; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700">Delete</button>
+        </div>
+      </section>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"confirming":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { confirming: null };
+  }
+  renderVals() {
+    const confirming = this.state.confirming ?? (this.props.confirming ?? false);
+    return {
+      showButton: !confirming,
+      showConfirm: confirming,
+      ask: () => this.setState({ confirming: true }),
+      keep: () => this.setState({ confirming: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

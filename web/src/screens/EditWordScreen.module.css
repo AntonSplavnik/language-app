@@ -1,73 +1,98 @@
-/* Edit word (§10): an iOS-style sheet with text buttons in the header. */
+/* Edit word (§10): an iOS-style sheet with pill buttons in the header, each field on a card, and
+   Delete word at the bottom. */
 
 .cancel,
 .save {
   appearance: none;
-  min-height: 44px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
-  color: var(--accent-ink);
-  font-size: 17px;
+  height: 40px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-size: 15px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* The text lines up with the page's edges; the tap area reaches past them. */
 .cancel {
-  margin-left: -8px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .save {
-  margin-right: -8px;
+  padding: 0 18px;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 700;
 }
 
-.cancel:disabled,
+.cancel:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Nothing to save yet: grey, like a disabled primary button. */
 .save:disabled {
-  opacity: 0.4;
+  background: var(--surface-raised);
+  color: var(--muted);
   cursor: default;
 }
 
 .cancel:focus-visible,
 .save:focus-visible {
   outline: 2px solid var(--accent-ink);
-  outline-offset: -2px;
-  border-radius: 8px;
+  outline-offset: 2px;
+}
+
+/* The headword in the sheet's title, its article in the gender colour. */
+.title {
+  --article-weight: 600;
+  font-weight: 700;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   padding-top: 8px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  padding: 18px 18px 16px;
 }
 
 .label {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-/* 16px or more, or iOS Safari zooms the page when the field gets focus. */
+/* Sunk into the card. 16px or more, or iOS Safari zooms the page when the field gets focus. */
 .input {
   width: 100%;
-  padding: 12px 14px;
+  height: 52px;
+  padding: 0 16px;
   font-size: 17px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--track);
+  background: var(--bg);
   color: var(--text);
+}
+
+.textarea {
+  height: auto;
+  min-height: 120px;
+  padding: 14px 16px;
+  line-height: 1.45;
   resize: vertical;
 }
 
@@ -77,42 +102,81 @@
 }
 
 .help {
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 
-/* Set apart from the texts, at the bottom. */
+/* At the bottom of the screen, apart from the texts. */
 .delete {
-  margin-top: 16px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
+  margin-top: auto;
+  padding-top: 16px;
   display: flex;
   flex-direction: column;
 }
 
 .deleteButton {
-  align-self: center;
-  background: transparent;
+  min-height: 56px;
+  border-radius: 18px;
+  gap: 10px;
+  background: var(--danger-soft);
   color: var(--danger);
+  font-weight: 700;
 }
 
 .confirm {
-  border-radius: var(--radius);
-  border: 1px solid var(--danger);
+  border-radius: var(--radius-card);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
   background: var(--danger-soft);
-  padding: 14px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.question {
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
 }
 
-.confirm p {
+.trash {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+/* The question on its own line, the consequences under it in a softer colour. */
+.question p {
   margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.question strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--text);
 }
 
 .buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+/* Keep, Delete. */
+.choice {
+  min-height: 52px;
+  border-radius: 16px;
+  font-weight: 700;
 }

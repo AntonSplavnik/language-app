@@ -1,4 +1,7 @@
 import { cardBack, cardFront, type PracticeCard } from "@language-app/core";
+import { ExampleSentence } from "../components/ExampleSentence";
+import { Headword } from "../components/Headword";
+import { RotateIcon } from "../components/icons";
 import { SpeakerButton } from "../components/SpeakerButton";
 import styles from "./Card.module.css";
 
@@ -16,19 +19,36 @@ export function Card({ card, flipped }: { card: PracticeCard; flipped: boolean }
       <div className={`${styles.face} ${styles.front}`} aria-hidden={flipped} inert={flipped}>
         <p className={styles.translation}>{front.translation}</p>
         <p className={styles.pos}>{front.pos}</p>
+        <p className={styles.flipHint}>
+          <RotateIcon size={16} />
+          Tap to flip
+        </p>
       </div>
 
       <div className={`${styles.face} ${styles.back}`} aria-hidden={!flipped} inert={!flipped}>
-        <div className={styles.headwordRow}>
-          <p className={styles.headword}>{back.headword}</p>
-          {back.audioUrl && <SpeakerButton url={back.audioUrl} word={back.headword} />}
-        </div>
-        {back.forms && <p className={styles.forms}>{back.forms}</p>}
-        {back.example && (
-          <div className={styles.example}>
-            <p lang="de">{back.example.de}</p>
-            {back.example.translation && <p className={styles.muted}>{back.example.translation}</p>}
+        <div className={styles.word}>
+          <div className={styles.headwordRow}>
+            <p className={styles.headword}>
+              <Headword word={card} />
+            </p>
+            {back.audioUrl && <SpeakerButton url={back.audioUrl} word={back.headword} />}
           </div>
+          {back.forms && (
+            <p className={styles.forms} lang="de">
+              {back.forms}
+            </p>
+          )}
+        </div>
+        {back.example && (
+          <>
+            <span className={styles.divider} aria-hidden="true" />
+            <div className={styles.example}>
+              <ExampleSentence sentence={back.example.de} word={card} />
+              {back.example.translation && (
+                <p className={styles.exampleTranslation}>{back.example.translation}</p>
+              )}
+            </div>
+          </>
         )}
         {back.note && <p className={styles.note}>{back.note}</p>}
         {back.detailsPending && <p className={styles.pending}>Details pending</p>}

@@ -6,8 +6,9 @@ import {
 } from "@language-app/core";
 import { useDrag } from "@use-gesture/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../api";
+import { ArrowUpIcon, CheckIcon, CloseIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { readJson, removeItem, writeJson } from "../lib/storage";
 import { errorMessage, useToast } from "../lib/toast";
@@ -192,12 +193,18 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
     return () => window.removeEventListener("keydown", onKey);
   }, [flip, answer]);
 
+  const total = session.cards.length;
+
   if (finishing) {
     return (
-      <Page title="Practice" back="/">
+      <Page bar={<PracticeHeader position={total} answered={total} total={total} />}>
         <div className={styles.finishing}>
           {finishing === "failed" ? (
-            <button type="button" className={`${ui.button} ${ui.primary}`} onClick={finish}>
+            <button
+              type="button"
+              className={`${ui.button} ${ui.primary} ${ui.cta} ${styles.retry}`}
+              onClick={finish}
+            >
               Try again
             </button>
           ) : (
@@ -221,46 +228,48 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
   const transform = leaving
     ? (EXIT_TRANSFORM[leaving] as (x: number, y: number) => string)(drag.x, drag.y)
     : `translate3d(${drag.x}px, ${drag.y}px, 0) rotate(${drag.x / 18}deg)`;
+  // The button a released drag would press grows a little once the swipe counts by distance.
+  const armed = dragHint?.strength === 1 ? dragHint.result : null;
+  const answerButton = (result: CardResult) =>
+    `${ui.button} ${styles.answer} ${styles[result]} ${armed === result ? styles.armed : ""}`;
 
   return (
     <Page
-      title="Practice"
-      back="/"
+      bar={<PracticeHeader position={index + 1} answered={index} total={total} />}
       footer={
         <div className={styles.buttons}>
           <button
             type="button"
-            className={`${ui.button} ${styles.miss}`}
+            className={answerButton("didnt_know")}
             disabled={busy}
             onClick={() => answer("didnt_know")}
             aria-label="Didn't know"
           >
-            ✗
+            <CloseIcon size={22} weight={2.4} />
+            Didn't know
           </button>
           <button
             type="button"
-            className={`${ui.button} ${ui.secondary}`}
+            className={answerButton("skipped")}
             disabled={busy}
             onClick={() => answer("skipped")}
           >
+            <ArrowUpIcon size={22} weight={2.2} />
             Skip
           </button>
           <button
             type="button"
-            className={`${ui.button} ${styles.hit}`}
+            className={answerButton("knew")}
             disabled={busy}
             onClick={() => answer("knew")}
             aria-label="Knew it"
           >
-            ✓
+            <CheckIcon size={22} weight={2.6} />
+            Knew it
           </button>
         </div>
       }
     >
-      <p className={styles.progress}>
-        {index + 1} / {session.cards.length}
-      </p>
-
       <div className={styles.stage}>
         <div
           {...bind()}
@@ -273,18 +282,58 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
         >
           <Card card={card} flipped={flipped} />
           {dragHint && (
-            <span
-              className={`${styles.hint} ${styles[dragHint.result]}`}
-              style={{ opacity: dragHint.strength }}
-            >
-              {HINT[dragHint.result]}
-            </span>
+            <>
+              <span
+                className={`${styles.outline} ${styles[dragHint.result]}`}
+                style={{ opacity: dragHint.strength }}
+              />
+              <span
+                className={`${styles.stamp} ${styles[dragHint.result]}`}
+                style={{ opacity: dragHint.strength }}
+              >
+                {HINT[dragHint.result]}
+              </span>
+            </>
           )}
         </div>
       </div>
 
       <p className={styles.help}>Tap to flip · swipe → knew · ← didn't know · ↑ skip</p>
     </Page>
+  );
+}
+
+/**
+ * The header: a close button that ends practice, then "Practice" with the card's position
+ * ("5 / 20") over a bar filled by the cards answered so far.
+ */
+function PracticeHeader({
+  position,
+  answered,
+  total,
+}: {
+  position: number;
+  answered: number;
+  total: number;
+}) {
+  return (
+    <>
+      <Link to="/" className={ui.round} aria-label="End practice">
+        <CloseIcon size={18} weight={2.2} />
+      </Link>
+      <div className={styles.progress}>
+        <div className={styles.progressLine}>
+          <h1 className={styles.heading}>Practice</h1>
+          <span className={styles.position}>
+            <span className={styles.current}>{position}</span> / {total}
+          </span>
+        </div>
+        {/* The numbers say it; the bar is only for the eye. */}
+        <div className={styles.track} aria-hidden="true">
+          <div className={styles.fill} style={{ width: `${(answered / total) * 100}%` }} />
+        </div>
+      </div>
+    </>
   );
 }
 

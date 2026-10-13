@@ -1,14 +1,57 @@
+/* Flashcards (§10): close and progress in the header, the card, the three answers below. */
+
+/* "Practice" with "5 / 20" at its right, over a thin bar. */
 .progress {
-  margin: 0;
-  text-align: center;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 2px;
+}
+
+.progressLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--muted);
+}
+
+.heading {
+  margin: 0;
+  font: inherit;
+}
+
+.position {
   font-variant-numeric: tabular-nums;
+}
+
+.current {
+  color: var(--text);
+}
+
+.track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+/* --accent-ink, not --accent: lime would vanish against the light track. */
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-ink);
+  transition: width 260ms ease-out;
 }
 
 .stage {
   flex: 1;
   min-height: 360px;
-  max-height: 560px;
+  max-height: 520px;
+  margin-top: 12px;
   display: flex;
   /* Keeps the card (and so the start of every swipe) clear of the screen edges, where a sideways
      swipe is the system's "go back". Together with the page gutter: 36 px from each edge. */
@@ -29,56 +72,121 @@
   will-change: transform;
 }
 
-.hint {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 16px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 18px;
-  pointer-events: none;
-}
-
+/* While dragging, the card's edge and a stamp take the colour of the answer it points to; both
+   fade in as the swipe gets closer to counting. As an edge the lime is --accent-ink, which
+   stays visible on the light card. */
 .knew {
-  background: var(--success-soft);
-  color: var(--success);
+  --tone: var(--accent);
+  --on-tone: var(--on-accent);
+  --edge: var(--accent-ink);
 }
 
 .didnt_know {
-  background: var(--danger-soft);
-  color: var(--danger);
+  --tone: var(--danger);
+  --on-tone: var(--on-danger);
 }
 
+/* Skip's grey fill would vanish as an edge on the card's own border, so its edge is a step
+   darker. */
 .skipped {
-  background: var(--surface-muted);
-  color: var(--muted);
+  --tone: var(--surface-raised);
+  --on-tone: var(--text);
+  --edge: var(--track-strong);
+}
+
+.outline {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--edge, var(--tone));
+  border-radius: 32px;
+  pointer-events: none;
+}
+
+.stamp {
+  position: absolute;
+  top: 26px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: var(--tone);
+  color: var(--on-tone);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Knew leans in from the left, Didn't know from the right. Skip sits near the bottom, which
+   stays in view while the card moves up under the header, clear of "Tap to flip". */
+.stamp.knew {
+  left: 24px;
+  transform: rotate(-12deg);
+}
+
+.stamp.didnt_know {
+  right: 24px;
+  transform: rotate(12deg);
+}
+
+.stamp.skipped {
+  top: auto;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .help {
   margin: 0;
   text-align: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
-.miss {
-  background: var(--danger-soft);
-  color: var(--danger);
-  font-size: 22px;
+/* An icon over a short label. */
+.answer {
+  min-height: 64px;
+  padding: 8px 4px;
+  border-radius: 20px;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
 }
 
-.hit {
-  background: var(--success-soft);
-  color: var(--success);
-  font-size: 22px;
+.answer.didnt_know {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.answer.skipped {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.answer.knew {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* The answer a released drag would give. */
+.armed {
+  transform: scale(1.04);
+}
+
+.answer:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
 }
 
 .finishing {
@@ -90,4 +198,14 @@
   gap: 12px;
   text-align: center;
   color: var(--muted);
+}
+
+.finishing p {
+  margin: 0;
+  max-width: 300px;
+}
+
+.retry {
+  width: auto;
+  min-width: 200px;
 }
