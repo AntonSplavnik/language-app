@@ -587,19 +587,30 @@ Fixtures are created by running a few real photos through Claude once and saving
 
 Recorded here so decisions already made are not lost.
 
-- **Grammar:** fixed topic list per level, tagging imports with topics, grammar exercises.
+**Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
+- Past imports, practising one import, My words sorted by date added (M9)
+- Adding a word by hand (M10); importing pages of a PDF (M11)
+- Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M12)
+- Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M13)
+- Practice modes German → English, articles, plurals, verb forms (M14)
+- Spaced repetition (M15); progress over time: daily goal, streak, history (M16)
+- Basics: the alphabet (M17), numbers (M19) and time (M20), each an explanation and its own practice; text-to-speech (M18)
+- After M20: CI/CD and deployment with a login, backups, gamification
+
+**Not planned yet:**
+- **Grammar:** fixed topic list per level, tagging imports with topics, grammar exercises. Basics (M17) builds the topic structure they can reuse.
 - **Levels:** learner picks A1.1 … B1+, placement test checks it.
-- **Practice modes:** fill-in-the-blank, listening, speaking, mixed; choosing specific topics or combinations; "practise missed words again".
-- **Spaced repetition** ("smart review").
-- **My words at scale:** paging, sorting by date added or progress, undo for delete.
+- **Practice modes:** fill-in-the-blank, listening to words and sentences, speaking, mixed; "practise missed words again".
+- **My words at scale:** paging, sorting by progress, undo for delete.
+- **Export** of the word list (CSV, Anki).
 - **Pictures** on card fronts.
 - **Example sentences from Tatoeba** as a second source.
 - **Starter word lists** (e.g. Goethe A1–B1) as an optional import into a learner's list.
 - **Korean** as learner language (new `word_translations` rows; Korean UI text).
-- **Accounts** and multi-user; review of shared `words` rows with `mismatch_kept` before reusing them for other users.
+- **Accounts** and multi-user (a login comes with the first deployment, see Planned); review of shared `words` rows with `mismatch_kept` before reusing them for other users.
 - **Phone app** in React Native reusing `server/` and `core/`.
 - **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
-- **Text-to-speech (listening):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
+- **Text-to-speech (listening; planned for numbers and time in M18, research kept here):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
 - **Speech (speaking):** Azure Pronunciation Assessment with the expected phrase as reference (de-DE and ko-KR supported, per-word and per-phoneme scores; phoneme labels are en-US only). Plain transcription (Whisper etc.) is unsuitable because it hides learner errors. Needs HTTPS for the microphone and possibly server-side audio conversion (ffmpeg) for iPhone recordings. Alternative to test: SpeechSuper.
 
 ## 16. Research notes (2026-10-11)

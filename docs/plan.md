@@ -1,4 +1,8 @@
-# Plan: build the Language App prototype from docs/design.md
+# Plan
+
+- **Part 1, M0–M8 (done):** build the prototype from `docs/design.md` (a bare § always means a section of that file). Everything up to "Spec changes to record as they come up" is that plan, kept as it was written.
+- **Part 2, M9 onward:** the features chosen after the prototype, in the order they will be built (see Part 2 below).
+- The verification at the end applies to every milestone of both parts.
 
 ## Context
 
@@ -187,6 +191,105 @@ Verified environment:
 - **New fields:** a `ref` in the enrich schema; an optional `ai_usage.duration_ms` to track the "under a minute" target; `UNIQUE(session_id, user_word_id)` on `card_results`.
 - **Photos:** a photo can be removed only before upload or after it failed.
 - **Review:** decisions are kept per device, in localStorage.
+
+## Part 2: after the prototype (M9 onward)
+
+### Context
+
+The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
+
+Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
+
+| # | Milestone | Demo |
+|---|---|---|
+| M9 | Past imports, date added | Open an old import from the list and practise only its words |
+| M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words |
+| M11 | Import from PDF | Pages 42–45 of a book PDF → review → save |
+| M12 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
+| M13 | Filters and practice builder | Practise "verbs from Weather"; filter My words to *die* nouns |
+| M14 | Card modes | An article session and a German → English session |
+| M15 | Spaced repetition | Home shows the words due today; a "Due today" session |
+| M16 | Progress over time | Daily goal, streak and history after a few days of practice |
+| M17 | Basics and the alphabet | The alphabet page with sounds; a letter card session |
+| M18 | Text-to-speech | A generated recording plays on the iPhone |
+| M19 | Numbers | The explanation, then a listen-and-type session |
+| M20 | Time | The explanation, then a typed session that accepts both "Viertel vor vier" and "fünfzehn Uhr fünfundvierzig" |
+
+### Phase 1: words
+
+#### M9: Past imports and date added
+- **Imports screen:** every `done` import, newest first, with its name (or date), date and number of words added. Unfinished imports stay as Home's banners.
+- **One import:** its words (the `user_words` rows it created) and **Practise this import**, a session from those words like `last_import`.
+- **My words:** a sort choice, A–Z (as now) or newest first; newest first groups the list by the day the words were added.
+- No AI and probably no schema change: `imports`, `user_words.import_id` and `added_at` exist.
+- **Open:** where the Imports screen is reached from (a Home tile, My words' header).
+
+#### M10: Add a word by hand
+- The learner types a German word. The dictionary supplies what it has (genders, plural, forms, pronunciation, English glosses); the AI supplies the translation when the dictionary has none, and enrichment adds the example sentence as for imported words (§6.6).
+- The learner sees the filled-in word and confirms or corrects it (article among the dictionary's genders, translation) before it is saved as `learning` with `import_id = null` (§5 already allows it).
+- A word already in the list, in any status, is not added twice; the screen says so and links to it.
+- **Open:** one word at a time or a short list; ambiguous words (*See*: der or die); finding a German word by typing English.
+
+#### M11: Import from PDF
+- The learner picks a PDF and a page range (e.g. 42–45) each time, so a whole book can stay one file. The chosen pages go through the photo flow: extract → merge → compare → dictionary check → review → save → enrichment.
+- **Open:** render the pages to images in the browser (pdf.js) and reuse the photo upload unchanged, or send the pages to Claude as PDF documents (uses a digital PDF's text layer); limits on file size and page count; the daily limit counts a page like a photo.
+
+#### M12: Themes and own groups
+- **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
+- The words already in the list get themes once, from a backfill run (a small AI call, like the pronunciation backfill).
+- **Own groups:** the learner creates, renames, deletes and fills them by hand (e.g. "Lesson 4", "Hard ones"); the AI never uses them. A word can be in several themes and groups.
+- **Open:** whether the AI's themes live on the shared `words` row with the learner's corrections per learner, or per learner only; how many themes per word; adding words to a group from My words (several at once) or only from the word's screens.
+
+### Phase 2: practice
+
+#### M13: Filters and practice builder
+- One set of filters, freely combined, used by both My words and Practice: theme, own group, part of speech, gender (der / die / das), plural-only nouns (*die Eltern*), import, date added; My words keeps its status tabs.
+- **Practice setup:** the three current sources stay as presets, so a session still starts in two taps (§1); a custom choice builds a session from any combination of filters and shows how many words match while it changes.
+- **Open:** plural-only nouns need a flag (their dictionary entries have no gender, §6.3); choosing the session size (now 20); saving a custom combination.
+
+#### M14: Card modes
+- **English → German** (today's card); **German → English** (the German word with its IPA and speaker button on the front, the translation on the back); **articles** (*Tisch* → der / die / das, answered by tapping one of three buttons and graded by the app); **plurals** (*der Tisch* → *die Tische*); **verb forms** (*gehen* → *ging · ist gegangen*).
+- A mode only takes the words it fits: articles and plurals need nouns with an article or a plural, verb forms need verbs with forms. The mode is chosen in Practice setup next to the words.
+- **Open:** progress per mode or shared (is a word learned once it is known English → German, or separately per mode?), to be settled before M15; how an app-graded mode fits the swipe flow.
+
+#### M15: Spaced repetition
+- The app schedules each word for the day it is due, from its answers. Practice gets a **Due today** preset; Home shows how many are due.
+- **Open:** the algorithm (FSRS, as in current Anki, or the simpler SM-2); per word or per word and mode (follows from M14); whether it replaces "3 right in a row → learned" (§8.5); seeding the schedule from the answers recorded since M7; how the self-graded swipes map to the algorithm's grades.
+
+#### M16: Progress over time
+- A daily goal, a streak of days on which it was met, and a history (cards answered and words learned per day and week). The base for gamification (Later).
+- **Open:** what the goal counts (cards answered, due words cleared, minutes); whose midnight counts (the phone's time zone, not the server's); whether Basics practice counts.
+
+### Phase 3: basics
+
+#### M17: Basics and the alphabet
+- **Basics** is a new section reached from Home: topics that are the same for every learner, each with an explanation page and a practice of its own. Topics are never mixed in one session. The structure is built once, so the grammar topics of §15 can reuse it later.
+- **Alphabet:** a reference page with every letter, Ä Ö Ü ß and the combinations ch, sch, ei, ie, eu / äu, sp / st, each with its transcription (IPA) and a recording. Letter practice as two-sided flip cards like the word cards, or as one-sided cards shown one by one (letter, transcription and sound on one face). Self-graded, no microphone.
+- **Open:** where the content lives (written once and checked by hand: data in `core/`, or the database); where the recordings come from (Commons recordings of the letter names, example words with dictionary recordings such as *ich* and *Buch* for ch, or text-to-speech from M18); whether letter answers are recorded as progress.
+
+#### M18: Text-to-speech
+- German audio generated once per text, stored, and played like the Wiktionary recordings. Numbers and time need it: no recordings exist for "siebenundzwanzig" or "Viertel vor vier". Example sentences and words without a recording can use it too.
+- §15 has the research: Azure Neural TTS first (its free tier covers this; a slower version through SSML), Google Chirp 3 HD or ElevenLabs as alternatives.
+- **Open:** where the audio files are stored (server disk now, object storage once deployed; the choice must not block deployment); generated on demand or in advance.
+
+#### M19: Numbers
+- An explanation page (how German numbers are built: einundzwanzig, hundert, tausend…), then practice in three separate modes: flip cards (27 → siebenundzwanzig), typed answers (see 27, type the German; the app checks it) and listening (hear the number, type the digits).
+- The numbers are generated by the app (a pure number → words function in `core/`), not imported.
+- **Open:** the ranges (to 20, to 100, to 1000, years such as neunzehnhundertneunundneunzig, ordinals); how strict the typed check is (ß / ss, umlauts typed as ae / oe / ue, spaces, capitals).
+
+#### M20: Time
+- The same structure as Numbers, as a separate topic: an explanation (official 24-hour time, "fünfzehn Uhr fünfundvierzig"; everyday time, "Viertel vor vier", "halb vier", vor / nach), then practice in which the prompt is words, sound or digits and the learner answers.
+- A time has several right answers; a typed answer is accepted when it matches any of them (generated in `core/`).
+- **Open:** regional forms (*viertel vier*, *dreiviertel vier*) accepted or not; which minutes are asked (five-minute steps first).
+
+### Later
+
+In this order, after M20:
+- **CI/CD and deployment:** the checks (test, typecheck, lint, with a PostgreSQL service) on every push, then an automatic deploy when they pass. Until then the checks run locally before every commit, as CLAUDE.md requires. HTTPS on the deployed app also makes the browser APIs that CLAUDE.md rules out available (microphone, `crypto.randomUUID()`…).
+- **Login:** a deployed app is on the internet, and without a login anyone could use it and run up the Claude bill. Needed with the first deploy (accounts, §15).
+- **Backups:** the host's automatic database backups or a scheduled `pg_dump` kept off the server, and a restore that has been tried. Until deployment the dev database holds practice data only.
+- **Gamification:** points for practice and something to spend them on; builds on M16.
+- **Someday:** export of the word list (CSV, Anki), and the items of §15 not chosen yet.
 
 ## Verification (every milestone)
 1. `pnpm test`, `pnpm typecheck` and `pnpm check` pass. `pnpm test` never calls Claude.
