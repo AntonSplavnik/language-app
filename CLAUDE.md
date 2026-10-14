@@ -3,10 +3,11 @@
 Companion app for learning German vocabulary from a book: photograph pages → AI extracts words → review → flashcards.
 
 - **`docs/design.md` is the source of truth.** Read the relevant section before changing behaviour. If the implementation has to deviate, update the spec in the same commit.
-- **`docs/plan.md`** is the build plan (milestones M0–M8).
+- **`docs/plan.md`** is the build plan: Part 1, M0–M8 (the prototype, done); Part 2, M9 onward (next features, in build order).
 
 ## Workflow
 
+- A Part 2 milestone starts by settling the open questions listed with it in `docs/plan.md` with the user, then writing its section of `docs/design.md` for the user to review before any code.
 - Build one milestone at a time, test-first. Each milestone ends with: tests, typecheck and lint passing → the milestone's demo run → a commit → stop for the user's review before starting the next one.
 
 ## Layout
