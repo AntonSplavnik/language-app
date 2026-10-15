@@ -179,7 +179,7 @@ pnpm --filter server demo:import <photo> [--save]                # the whole imp
 From [docs/design.md §15](docs/design.md#15-later):
 
 - Spaced repetition ("smart review").
-- Listening and speaking practice: text-to-speech for example sentences and for words without a recording, and pronunciation assessment (needs HTTPS for the microphone).
+- Listening and speaking practice: text-to-speech for example sentences and for words without a recording, and speech-to-text that keeps the learner's grammar mistakes so the answer can be checked (needs HTTPS for the microphone).
 - An AI quality test on 20–30 hand-checked pages, to decide whether a cheaper model such as Haiku 5.5 is good enough.
 - Accounts for several learners, and a React Native phone app reusing `core/` and `server/`.
 - Grammar topics, levels, more practice modes, starter word lists, and Korean as a learner language.

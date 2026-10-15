@@ -611,9 +611,30 @@ Recorded here so decisions already made are not lost.
 - **Phone app** in React Native reusing `server/` and `core/`.
 - **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
 - **Text-to-speech (listening; planned for numbers and time in M18, research kept here):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
-- **Speech (speaking):** Azure Pronunciation Assessment with the expected phrase as reference (de-DE and ko-KR supported, per-word and per-phoneme scores; phoneme labels are en-US only). Plain transcription (Whisper etc.) is unsuitable because it hides learner errors. Needs HTTPS for the microphone and possibly server-side audio conversion (ffmpeg) for iPhone recordings. Alternative to test: SpeechSuper.
+- **Speech (speaking):** the learner says the German word or sentence and the app checks whether word form, grammar and word order are right; pronunciation is out of scope. Speech-to-text turns the answer into text, then Claude checks it like a typed answer, ignoring what speech cannot carry (capitals, punctuation, spelling-only pairs such as *das/dass*). Transcriber: **ElevenLabs Scribe v2** (`scribe_v2`, `language_code=de`, verbatim, $0.22 per audio hour), which kept the most learner mistakes in a test (§16). Every transcriber silently fixes some mistakes, mostly endings that sound close to the right form (*sprecht* → "spricht", *arbeite* → "arbeiten"), so:
+  - the answer screen shows "I heard: …" before the verdict;
+  - when the transcript equals the expected answer but a word's confidence (`exp(logprob)`) is below about 0.95, the app asks the learner to say it again instead of marking it correct (threshold from a small sample; recheck on more recordings);
+  - the expected answer is never sent as a prompt or keyterm, since that pulls the transcript towards it (the card's lemma alone as a keyterm is untested);
+  - word-form answers (article, plural, verb forms) stay typed: single words without a sentence were the weakest case.
 
-## 16. Research notes (2026-10-11)
+  Needs HTTPS for the microphone. Not chosen: AssemblyAI Universal-3.5 Pro (kept fewer mistakes, and its prompt takes only a description of the audio, not instructions); pronunciation-assessment services (Azure, SpeechSuper), which score sounds, not grammar. To test: the cheaper models on OpenRouter (Parakeet, Voxtral, Qwen3-ASR, Whisper; one key, but OpenRouter ignores `prompt`).
 
-- **Vision/extraction model:** Claude Opus 5.5 ranked first in Roboflow's real-world OCR evaluation (updated 2026-10-08); `low` effort scored close to `high` at lower cost and latency. GPT-6.1 Sol and Gemini 3.8 Flash were strong alternatives but did not beat it. A separate OCR service plus a cheaper LLM is not worth it: transcription is already 93–97 % accurate, and the real risk (gender, plurals, lemmas) is not solved by OCR. No benchmark measures German article/plural accuracy — hence the Wiktionary check and the AI quality test.
-- **Speech:** see §15. Browser Web Speech APIs are too inconsistent across devices for German.
+## 16. Research notes
+
+- **Vision/extraction model (2026-10-11):** Claude Opus 5.5 ranked first in Roboflow's real-world OCR evaluation (updated 2026-10-08); `low` effort scored close to `high` at lower cost and latency. GPT-6.1 Sol and Gemini 3.8 Flash were strong alternatives but did not beat it. A separate OCR service plus a cheaper LLM is not worth it: transcription is already 93–97 % accurate, and the real risk (gender, plurals, lemmas) is not solved by OCR. No benchmark measures German article/plural accuracy — hence the Wiktionary check and the AI quality test.
+- **Speech (2026-10-11):** see §15. Browser Web Speech APIs are too inconsistent across devices for German.
+- **Speech-to-text for speaking (2026-10-15):** accuracy benchmarks don't measure whether a learner's mistakes survive. The German leaders on the Open ASR Leaderboard (March 2026) are Scribe v2 (2.27 % word error rate) and AssemblyAI Universal-3 Pro (2.34 %). Whisper-Large "corrected" about a quarter of young learners' grammar mistakes in an English study (ACL 2024), so the candidates were tested on the author's own iPhone recordings (Voice Memos): 45 lines, 30 with one deliberate A1–A2 mistake and 15 correct, each sent as its own clip.
+
+  | | Mistakes kept (of 30) | Fixed silently | Garbled | Correct lines right (of 15) |
+  |---|---|---|---|---|
+  | ElevenLabs Scribe v2 | 21 | 7 | 2 | 15 |
+  | AssemblyAI Universal-3.5 Pro | 14 | 12 | 4 | 14 |
+  | the same with a prompt describing a learner making mistakes | 16 | 11 | 3 | 14 |
+
+  - **Fixed by all three:** *sprecht*, *ein* (accusative), *gearbeiten*, *arbeite*, *bei meine*, *geschreibt*. The author checked that the recordings say the wrong forms.
+  - **Kept by all three:** word order, wrong auxiliary, separable verbs, *nicht* for *kein*, wrong article, wrong plural.
+  - **Mistakes turned into another correct sentence:** AssemblyAI wrote "Er ging" for *Er gehen* and "Wer spielt …?" for *Wir spielt*.
+  - **Confidence:** Scribe's confidence on the deciding word was 1.00 on all 8 correct lines that have a wrong twin, and 0.53, 0.69 and 0.80 on 3 of its 7 silent fixes (the other four 0.98–1.00).
+  - **Single words:** short answers without a sentence were the weakest case for every model (*das Löffel* → "Das Rüffel").
+
+  Prices (2026-10-15): Scribe v2 $0.22 per audio hour direct, $0.11 on OpenRouter; Universal-3.5 Pro $0.21 (+$0.05 with a prompt) direct, $0.30 on OpenRouter. The whole test cost about $0.05. OpenAI's `whisper-1` and `gpt-4o-transcribe` shut down on 2027-02-26; `gpt-transcribe` was not tested. The recordings and transcripts are in `data/stt-test/work/` (not in git).
