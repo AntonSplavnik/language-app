@@ -1,0 +1,215 @@
+[
+  {
+    "n": 1,
+    "block": 1,
+    "said": "Ich sehe der Mann.",
+    "correct": "Ich sehe den Mann.",
+    "type": "accusative"
+  },
+  {
+    "n": 2,
+    "block": 1,
+    "said": "Die Tischen sind sehr alt.",
+    "correct": "Die Tische sind sehr alt.",
+    "type": "plural"
+  },
+  {
+    "n": 3,
+    "block": 1,
+    "said": "Meine Mutter sprecht sehr gut Deutsch.",
+    "correct": "Meine Mutter spricht sehr gut Deutsch.",
+    "type": "verb"
+  },
+  { "n": 4, "block": 1, "said": "Ich bin nach Berlin gefahren." },
+  {
+    "n": 5,
+    "block": 1,
+    "said": "Ich weiß, dass er kommt morgen.",
+    "correct": "Ich weiß, dass er morgen kommt.",
+    "type": "word order"
+  },
+  { "n": 6, "block": 1, "said": "Kannst du mir helfen?" },
+  {
+    "n": 7,
+    "block": 1,
+    "said": "Das Wetter ist heute schöne.",
+    "correct": "Das Wetter ist heute schön.",
+    "type": "adjective"
+  },
+  { "n": 8, "block": 1, "said": "Ich habe einen Bruder und eine Schwester." },
+  {
+    "n": 9,
+    "block": 1,
+    "said": "Ich habe zu viel Kaffee getrinkt.",
+    "correct": "Ich habe zu viel Kaffee getrunken.",
+    "type": "participle"
+  },
+  {
+    "n": 10,
+    "block": 2,
+    "said": "Ich fahre mit der Bus zur Arbeit.",
+    "correct": "Ich fahre mit dem Bus zur Arbeit.",
+    "type": "dative"
+  },
+  { "n": 11, "block": 2, "said": "Das ist ein guter Freund." },
+  {
+    "n": 12,
+    "block": 2,
+    "said": "Er gehen jeden Tag in die Schule.",
+    "correct": "Er geht jeden Tag in die Schule.",
+    "type": "verb"
+  },
+  { "n": 13, "block": 2, "said": "Morgen gehe ich ins Kino." },
+  {
+    "n": 14,
+    "block": 2,
+    "said": "Ich habe nicht Zeit.",
+    "correct": "Ich habe keine Zeit.",
+    "type": "negation"
+  },
+  { "n": 15, "block": 2, "said": "Ich muss heute arbeiten." },
+  { "n": 16, "block": 2, "said": "Am Montag habe ich einen Termin beim Arzt." },
+  {
+    "n": 17,
+    "block": 2,
+    "said": "Ich kaufe drei Apfel.",
+    "correct": "Ich kaufe drei Äpfel.",
+    "type": "plural"
+  },
+  {
+    "n": 18,
+    "block": 2,
+    "said": "Der Zug abfährt um acht Uhr.",
+    "correct": "Der Zug fährt um acht Uhr ab.",
+    "type": "separable verb"
+  },
+  {
+    "n": 19,
+    "block": 3,
+    "said": "Ich habe ein Bruder und eine Schwester.",
+    "correct": "Ich habe einen Bruder und eine Schwester.",
+    "type": "accusative"
+  },
+  { "n": 20, "block": 3, "said": "Die Tische sind sehr alt." },
+  {
+    "n": 21,
+    "block": 3,
+    "said": "Du fahrst zu schnell.",
+    "correct": "Du fährst zu schnell.",
+    "type": "verb"
+  },
+  {
+    "n": 22,
+    "block": 3,
+    "said": "Er ist das Buch schon gelesen.",
+    "correct": "Er hat das Buch schon gelesen.",
+    "type": "auxiliary"
+  },
+  {
+    "n": 23,
+    "block": 3,
+    "said": "Morgen ich gehe ins Kino.",
+    "correct": "Morgen gehe ich ins Kino.",
+    "type": "word order"
+  },
+  {
+    "n": 24,
+    "block": 3,
+    "said": "Kannst du mich helfen?",
+    "correct": "Kannst du mir helfen?",
+    "type": "dative"
+  },
+  {
+    "n": 25,
+    "block": 3,
+    "said": "Nach die Arbeit gehe ich einkaufen.",
+    "correct": "Nach der Arbeit gehe ich einkaufen.",
+    "type": "dative"
+  },
+  { "n": 26, "block": 3, "said": "Ich sehe den Mann." },
+  {
+    "n": 27,
+    "block": 3,
+    "said": "Wir haben gestern lange gearbeiten.",
+    "correct": "Wir haben gestern lange gearbeitet.",
+    "type": "participle"
+  },
+  {
+    "n": 28,
+    "block": 4,
+    "said": "Das ist ein gute Freund.",
+    "correct": "Das ist ein guter Freund.",
+    "type": "adjective"
+  },
+  { "n": 29, "block": 4, "said": "Ich fahre mit dem Bus zur Arbeit." },
+  {
+    "n": 30,
+    "block": 4,
+    "said": "Wir spielt am Wochenende Fußball.",
+    "correct": "Wir spielen am Wochenende Fußball.",
+    "type": "verb"
+  },
+  {
+    "n": 31,
+    "block": 4,
+    "said": "Ich habe nach Berlin gefahren.",
+    "correct": "Ich bin nach Berlin gefahren.",
+    "type": "auxiliary"
+  },
+  {
+    "n": 32,
+    "block": 4,
+    "said": "Ich anrufe dich heute Abend.",
+    "correct": "Ich rufe dich heute Abend an.",
+    "type": "separable verb"
+  },
+  {
+    "n": 33,
+    "block": 4,
+    "said": "Ich muss heute arbeite.",
+    "correct": "Ich muss heute arbeiten.",
+    "type": "infinitive"
+  },
+  {
+    "n": 34,
+    "block": 4,
+    "said": "Ich wohne bei meine Eltern.",
+    "correct": "Ich wohne bei meinen Eltern.",
+    "type": "dative"
+  },
+  { "n": 35, "block": 4, "said": "Die Kinder spielen im Garten." },
+  {
+    "n": 36,
+    "block": 4,
+    "said": "Wir haben einen großes Garten.",
+    "correct": "Wir haben einen großen Garten.",
+    "type": "adjective"
+  },
+  { "n": 37, "block": 5, "said": "der Tisch, die Tische" },
+  {
+    "n": 38,
+    "block": 5,
+    "said": "gehen, ging, ist gegeht",
+    "correct": "gehen, ging, ist gegangen",
+    "type": "participle"
+  },
+  { "n": 39, "block": 5, "said": "das Mädchen, die Mädchen" },
+  { "n": 40, "block": 5, "said": "das Löffel", "correct": "der Löffel", "type": "gender" },
+  {
+    "n": 41,
+    "block": 5,
+    "said": "schreiben, schrieb, hat geschreibt",
+    "correct": "schreiben, schrieb, hat geschrieben",
+    "type": "participle"
+  },
+  { "n": 42, "block": 5, "said": "die Wohnung, die Wohnungen" },
+  {
+    "n": 43,
+    "block": 5,
+    "said": "der Apfel, die Apfels",
+    "correct": "der Apfel, die Äpfel",
+    "type": "plural"
+  },
+  { "n": 44, "block": 5, "said": "fahren, fuhr, ist gefahren" },
+  { "n": 45, "block": 5, "said": "die Tisch", "correct": "der Tisch", "type": "gender" }
+]
