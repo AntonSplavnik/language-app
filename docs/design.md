@@ -1,6 +1,6 @@
 # Language App — Prototype Design
 
-**Date:** 2026-10-11, last updated 2026-10-12
+**Date:** 2026-10-11, last updated 2026-10-16
 **Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`); kept in sync with the code
 
 ## 1. Purpose
@@ -393,7 +393,7 @@ Home ─┬─► Import ──► Review ──► Done ─► (Practice these 
       └─► My words ──► Word detail ──► Edit word
 ```
 
-Mobile-first layout, usable on desktop. Light and dark colour schemes follow the system (tokens in `web/src/styles/global.css`; every text colour has at least 4.5:1 on its ground in both). Content sits on cards: a surface with a 1 px border and large rounded corners, no shadow (only the flashcard has one). The accent is a lime used only as a fill (Practice, primary buttons, the speaker buttons) with near-black text and icons on it in both schemes; a disabled primary button is grey (lime faded out would vanish on a light ground); where the accent colours text, an outline or a small mark (quiet buttons, links, focus rings, filled progress) it is the lime itself in dark mode and a dark olive in light mode, where lime would not be readable. Delete buttons have white text on red in light mode and a dark shade in dark mode. Two fonts, served by the app itself (no request to another site): Bricolage Grotesque for screen titles, big numbers and Word detail's word and meaning, DM Sans for everything else. Back and header actions are 44 px round buttons with stroke icons. Screens with a list or a form (My words, Practice setup, Import, Review) put their title large at the top of the content, under the back button. A screen's main action sits in a sticky action bar at the bottom: a big lime button (60 px, the display font), with any secondary buttons beside or under it. Toasts appear near the bottom edge, or above the sticky action bar on screens that have one.
+Mobile-first layout, usable on desktop; light and dark follow the system. How screens look (colour, type, cards, buttons, headers, the sticky action bar, toasts) is the design system in `docs/design-system/`, starting from its `README.md`. This section says what each screen shows and does.
 
 1. **Home** — top to bottom:
    - the title, "German words";

@@ -3,6 +3,7 @@
 Companion app for learning German vocabulary from a book: photograph pages → AI extracts words → review → flashcards.
 
 - **`docs/design.md` is the source of truth.** Read the relevant section before changing behaviour. If the implementation has to deviate, update the spec in the same commit.
+- **`docs/design-system/` is how the UI looks.** Before building or changing UI, read `docs/design-system/README.md` (the brand book and component index), then `components/<Name>.md` for each component you touch. Take values from `tokens.json` by name (they are the CSS variables in `web/src/styles/global.css`) and reuse `web/src/styles/ui.module.css` and `web/src/components/` rather than restating a value. If you change a token, shared class or component, update the folder in the same commit.
 - **`docs/plan.md`** is the build plan: Part 1, M0–M8 (the prototype, done); Part 2, M9 onward (next features, in build order).
 
 ## Workflow
