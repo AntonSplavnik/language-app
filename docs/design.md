@@ -1,7 +1,7 @@
 # Language App — Prototype Design
 
 **Date:** 2026-10-11, last updated 2026-10-16
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`); kept in sync with the code
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`); kept in sync with the code. **M9 (past imports) is specified but not built yet:** what §5, §8.1, §9, §9.2 and §10 say about past imports, Settings and the `import` source is still to be built
 
 ## 1. Purpose
 
@@ -166,7 +166,7 @@ Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCA
 | Field | Notes |
 |---|---|
 | `id`, `user_id` | |
-| `name` | Optional, e.g. "Lesson 4" |
+| `name` | Optional, e.g. "Lesson 4"; typed before the first photo, given on the Done screen or changed later in Settings (§10). Without one, screens show the import's date (§10, import labels) |
 | `status` | `collecting` (photos being added) / `reviewing` / `done` |
 | `photo_count` | |
 | `candidates` | JSON list of merged extraction results (see §6.3), so a reload never loses the review |
@@ -176,7 +176,8 @@ Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCA
 | Field | Notes |
 |---|---|
 | `id`, `user_id` | |
-| `source` | `last_import` / `last_7_days` / `not_learned` |
+| `source` | `import` / `last_7_days` / `not_learned` |
+| `import_id` | The import practised, for source `import`; `null` otherwise (`ON DELETE SET NULL`). The migration that adds it turns the earlier `last_import` sessions into `import` ones, with the import that was the most recent `done` one when each started |
 | `started_at`, `finished_at` | `finished_at` stays `null` if the learner leaves early |
 
 ### `card_results`
@@ -305,13 +306,15 @@ A word already enriched by a previous import (any user) needs no AI call — thi
 ## 8. Practice
 
 ### 8.1 Session sources
-Before starting, the learner chooses one source. Each option shows how many words it contains (all of them, e.g. "20 of 94 words"); options with no words are disabled, and the first option with words is preselected so a session starts in two taps (Home → Practice → Start). A session takes **up to 20 words** and never includes `ignored` words. "Most recent `done` import" means the latest `completed_at`; its words are the `user_words` rows it created (`import_id`), so a word that import found already in the list is not part of it.
+Before starting, the learner chooses one source. Each option shows how many words it contains (all of them, e.g. "20 of 94 words"); options with no words are disabled, and the first option with words is preselected so a session starts in two taps (Home → Practice → Start). A session takes **up to 20 words** and never includes `ignored` words. An import's words are the `user_words` rows it created (`import_id`), so a word that import found already in the list is not part of it.
 
 | Source | Words | Order |
 |---|---|---|
-| `last_import` | `learning` + `learned` words from the most recent `done` import | Shuffled |
+| `import` | `learning` + `learned` words from one past import (§9.2), chosen in a menu (§10 Practice setup) that starts on the most recent one | Shuffled |
 | `last_7_days` | `learning` + `learned` words with `added_at` in the last 7 days | Shuffled |
 | `not_learned` | `learning` words | First words with `last_result = didnt_know` (most recently practised first), then the rest by `added_at` newest first |
+
+An import with more than 20 such words gives a different shuffled 20 each session. The Done screen's **Practice these now** starts an `import` session for the import just saved.
 
 ### 8.2 Card
 A large card (a surface with a hairline border, 32 px corners, a soft shadow; up to 520 px tall), its content centred. No language labels: the client doesn't know the learner's language.
@@ -360,18 +363,20 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 |---|---|---|
 | GET | `/health` | `{ status: "ok" }` |
 | GET | `/stats` | Home counters (learning, learned), `detailsPending` (the learner's non-ignored words without details) and unfinished imports |
+| GET | `/imports` | Past imports → `{ imports }`, see §9.2 |
 | POST | `/imports` | Create import `{ name? }` (trimmed, at most 100 characters) → 201 + import |
+| PATCH | `/imports/:id` | Rename `{ name }` → `{ id, name }`, see §9.2 |
 | POST | `/imports/:id/photos` | Upload one JPEG (multipart field `photo`, at most 10 MB) → extract, merge, compare, check → `{ pageQuality, wordsFound, import }`. Only while the import is `collecting` |
 | GET | `/imports/:id` | Import with candidates; `existing` is recomputed on every read |
 | POST | `/imports/:id/review` | Move import to `reviewing` (no more photos) → import; 409 `import_closed` once it is done |
 | POST | `/imports/:id/save` | `{ decisions: [{ key, action: add \| skip, article? }] }` → save, then enrich → `{ added, skipped, detailsPending }`. Allowed once, from `collecting` or `reviewing` |
 | POST | `/words/enrich-pending` | Retry enrichment for the learner's `learning` / `learned` words with `enriched_at = null` → `{ enriched, pending }` |
-| GET | `/words?status=&q=` | The learner's words → `{ words, counts }`, see below |
+| GET | `/words?status=&q=&importId=&sort=` | The learner's words → `{ words, counts }`, see below |
 | GET | `/words/:userWordId` | → `WordDetail`, see below |
 | PATCH | `/words/:userWordId` | `{ status?, customTranslation?, note? }` → `WordDetail`, see below |
 | DELETE | `/words/:userWordId` | → `{ deleted: true }`, see below |
-| GET | `/sessions/options` | `{ options: [{ source, count }] }`, in display order |
-| POST | `/sessions` | `{ source }` → `{ id, source, cards }`; 400 `no_words` for a source without words |
+| GET | `/sessions/options` | `{ options: [{ source, count }] }`, in display order; `import`'s count is that of the most recent past import (§8.1), 0 when there is none |
+| POST | `/sessions` | `{ source, importId? }` → `{ id, source, cards }`; `importId` is required for `import` and not allowed otherwise (400 `invalid_request`); 404 `import_not_found` for an import that isn't `done` or isn't the learner's; 400 `no_words` for a source without words (also a `done` import without `learning` or `learned` words) |
 | POST | `/sessions/:id/results` | `{ userWordId, result, flipped, flipMs, answerMs }` → `{ recorded }` |
 | POST | `/sessions/:id/finish` | → `{ knew, didntKnow, skipped, missed }` |
 
@@ -380,23 +385,30 @@ Errors are listed in §12. Ids of another learner's rows answer like unknown ids
 ### 9.1 Word endpoints
 A `WordView` is what a card shows (§8.2): `userWordId`, `lemma`, `pos`, `article`, `plural`, `forms`, `translation`, `customTranslation`, `exampleDe`, `exampleTranslation`, `note`, `enriched`, `ipa`, `audioFile`, `audioUrl`.
 
-- **`GET /words?status=&q=`** — `status` (`learning` / `learned` / `ignored`) filters; absent means all. `q` is a case-insensitive substring of the German lemma, the stored translation or the learner's custom translation; `%` and `_` match themselves, a blank `q` is no search. Words are ordered by lemma, ignoring case. Each word is a `WordView` plus `status`, `timesSeen` and `correctStreak` (for the progress mark). `counts` gives the words per status that match `q`, whatever `status` asked for, so the tabs can show where the matches are. No paging: the prototype's list has a few hundred words.
+- **`GET /words?status=&q=&importId=&sort=`** — `status` (`learning` / `learned` / `ignored`) filters; absent means all. `q` is a case-insensitive substring of the German lemma, the stored translation or the learner's custom translation; `%` and `_` match themselves, a blank `q` is no search. `importId` keeps only the words that import created (any status, so its skipped words are in the Ignored tab); an id that isn't one of the learner's imports simply matches nothing. `sort` is `az` (the default: by lemma, ignoring case) or `newest` (`added_at` newest first, then the newest row first). Each word is a `WordView` plus `status`, `timesSeen`, `correctStreak` (for the progress mark) and `addedAt` (for the day headings). `counts` gives the words per status that match `q` and `importId`, whatever `status` asked for, so the tabs can show where the matches are. No paging: the prototype's list has a few hundred words.
 - **`GET /words/:userWordId`** — `WordDetail`: a `WordView` plus `status`, `formsSource`, `checkStatus`, `timesSeen`, `timesCorrect`, `correctStreak`, `lastResult`, `lastPracticedAt`, `addedAt`. 404 `word_not_found`.
 - **`PATCH /words/:userWordId`** — fields left out stay as they are. Texts are trimmed; an empty or blank text, or `null`, clears the field (stored as `NULL`). At most 200 characters for the translation and 2000 for the note (400 `invalid_request`). Changing the status to `learning` resets `correct_streak` to 0, so the next correct answer does not mark the word learned again at once; `times_seen` and `times_correct` stay. Answers with the updated `WordDetail`; 404 `word_not_found`.
 - **`DELETE /words/:userWordId`** — deletes the `user_words` row and its `card_results`. The shared `words` row and its translations stay, so a later import offers the word again as new, and adding it again reuses its details without an AI call. 404 `word_not_found`.
+
+### 9.2 Past imports
+- **`GET /imports`** — the learner's **past imports**: `done` imports with at least one `learning` or `learned` word, newest first (`completed_at`, then id). Each is an `ImportSummary`: `id`, `name`, `completedAt`, and `wordCount`, its `learning` + `learned` words (what a session from it can draw on, at least 1). An import that added nothing to learn never gets an entry: one whose pages had no new words, one whose new words were all skipped, and one whose words were later all deleted or set to Ignored. The import row itself stays (it is `done`, and its skipped words keep their `import_id`); it is only left out of the list, and comes back if one of its words is moved back to Learning. Unfinished imports stay Home's banners (§10 screen 1).
+- **`PATCH /imports/:id`** — `{ name }`, trimmed, at most 100 characters (400 `invalid_request`); an empty or blank name, or `null`, clears it. Allowed in any status. Answers `{ id, name }`; 404 `import_not_found`.
 
 ## 10. Screens
 
 ```
 Home ─┬─► Import ──► Review ──► Done ─► (Practice these now)
       ├─► Practice setup ──► Flashcards ──► Summary
-      └─► My words ──► Word detail ──► Edit word
+      ├─► My words ──► Word detail ──► Edit word
+      └─► Settings
 ```
 
 Mobile-first layout, usable on desktop; light and dark follow the system. How screens look (colour, type, cards, buttons, headers, the sticky action bar, toasts) is the design system in `docs/design-system/`, starting from its `README.md`. This section says what each screen shows and does.
 
+**Import labels.** Wherever a past import is listed (Practice setup, My words, Settings) it is shown by its name, or without one by the day it was completed ("13 Oct", with the year when it isn't this year). When several unnamed imports share a day, each of them also shows its time ("11 Oct, 14:32"). Dates and times are the phone's.
+
 1. **Home** — top to bottom:
-   - the title, "German words";
+   - the title, "German words", with a round **Settings** button (a gear) at the right end of its line;
    - once there are learning or learned words, the **deck card**: how many words are not ignored ("149 words", large), the share of them learned as text ("12% learned", rounded down, so it says 100% only when every word is learned) and as a bar, and the Learning and Learned counts. (Ignored words are not counted here.);
    - only when there is unfinished work, as cards: a banner for each import not yet `done` that has at least one photo ("Continue importing Lesson 4" while collecting, "Finish reviewing Lesson 4" once reviewing; an unnamed import shows its date), and "N words without details yet" + **Add details** when enrichment is pending;
    - **Practice**, the main button (a big lime button with a play circle), once there are learning or learned words, with what it draws from on a second line ("136 words to practise"; "Review learned words" when every word is learned);
@@ -404,23 +416,28 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
    - the credit in the footer: grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
    - The title is the import's name, large ("New import" before the import exists, "Import" when it has no name). Before the first photo: the **Name (optional)** field and a large dashed drop zone, "Take or choose photos" over "Photograph the pages you studied", with a lime camera square. Then the photos as tiles, two per row: the thumbnail (dimmed while it is read), a small round remove button (a cross) where removing is allowed, and its state with an icon: a check and "13 words" in the accent, a spinner and *Preparing* / *Reading*, "Couldn't read much from this page" in warning colour, the error in red, or "Waiting…"; **Retry** and **Retake** are full-width buttons under it. **Add more photos** is the grid's last cell, dashed like the drop zone. The number of words found so far is a pill after **Review words**; the hint under it ("Wait until every photo is read") stays.
-   - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and cannot be changed later. The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
+   - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and can't be changed on this screen (it can on Done and in Settings). The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
    - A photo can be removed before it is sent or after it failed; once read, its words stay in the import (they can be skipped in review). **Retry** appears only for failures worth retrying with the same photo (AI busy, invalid output, network, an unexpected server error); otherwise the message says what to do (e.g. "photograph it in two parts").
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
-3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts a `last_import` session). With nothing set to Add the button reads **Skip all N words** (or **Finish** when there are no new words) and shows "Saving…".
+3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts an `import` session from this import, §8.1). With nothing set to Add the button reads **Skip all N words** (or **Finish** when there are no new words) and shows "Saving…".
    - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
    - Under the large title (the import's name, else "Review words"): "**9** new words · **8** to add" with **Add all** and **Skip all** as pills at the right. "4 already in your words" is a quieter card that opens (its chevron turns) to list those headwords, articles in their gender colours. Every new word is a card, and the whole card is one Add/Skip toggle: the headword (article coloured) over "translation · part of speech", a "not in dictionary" pill under them when Wiktionary doesn't have the word, and the state at the right, a lime **Add** pill with a check or a grey **Skip** pill; a skipped card is dimmed and its headword struck through. An article mismatch is a warning-coloured strip across the card's bottom ("AI: der Sofa · Dictionary: das Sofa", a warning icon, one **Use das** button per dictionary article, filled in the warning colour); once applied the strip turns teal, "Dictionary article applied" with **Undo**. "Every word on these pages is already in your list." when there is nothing new.
    - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. A reloaded Done screen no longer has the counts and just says "Import saved". On Home, **Practice** is the main button once there are words and **New import** the second (screen 1).
-   - Done has no back button; "Done" is a small grey label at the top, and the result is the big text: a lime circle with a check inside two thin rings, "8 words added" (or "Import saved") large, then "1 skipped; they won't be suggested again." and, with a small sparkle in teal, "Example sentences and forms are ready." (when they are), or the "N words without details yet" card with **Add details**. In the action bar, one above the other: **Practice these now** (the big lime button, with a play triangle), **Import more pages** and a quiet grey **Home**. Done doesn't know the import's name.
-4. **Practice setup** — three sources with counts, **Start**. The large title "Practice" with "What to practise" under it; each source a card with an icon (a camera for Last import, a calendar for Last 7 days, a target for Not learned yet), its name and description, and its count at the right in two lines ("20" over "of 149 words"; "No words" alone). The chosen card has an accent edge and a lime icon square; a source without words is faded and can't be chosen. Real radio buttons underneath, so the keyboard and screen readers work as with any radio group. **Start**, with a play triangle, in the action bar.
+   - Done has no back button; "Done" is a small grey label at the top, and the result is the big text: a lime circle with a check inside two thin rings, "8 words added" (or "Import saved") large, then "1 skipped; they won't be suggested again." and, with a small sparkle in teal, "Example sentences and forms are ready." (when they are), or the "N words without details yet" card with **Add details**. In the action bar, one above the other: **Practice these now** (the big lime button, with a play triangle), **Import more pages** and a quiet grey **Home**.
+   - **Nothing added:** when the save added no words, the big text is "No words added", with "Every word on these pages is already in your list." under it when the pages had no new words, or "N skipped; they won't be suggested again." when every new word was skipped. Such an import gets no entry among the past imports (§9.2), so Done offers neither **Practice these now** nor naming.
+   - **Naming:** when the import is among the past imports (`GET /imports`) and has no name, a card under the result offers one: the small uppercase label **Name this import** (as on Edit word), a text field with the placeholder "e.g. Lesson 4" (16 px, so iOS Safari doesn't zoom) and a **Save** pill beside it, enabled once something is typed; Enter saves too. Once saved the card becomes one line with a check, "Saved as “Lesson 4”". Done reads the past imports to find this one and its name, so a reloaded Done screen offers it too; an import that already has a name, isn't listed, or a read that fails, shows no card. If saving fails, a toast says so and the typed name stays.
+4. **Practice setup** — three sources with counts, **Start**. The large title "Practice" with "What to practise" under it; each source a card with an icon (a camera for Import, a calendar for Last 7 days, a target for Not learned yet), its name and description, and its count at the right in two lines ("20" over "of 149 words"; "No words" alone). The chosen card has an accent edge and a lime icon square; a source without words is faded and can't be chosen. Real radio buttons underneath, so the keyboard and screen readers work as with any radio group. **Start**, with a play triangle, in the action bar.
+   - The **Import** card has, in place of a description, a menu of the past imports (`GET /imports`): a native select (16 px or more, the phone's own picker), newest first, each by its label (import labels above). Every import in it has words to practise (§9.2). The menu starts on the most recent; choosing an import in it also chooses the Import card, and the count at the right is that import's. Without past imports the card is faded with "No words" and has no menu.
 5. **Flashcards** — card, swipe hints, buttons below the card. The header has a round close button (a cross; End practice, back to Home) and, filling the row, "Practice" with the position at the right ("**5** / 20") over a thin progress bar filled by the cards answered so far. The card is described in §8.2, the stamps while dragging in §8.3; under it "Tap to flip · swipe → knew · ← didn't know · ↑ skip". The three buttons below are tall, an icon over a short label: **Didn't know** (a cross on a soft red ground), **Skip** (an up arrow, outlined) and **Knew it** (a check on lime). After the last card the screen says "Saving your answers…" with a spinner (or that there is no connection), and offers **Try again** if finishing failed.
 6. **Summary** — §8.6.
-7. **My words** (`/words?status=learning&q=…`) — the title "My words", large, under the round back button, with the number of words (all tabs; not shown while searching) at the right of the header; a search box; the tabs Learning / Learned / Ignored with their counts, as a segmented control whose current tab is a high-contrast pill; the list.
-   - The tab and the search live in the URL (replacing the history entry, not adding one), so a reload or Back from a word returns to the same list. Learning is the default tab.
-   - The search runs 250 ms after typing stops, or at once on Enter (which also closes the keyboard). It searches every tab: when the current tab has no match, the empty state links to the tabs that have ("2 in Ignored ›"). The field uses a 16 px font so iOS Safari doesn't zoom in.
+7. **My words** (`/words?status=learning&q=…`) — the title "My words", large, under the round back button, with the number of words (all tabs; not shown while searching) at the right of the header; a search box; the view menu; the tabs Learning / Learned / Ignored with their counts, as a segmented control whose current tab is a high-contrast pill; the list.
+   - The tab, the search and the view live in the URL (`status`, `q`, `sort=newest`, `import=5`; replacing the history entry, not adding one), so a reload or Back from a word returns to the same list. Learning is the default tab.
+   - **View menu**, under the search box: a native select shown as a pill ("All words · A–Z" with a chevron; 16 px, the phone's own picker). It offers **All words · A–Z** (the default), **All words · Newest first**, then, under the heading "Imports", every past import (`GET /imports`) by its label, newest first. Choosing an import shows only the words it created, A–Z with letter sections; the header's number, the tabs, their counts and the search all apply within it. An import in the URL that is no longer in the menu (its words were all deleted) falls back to All words · A–Z.
+   - **Newest first** splits the list by the day the words were added instead of by letter: "Today", "Yesterday", then the date ("13 Oct", with the year when it isn't this year), by the phone's time.
+   - The search runs 250 ms after typing stops, or at once on Enter (which also closes the keyboard). It searches every tab: when the current tab has no match, the empty state links to the tabs that have ("2 in Ignored ›"); the same happens when the current tab has nothing from the chosen import. The field uses a 16 px font so iOS Safari doesn't zoom in.
    - A row shows the headword (article + lemma, as on the card back, the article in its gender's colour as on Word detail), the translation (the learner's own if set) and a short progress mark: a "new" pill for a learning word never practised, otherwise `LEARNED_STREAK` dots with one filled per right answer in a row towards learned (a screen reader says "1 of 3 right in a row"); nothing for learned or ignored words. Rows sit on the page without a box, a hairline between them; the whole row opens Word detail (no chevron).
-   - Without a search the list is split into letter sections (A, B, …). Accents are folded, so *Ärger* sits under A, and words that don't start with a letter go under "#". A section starts only where the letter changes from the word before, so the server's order is never changed. Search results are one list, without headings.
+   - Without a search the A–Z list is split into letter sections (A, B, …). Accents are folded, so *Ärger* sits under A, and words that don't start with a letter go under "#". A section starts only where the letter changes from the word before, so the server's order is never changed. Search results are one list, without headings, in either order.
    - Empty tabs say what belongs there, under a book icon and a bold first line (Learned: "No learned words yet." and "A word counts as learned after 3 right answers in a row."); the Learning tab offers **New import**.
 8. **Word detail** (`/words/:id`) — a page of cards: the word and its meaning, the example, the note, and the progress, each card only when it has something to show. The header has just the round back button and, at its right end, a round **Edit** button (a pencil; opens Edit word). Then:
    - the top card. For a noun with an article, a small chip in its gender's colour over the word: "der · masculine", "die · feminine", "das · neuter" (der blue, die red, das teal — teal, not green, so it can't be taken for the lime accent; the text has at least 4.5:1 on its chip in both colour schemes). The headword as on the card back is the screen's title, large (44 px, the display font), with a noun's article in its gender's colour (as in the My words list). A long word wraps (hyphenated where the browser can). When the word has a recording, the speaker button (as on the card back, §8.2, but 56 px) sits at the right end of the word's first line and never shrinks, so it stays on screen. The recording has no credit of its own here: recordings are credited in Home's footer (screen 1, §7);
@@ -436,6 +453,9 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
    - **Save** stores the changes, shows "Saved" and returns to Word detail, which loads the word again. **Cancel**, like the browser's Back, drops the typed texts without asking. Neither adds a history entry: opened from Word detail, they go back to it; opened directly (a typed URL), the detail replaces the edit screen. Either way the detail's Back still goes to the list it was opened from.
    - **Delete word** (soft red, with a bin icon), at the bottom of the screen, asks in place, not with a browser dialog, in a red-tinted card with a bin icon, the question in bold over the rest, and **Keep** / **Delete** side by side: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, set its status to Ignored instead." After deleting, a toast "“der Tisch” deleted" and the list; Back must not lead to the deleted word. When the history is list → detail → edit, the app goes back two entries, to that list; otherwise the list replaces the edit screen.
    - A word that no longer exists says "This word is not in your list any more", as on Word detail.
+10. **Settings** (`/settings`) — the round back button, the large title "Settings", then sections, each under a small uppercase label. Other settings (such as the daily goal, plan M16) will join this screen. For now one section:
+    - **Imports:** the past imports (`GET /imports`) as rows on the page like My words' rows, a hairline between them: the label (import labels above) in bold, and under it in grey the day when the import has a name, and its words ("13 Oct · 9 words", "54 words"). Without any: "Your imports will appear here."
+    - Tapping a row opens it for renaming in place: a text field with the name (the day as placeholder; 16 px) and **Cancel** / **Save** pills under it. Enter saves, Escape or Cancel closes it unchanged, an emptied field clears the name. One row is open at a time. After saving, a toast "Renamed" and the row shows its new label; if saving fails, a toast says so and the field stays open with the typed name.
 
 ## 11. AI calls
 
@@ -523,6 +543,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Learner leaves during review | Import stays `reviewing`; Home shows a banner to finish it |
 | Same word saved twice concurrently | Unique constraints + upsert; no duplicates |
 | Daily limit reached | Upload refused with a clear message |
+| Naming or renaming an import fails (Done, Settings) | Toast; the typed name stays |
 
 ### Practice
 | Problem | Behaviour |
@@ -538,6 +559,7 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 |---|---|
 | Word detail or Edit word opened for a word that was deleted | "This word is not in your list any more" + link to My words |
 | Loading the list or a word fails | Inline message with **Try again** |
+| Loading the view menu's imports fails | Toast; the list still loads as asked, and the menu offers only the two All words views |
 | Saving a change or deleting fails | Toast; typed texts stay, a status change is undone on screen |
 | A recording can't be played | Toast "Couldn't play the recording" |
 
@@ -563,8 +585,8 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's history steps | Vitest in `core/`, `server/` and `web/` | Free |
-| Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / edit / delete, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's history steps, import labels, My words' day headings | Vitest in `core/`, `server/` and `web/` | Free |
+| Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`) and a 3-word enrich batch through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
 | AI quality (optional, not built yet) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models; needs the hand-checked pages first | ~$2–3 per run on Opus |
@@ -588,7 +610,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Past imports, practising one import, My words sorted by date added (M9)
+- Past imports, practising one import, My words by import or date added, Settings (M9; already written into the sections above, not built yet)
 - Adding a word by hand (M10); importing pages of a PDF (M11)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M12)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M13)

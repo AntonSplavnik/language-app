@@ -202,7 +202,7 @@ Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-a
 
 | # | Milestone | Demo |
 |---|---|---|
-| M9 | Past imports, date added | Open an old import from the list and practise only its words |
+| M9 | Past imports, date added | In Practice, pick an old import and practise only its words; filter My words to it; name an import on Done and rename it in Settings |
 | M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words |
 | M11 | Import from PDF | Pages 42–45 of a book PDF → review → save |
 | M12 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
@@ -218,11 +218,23 @@ Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-a
 ### Phase 1: words
 
 #### M9: Past imports and date added
-- **Imports screen:** every `done` import, newest first, with its name (or date), date and number of words added. Unfinished imports stay as Home's banners.
-- **One import:** its words (the `user_words` rows it created) and **Practise this import**, a session from those words like `last_import`.
-- **My words:** a sort choice, A–Z (as now) or newest first; newest first groups the list by the day the words were added.
-- No AI and probably no schema change: `imports`, `user_words.import_id` and `added_at` exist.
-- **Open:** where the Imports screen is reached from (a Home tile, My words' header).
+Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, §8.1, §9, §9.2 and §10.
+- **No Imports screen of its own.** Past imports are reached where they are used:
+  - **Practice setup:** the `last_import` source becomes `import`, a card with a menu of the past imports (newest first, so the latest is the default and starting still takes two taps). Up to 20 words, shuffled, as before.
+  - **My words:** a view menu under the search: All words · A–Z, All words · Newest first (grouped by day), or one import.
+  - **Settings** (new, a gear on Home): the list of past imports, renamed in place. Later settings (M16's daily goal) go there too.
+  - **Done:** "Name this import" when the import has no name.
+- An unnamed import is shown by its date, with the time when several share a day.
+- An import that adds nothing to learn (no new words on the pages, or every new word skipped) gets no entry anywhere, and Done says why ("Every word on these pages is already in your list."). The same goes for an import whose words were later all deleted or set to Ignored.
+- **Schema change:** `sessions.import_id`; the migration turns old `last_import` sessions into `import` ones. `pnpm dev` migrates the real word list, so the migration is first tried on a copy of the dev database.
+- **API:** `GET /imports`, `PATCH /imports/:id`, `POST /sessions { source: "import", importId }`, `GET /words` with `importId` and `sort`; `WordListItem` gains `addedAt`.
+- **Tests first:**
+  - `GET /imports`: only `done` imports with learning or learned words, newest first, `wordCount` counts those; left out: unfinished imports, one that saved no words, one whose words were all skipped, all deleted or all set to Ignored (and listed again once a word is back in Learning), another learner's;
+  - `PATCH /imports/:id`: trims, clears on blank or `null`, 100-character limit, 404;
+  - sessions: an `import` session takes only that import's learning + learned words, at most 20; `importId` missing, unknown, not `done`, or sent with another source; `no_words` for an import without learning or learned words; `import_id` is stored; the options count is the most recent past import's;
+  - `GET /words`: `importId` filters words and `counts`, `sort=newest` order, `addedAt` present, combined with `q` and `status`;
+  - web: import labels (name, date, year, time only when unnamed imports share a day) and the day headings (Today, Yesterday, a date).
+- No AI change.
 
 #### M10: Add a word by hand
 - The learner types a German word. The dictionary supplies what it has (genders, plural, forms, pronunciation, English glosses); the AI supplies the translation when the dictionary has none, and enrichment adds the example sentence as for imported words (§6.6).
@@ -245,6 +257,7 @@ Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-a
 #### M13: Filters and practice builder
 - One set of filters, freely combined, used by both My words and Practice: theme, own group, part of speech, gender (der / die / das), plural-only nouns (*die Eltern*), import, date added; My words keeps its status tabs.
 - **Practice setup:** the three current sources stay as presets, so a session still starts in two taps (§1); a custom choice builds a session from any combination of filters and shows how many words match while it changes.
+- M9 built the import choice as single menus (My words' view menu, Practice's Import card); this milestone turns them into the combinable filters.
 - **Open:** plural-only nouns need a flag (their dictionary entries have no gender, §6.3); choosing the session size (now 20); saving a custom combination.
 
 #### M14: Card modes
