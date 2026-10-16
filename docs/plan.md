@@ -203,7 +203,7 @@ Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-a
 | # | Milestone | Demo |
 |---|---|---|
 | M9 | Past imports, date added | In Practice, pick an old import and practise only its words; filter My words to it; name an import on Done and rename it in Settings |
-| M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words |
+| M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words; type three words as a list, confirm them one by one, practise them as an import |
 | M11 | Import from PDF | Pages 42–45 of a book PDF → review → save |
 | M12 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
 | M13 | Filters and practice builder | Practise "verbs from Weather"; filter My words to *die* nouns |
@@ -237,10 +237,23 @@ Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, �
 - No AI change.
 
 #### M10: Add a word by hand
-- The learner types a German word. The dictionary supplies what it has (genders, plural, forms, pronunciation, English glosses); the AI supplies the translation when the dictionary has none, and enrichment adds the example sentence as for imported words (§6.6).
-- The learner sees the filled-in word and confirms or corrects it (article among the dictionary's genders, translation) before it is saved as `learning` with `import_id = null` (§5 already allows it).
+Settled with the user on 2026-10-16 (the `docs/design.md` sections are written after M9 is committed, for review before any code):
+- **Entry:** the New import screen, "or type a word" next to the photo drop zone.
+- **One word or a list:** the learner types one German word or several (one per line). Either way the words are confirmed **one at a time** ("2 of 5"). A single word is saved on its own (`import_id = null`, no group); a list is saved as **one import**, so it is among the past imports (M9) and Done offers Practice these now and Name this import.
+- **What the dictionary supplies:** genders, plural, forms, pronunciation, English glosses. A word with several entries (*See*: der See "lake" / die See "sea"; *morgen* / der Morgen; three *Band*s) shows each as a card with its gloss, and the learner picks the one or ones they mean.
+- **Translation, three ways:** pick one of the dictionary's glosses (first; they are long, e.g. "dining table, dinner table", so the pick can be edited), **Ask AI** for a short one like an import's ("table"), or type it by hand.
 - A word already in the list, in any status, is not added twice; the screen says so and links to it.
-- **Open:** one word at a time or a short list; ambiguous words (*See*: der or die); finding a German word by typing English.
+- Enrichment adds the example sentence (and any forms the dictionary lacks) as for imported words (§6.6).
+- **Typos and word forms without AI** (the user, 2026-10-16), all from the Wiktionary table:
+  - **while typing** (the single-word field): a suggestion list under the field, words starting with the typed letters (*Regensch* → *der Regenschirm · umbrella*), and the closest similar words when there are few or none;
+  - **"Did you mean…?"**: a word the dictionary doesn't know, typed alone or from a pasted list, gets the most similar dictionary words at the top of its confirm step (*Regenschrim*, *Rgenschirm* → *Regenschirm*). Similarity through PostgreSQL's `pg_trgm` (available in the postgres:17 image, a trusted extension);
+  - **inflected forms**: the dictionary loader keeps Wiktionary's form-of entries as a form → base word table, so *ging* → *gehen* and *Tische* → *Tisch* are found too (re-run `import:wiktionary`, ≈11 s).
+  - The phone's own autocorrect stays on in the field. The AI is needed only for words the dictionary doesn't have (long compounds, rare words): **Ask AI** then also gives the base word, part of speech and article, or the learner fills them in by hand.
+- **Not in M10:** finding a German word by typing English (My words' search already finds the learner's own words by English).
+- **Ask AI limit** (the user, 2026-10-16): calls are recorded in `ai_usage` and capped by a simple daily count, 200 by default (a `.env` setting, counted like the photo limit, §11.5): a safety net, not a budget. When reached, Ask AI says so; the dictionary glosses and typing still work. Pricing comes later (see Later: AI for subscribers).
+- **Confirming a typed list:** each word is **Add** or **Remove**. Remove saves nothing (the word was typed on purpose, so it isn't kept as `ignored`; a later import may offer it).
+- **Photo Review wording** (the user, 2026-10-16): Skip really means "keep in my list as Ignored, never practise, never offer again" (§6.5), so the labels change, not the behaviour: each word's toggle is **Practice** / **Ignore**, the pills **Practice all** / **Ignore all**, and the texts follow ("8 to practise", "1 ignored; they won't be suggested again.", Done's "N ignored…" when nothing was added). The API keeps `action: add | skip`.
+- The new AI call needs the `claude-api` skill, its prompt and recorded fixtures, and `pnpm test:live`.
 
 #### M11: Import from PDF
 - The learner picks a PDF and a page range (e.g. 42–45) each time, so a whole book can stay one file. The chosen pages go through the photo flow: extract → merge → compare → dictionary check → review → save → enrichment.
@@ -250,7 +263,8 @@ Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, �
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
 - The words already in the list get themes once, from a backfill run (a small AI call, like the pronunciation backfill).
 - **Own groups:** the learner creates, renames, deletes and fills them by hand (e.g. "Lesson 4", "Hard ones"); the AI never uses them. A word can be in several themes and groups.
-- **Open:** whether the AI's themes live on the shared `words` row with the learner's corrections per learner, or per learner only; how many themes per word; adding words to a group from My words (several at once) or only from the word's screens.
+- **Adding words to a group:** the learner selects several words (in My words) and creates a group from them or adds them to one (the user, 2026-10-16). A single word typed by hand (M10) belongs to no group until then.
+- **Open:** whether the AI's themes live on the shared `words` row with the learner's corrections per learner, or per learner only; how many themes per word; whether a word's own screens can also change its groups.
 
 ### Phase 2: practice
 
@@ -302,6 +316,7 @@ In this order, after M20:
 - **Login:** a deployed app is on the internet, and without a login anyone could use it and run up the Claude bill. Needed with the first deploy (accounts, §15).
 - **Backups:** the host's automatic database backups or a scheduled `pg_dump` kept off the server, and a restore that has been tried. Until deployment the dev database holds practice data only.
 - **Gamification:** points for practice and something to spend them on; builds on M16.
+- **AI for subscribers** (the user, 2026-10-16): the AI features become paid, for subscribers only (which ones exactly, e.g. whether photo import and enrichment too, is open); comes with the login. Price them from real `ai_usage` numbers per learner. The model decides most of it: 50 Ask AI calls a day for 30 days cost ≈ 15¢ on Haiku 5.5 but ≈ $15 on Opus 5.5, and a photo page ≈ 0.2–0.4¢ vs 5–8¢ (§11.4).
 - **Someday:** export of the word list (CSV, Anki), and the items of §15 not chosen yet.
 
 ## Verification (every milestone)
