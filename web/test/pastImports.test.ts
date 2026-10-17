@@ -1,6 +1,6 @@
 import type { ImportSummary } from "@language-app/core";
 import { describe, expect, it } from "vitest";
-import { doneLines, needsName } from "../src/imports/done";
+import { doneLines, doneSource, moreWords, needsName } from "../src/imports/done";
 import {
   findImport,
   importFacts,
@@ -24,7 +24,8 @@ const summary = (
   completedAt: string,
   name: string | null = null,
   wordCount = 9,
-): ImportSummary => ({ id, name, completedAt, wordCount });
+  source: ImportSummary["source"] = "photos",
+): ImportSummary => ({ id, name, source, completedAt, wordCount });
 
 const labels = (imports: ImportSummary[]) =>
   labelImports(imports, now, LOCALE).map((item) => item.label);
@@ -132,10 +133,10 @@ describe("My words' day headings (§10, Newest first)", () => {
 });
 
 describe("Done (§10 screen 3)", () => {
-  it("counts what was added and skipped", () => {
+  it("counts what was added and ignored", () => {
     expect(doneLines({ added: 8, skipped: 1, detailsPending: 0 })).toEqual({
       headline: "8 words added",
-      note: "1 skipped; they won't be suggested again.",
+      note: "1 ignored; they won't be suggested again.",
     });
     expect(doneLines({ added: 1, skipped: 0, detailsPending: 0 })).toEqual({
       headline: "1 word added",
@@ -150,12 +151,32 @@ describe("Done (§10 screen 3)", () => {
     });
     expect(doneLines({ added: 0, skipped: 3, detailsPending: 0 })).toEqual({
       headline: "No words added",
-      note: "3 skipped; they won't be suggested again.",
+      note: "3 ignored; they won't be suggested again.",
     });
   });
 
   it("a reloaded Done screen no longer has the counts", () => {
     expect(doneLines(null)).toEqual({ headline: "Import saved", note: null });
+  });
+
+  it("after a typed list, more words are typed, not photographed", () => {
+    expect(moreWords("typed")).toEqual({ to: "/words/new?mode=list", label: "Type more words" });
+    expect(moreWords("photos")).toEqual({ to: "/imports/new", label: "Import more pages" });
+  });
+
+  it("knows the source from the save, else from the past imports, else photos", () => {
+    const imports = [
+      summary(5, local(2026, 9, 13), null, 3, "typed"),
+      summary(4, local(2026, 9, 12)),
+    ];
+    const ready: PastImports = { kind: "ready", imports };
+    expect(doneSource({ added: 3, skipped: 0, detailsPending: 0, source: "typed" }, ready, 9)).toBe(
+      "typed",
+    );
+    // A reloaded Done screen has no save result.
+    expect(doneSource(null, ready, 5)).toBe("typed");
+    expect(doneSource(null, ready, 4)).toBe("photos");
+    expect(doneSource(null, { kind: "loading" }, 5)).toBe("photos");
   });
 
   it("offers a name only for a listed import without one", () => {

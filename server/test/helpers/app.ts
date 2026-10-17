@@ -6,13 +6,18 @@ import type { Db } from "../../src/db/client";
 export const unusedAi: AiClient = {
   extractWords: () => Promise.reject(new Error("AI was not expected to be called")),
   enrichWords: () => Promise.reject(new Error("AI was not expected to be called")),
+  describeWord: () => Promise.reject(new Error("AI was not expected to be called")),
 };
 
 export function buildTestApp(
   db: Db,
-  { ai = unusedAi, dailyPhotoLimit = 50 }: { ai?: AiClient; dailyPhotoLimit?: number } = {},
+  {
+    ai = unusedAi,
+    dailyPhotoLimit = 50,
+    dailyDescribeLimit = 200,
+  }: { ai?: AiClient; dailyPhotoLimit?: number; dailyDescribeLimit?: number } = {},
 ) {
-  return buildApp({ db, ai, dailyPhotoLimit });
+  return buildApp({ db, ai, dailyPhotoLimit, dailyDescribeLimit });
 }
 
 /** A multipart/form-data body with one file, for `app.inject`. */

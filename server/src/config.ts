@@ -8,8 +8,11 @@ const Config = z.object({
   ANTHROPIC_API_KEY: z.string().default(""),
   AI_MODEL_EXTRACT: z.string().min(1).default("claude-opus-5-5"),
   AI_MODEL_ENRICH: z.string().min(1).default("claude-opus-5-5"),
+  AI_MODEL_DESCRIBE: z.string().min(1).default("claude-opus-5-5"),
   AI_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("low"),
   DAILY_PHOTO_LIMIT: z.coerce.number().int().positive().default(50),
+  /** Ask AI calls per user per day (§11.5): a safety net, not a budget. */
+  DAILY_DESCRIBE_LIMIT: z.coerce.number().int().positive().default(200),
   SERVER_PORT: z.coerce.number().int().positive().default(3000),
 });
 export type Config = z.infer<typeof Config>;

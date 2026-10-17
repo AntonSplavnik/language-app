@@ -1,0 +1,147 @@
+/* Add words (§10 screen 14): One word / A list, the field, the suggestions as rows like My words'. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+/* As Import's name label (TextField on the page). */
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 17 px: a German word to read, and more than iOS Safari's 16 px zoom threshold. */
+.word {
+  font-size: 17px;
+}
+
+.list {
+  height: auto;
+  min-height: 200px;
+  padding: 14px 16px;
+  font-size: 17px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+/* "5 words" under the list; the 30 limit in danger colour. */
+.count {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tooMany {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* "✓ der Regenschirm added", as Done's "Saved as" line. */
+.notice {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  font-size: 15px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.noticeIcon {
+  flex: none;
+  color: var(--accent-ink);
+}
+
+.noticeLink {
+  --article-weight: 600;
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--track-strong);
+  text-underline-offset: 3px;
+}
+
+.noticeLink:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Suggestions: rows on the page, a hairline under each (WordRow). */
+.suggestions {
+  list-style: none;
+  margin: -4px 0 0;
+  padding: 0;
+}
+
+.suggestions li {
+  border-bottom: 1px solid var(--border);
+}
+
+.row {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 62px;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row:active {
+  background: var(--surface);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.headword {
+  --article-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+/* "umbrella · noun": one line, cut with an ellipsis. */
+.meta {
+  font-size: 14px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "In your words", like Review's "not in dictionary" pill. */
+.inList {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}

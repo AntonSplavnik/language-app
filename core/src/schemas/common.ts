@@ -45,6 +45,14 @@ export type FormsSource = z.infer<typeof FormsSource>;
 export const ImportStatus = z.enum(["collecting", "reviewing", "done"]);
 export type ImportStatus = z.infer<typeof ImportStatus>;
 
+/** How an import's words came in: photographed pages, or a list typed by hand (§5, §6.7). */
+export const ImportSource = z.enum(["photos", "typed"]);
+export type ImportSource = z.infer<typeof ImportSource>;
+
+/** `ai_usage.call_type`: the three Claude calls (§11). */
+export const AiCallType = z.enum(["extract", "enrich", "describe"]);
+export type AiCallType = z.infer<typeof AiCallType>;
+
 /** Where a practice session takes its words from (§8.1); `import` is one past import (§9.2). */
 export const SessionSource = z.enum(["import", "last_7_days", "not_learned"]);
 export type SessionSource = z.infer<typeof SessionSource>;

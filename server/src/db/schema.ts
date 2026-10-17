@@ -1,9 +1,11 @@
 import type {
+  AiCallType,
   Article,
   Candidate,
   CardResult,
   CheckStatus,
   FormsSource,
+  ImportSource,
   ImportStatus,
   LastResult,
   Pos,
@@ -90,6 +92,8 @@ export const imports = pgTable(
     name: text(),
     status: text().$type<ImportStatus>().notNull().default("collecting"),
     photoCount: integer().notNull().default(0),
+    /** Photographed pages, or a list of words typed by hand (§6.7). */
+    source: text().$type<ImportSource>().notNull().default("photos"),
     candidates: jsonb().$type<Candidate[]>().notNull().default([]),
     createdAt: createdAt(),
     completedAt: timestampTz(),
@@ -175,6 +179,25 @@ export const dictionaryEntries = pgTable(
   (t) => [
     index("dictionary_entries_lemma_pos").on(t.lemma, t.pos),
     index("dictionary_entries_lower_lemma_pos").on(sql`lower(${t.lemma})`, t.pos),
+    // Suggestions by prefix and similar words for typed words (§7, search); needs pg_trgm.
+    index("dictionary_entries_lower_lemma_trgm").using("gin", sql`lower(${t.lemma}) gin_trgm_ops`),
+  ],
+);
+
+/**
+ * Inflected forms from Wiktionary's form-of entries, form → base word (§5, §7): ging → gehen,
+ * Tische → Tisch. Only typed words use it (§6.7). Replaced with dictionary_entries.
+ */
+export const dictionaryForms = pgTable(
+  "dictionary_forms",
+  {
+    form: text().notNull(),
+    lemma: text().notNull(),
+    pos: text().$type<Pos>().notNull(),
+  },
+  (t) => [
+    unique("dictionary_forms_form_lemma_pos").on(t.form, t.lemma, t.pos),
+    index("dictionary_forms_lower_form").on(sql`lower(${t.form})`),
   ],
 );
 
@@ -186,7 +209,7 @@ export const aiUsage = pgTable(
       .notNull()
       .references(() => users.id),
     importId: integer().references(() => imports.id, { onDelete: "set null" }),
-    callType: text().$type<"extract" | "enrich">().notNull(),
+    callType: text().$type<AiCallType>().notNull(),
     model: text().notNull(),
     inputTokens: integer(),
     outputTokens: integer(),
@@ -196,6 +219,6 @@ export const aiUsage = pgTable(
     durationMs: integer(),
     createdAt: createdAt(),
   },
-  // Daily photo limit counts today's extract calls per user.
+  // The daily limits count today's extract (photo) and describe (Ask AI) calls per user.
   (t) => [index("ai_usage_user_type_created").on(t.userId, t.callType, t.createdAt)],
 );

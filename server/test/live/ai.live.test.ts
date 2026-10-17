@@ -1,6 +1,7 @@
 // Real Claude API calls (~15¢ per run). Run with `pnpm test:live` after changing anything under
 // server/src/ai, before milestones, and when switching models (§13).
-// Uses up to two photos from server/test/live/photos/ (git-ignored).
+// Uses up to two photos from server/test/live/photos/ (git-ignored), a 3-word enrich batch and two
+// Ask AI calls.
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { EnrichInputWord } from "@language-app/core";
@@ -30,7 +31,11 @@ function liveAi() {
     recordUsage: async (record) => {
       usage.push(record);
     },
-    models: { extract: config.AI_MODEL_EXTRACT, enrich: config.AI_MODEL_ENRICH },
+    models: {
+      extract: config.AI_MODEL_EXTRACT,
+      enrich: config.AI_MODEL_ENRICH,
+      describe: config.AI_MODEL_DESCRIBE,
+    },
     effort: config.AI_EFFORT,
     learnerLanguage: "en",
   });
@@ -76,6 +81,21 @@ describe("live Claude calls", () => {
     expect(byLemma.get("aufstehen")?.forms?.auxiliary).toBe("sein");
     expect(byLemma.get("Garage")).toMatchObject({ plural: null, forms: null });
     for (const word of words) expect(word.exampleDe.length).toBeGreaterThan(5);
+  });
+
+  it("Ask AI corrects a misspelt noun to its base form with its article", async () => {
+    const result = await ai.describeWord({ text: "Regenschrim" }, ctx);
+    expect(result).toMatchObject({
+      german: true,
+      lemma: "Regenschirm",
+      pos: "noun",
+      article: "der",
+    });
+    expect(result.translation.toLowerCase()).toContain("umbrella");
+  });
+
+  it("Ask AI says an English word isn't German", async () => {
+    expect((await ai.describeWord({ text: "umbrella" }, ctx)).german).toBe(false);
   });
 
   it("every call stayed under a minute", () => {

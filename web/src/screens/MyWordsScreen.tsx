@@ -10,6 +10,7 @@ import { api } from "../api";
 import { Headword } from "../components/Headword";
 import { BookIcon, SearchIcon } from "../components/icons";
 import { Page } from "../components/Page";
+import { SegmentedTabs } from "../components/SegmentedTabs";
 import { SelectPill } from "../components/SelectPill";
 import { type LabelledImport, labelImports } from "../imports/labels";
 import { usePastImports } from "../imports/usePastImports";
@@ -137,20 +138,16 @@ export function MyWordsScreen() {
 
       <ViewMenu view={view} imports={imports} onChange={(next) => show({ view: next })} />
 
-      <nav className={styles.tabs} aria-label="Word status">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.status}
-            to={wordsUrl({ status: tab.status, q, view })}
-            replace
-            className={`${styles.tab} ${tab.status === status ? styles.activeTab : ""}`}
-            aria-current={tab.status === status ? "page" : undefined}
-          >
-            {tab.label}
-            {loaded && <span className={styles.tabCount}>{loaded.data.counts[tab.status]}</span>}
-          </Link>
-        ))}
-      </nav>
+      <SegmentedTabs
+        label="Word status"
+        current={status}
+        tabs={TABS.map((tab) => ({
+          key: tab.status,
+          label: tab.label,
+          to: wordsUrl({ status: tab.status, q, view }),
+          count: loaded?.data.counts[tab.status],
+        }))}
+      />
 
       {error && (
         <div className={`${ui.card} ${styles.error}`} role="alert">
@@ -296,7 +293,7 @@ const EMPTY: Record<ListQuery["status"], { title: string; text: string }> = {
   },
   ignored: {
     title: "No ignored words.",
-    text: "Words you skip in a review land here and are never offered again.",
+    text: "Words you ignore in a review land here and are never offered again.",
   },
 };
 

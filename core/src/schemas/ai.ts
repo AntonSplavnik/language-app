@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { Article, Pos, VerbForms } from "./common";
 
-// Outputs of the two Claude calls (§11). These are converted to JSON Schema for structured
-// outputs, so keep them plain: no refine, transform or default.
+// Inputs and outputs of the three Claude calls (§11). The outputs are converted to JSON Schema
+// for structured outputs, so keep them plain: no refine, transform or default.
 
 export const ExtractedWord = z.object({
   lemma: z.string(),
@@ -44,3 +44,27 @@ export const EnrichOutput = z.object({
   words: z.array(EnrichedWord),
 });
 export type EnrichOutput = z.infer<typeof EnrichOutput>;
+
+/** Call 3 (§11.6): what the learner typed and, for a translation only, the entry they chose. */
+export const DescribeInput = z.object({
+  text: z.string(),
+  entry: z
+    .object({
+      lemma: z.string(),
+      pos: Pos,
+      article: Article.nullable(),
+      glosses: z.array(z.string()),
+    })
+    .optional(),
+});
+export type DescribeInput = z.infer<typeof DescribeInput>;
+
+export const DescribeOutput = z.object({
+  /** False when the text isn't a German word (English, nonsense); the rest is then ignored. */
+  german: z.boolean(),
+  lemma: z.string(),
+  pos: Pos,
+  article: Article.nullable(),
+  translation: z.string(),
+});
+export type DescribeOutput = z.infer<typeof DescribeOutput>;

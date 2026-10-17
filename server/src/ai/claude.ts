@@ -4,9 +4,9 @@ import type {
   BetaContentBlockParam,
   BetaMessage,
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import { EnrichOutput, ExtractOutput } from "@language-app/core";
+import { type AiCallType, DescribeOutput, EnrichOutput, ExtractOutput } from "@language-app/core";
 import type { z } from "zod";
-import { enrichSystemPrompt, extractSystemPrompt } from "./prompts";
+import { describeSystemPrompt, enrichSystemPrompt, extractSystemPrompt } from "./prompts";
 import type { MessageRequest, MessageTransport } from "./transport";
 import { type AiClient, AiError } from "./types";
 import type { UsageSink } from "./usage";
@@ -30,7 +30,7 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type ClaudeAiOptions = {
   transport: MessageTransport;
   recordUsage: UsageSink;
-  models: { extract: string; enrich: string };
+  models: { extract: string; enrich: string; describe: string };
   effort: Effort;
   learnerLanguage: string;
 };
@@ -38,9 +38,10 @@ export type ClaudeAiOptions = {
 // JSON Schemas for structured outputs, derived once from the Zod schemas in core.
 const extractSchema = betaZodOutputFormat(ExtractOutput).schema;
 const enrichSchema = betaZodOutputFormat(EnrichOutput).schema;
+const describeSchema = betaZodOutputFormat(DescribeOutput).schema;
 
 type CallSpec<T> = {
-  callType: "extract" | "enrich";
+  callType: AiCallType;
   model: string;
   system: string;
   content: BetaContentBlockParam[];
@@ -133,6 +134,19 @@ export function createClaudeAi(options: ClaudeAiOptions): AiClient {
           content: [{ type: "text", text: JSON.stringify(words, null, 2) }],
           jsonSchema: enrichSchema,
           output: EnrichOutput,
+        },
+        ctx,
+      ),
+
+    describeWord: (input, ctx) =>
+      call(
+        {
+          callType: "describe",
+          model: models.describe,
+          system: describeSystemPrompt(learnerLanguage),
+          content: [{ type: "text", text: JSON.stringify(input) }],
+          jsonSchema: describeSchema,
+          output: DescribeOutput,
         },
         ctx,
       ),

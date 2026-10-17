@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Article, ImportStatus, Pos } from "./common";
+import { Article, ImportSource, ImportStatus, Pos } from "./common";
 
 /** One entry of `imports.candidates` (§6.3). */
 export const Candidate = z.object({
@@ -80,6 +80,8 @@ export type SaveResponse = z.infer<typeof SaveResponse>;
 export const ImportSummary = z.object({
   id: z.number().int(),
   name: z.string().nullable(),
+  /** Photographed pages, or a list typed by hand (Done then offers Type more words). */
+  source: ImportSource,
   completedAt: z.iso.datetime(),
   /** Its `learning` + `learned` words: what a session from it can draw on (at least 1). */
   wordCount: z.number().int().positive(),

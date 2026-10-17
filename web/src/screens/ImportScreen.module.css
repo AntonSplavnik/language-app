@@ -88,6 +88,19 @@
   color: var(--muted);
 }
 
+/* "or type words", a quiet link under the drop zone (§10 screen 2). */
+.typeWords {
+  align-self: center;
+  gap: 4px;
+  margin-top: -6px;
+  font-size: 15px;
+}
+
+.typeWords:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
 .grid {
   list-style: none;
   margin: 0;

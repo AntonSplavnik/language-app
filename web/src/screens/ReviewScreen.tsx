@@ -8,6 +8,8 @@ import { Page } from "../components/Page";
 import { readJson, removeItem, writeJson } from "../lib/storage";
 import { errorMessage, useToast } from "../lib/toast";
 import {
+  BULK_LABELS,
+  choiceLabel,
   countAdds,
   type Decision,
   type Decisions,
@@ -15,6 +17,8 @@ import {
   type ReviewAction,
   reviewable,
   reviewReducer,
+  reviewSummary,
+  saveLabel,
   toSaveDecisions,
 } from "../state/reviewDecisions";
 import ui from "../styles/ui.module.css";
@@ -25,7 +29,20 @@ const storageKey = (importId: number) => `review:${importId}`;
 const withArticle = (article: Article | null, lemma: string) =>
   article ? `${article} ${lemma}` : lemma;
 
-/** Review the new words: Add or Skip each, fix articles the dictionary disagrees with (§6.4). */
+/** "9 new words" with the number in bold. */
+function Counted({ text }: { text: string }) {
+  const [count, ...rest] = text.split(" ");
+  return (
+    <>
+      <strong>{count}</strong> {rest.join(" ")}
+    </>
+  );
+}
+
+/**
+ * Review the new words: Practice or Ignore each, fix articles the dictionary disagrees with
+ * (§6.4).
+ */
 export function ReviewScreen() {
   const importId = Number(useParams().id);
   const navigate = useNavigate();
@@ -71,6 +88,7 @@ export function ReviewScreen() {
   const fresh = reviewable(view.candidates);
   const known = view.candidates.filter((c) => c.existing === "in_my_words");
   const adds = countAdds(decisions);
+  const summary = reviewSummary(fresh.length, adds);
 
   const save = async () => {
     setSaving(true);
@@ -107,22 +125,13 @@ export function ReviewScreen() {
           onClick={save}
         >
           {saving && <span className={ui.spinner} />}
-          {saving
-            ? adds > 0
-              ? "Adding details…"
-              : "Saving…"
-            : adds === 0
-              ? fresh.length === 0
-                ? "Finish"
-                : `Skip all ${fresh.length} words`
-              : `Save ${adds} ${adds === 1 ? "word" : "words"}`}
+          {saveLabel({ adds, fresh: fresh.length, saving })}
         </button>
       }
     >
       <div className={styles.summary}>
         <p>
-          <strong>{fresh.length}</strong> new {fresh.length === 1 ? "word" : "words"} ·{" "}
-          <strong>{adds}</strong> to add
+          <Counted text={summary.fresh} /> · <Counted text={summary.adds} />
         </p>
         {fresh.length > 0 && (
           <div className={styles.bulk}>
@@ -131,14 +140,14 @@ export function ReviewScreen() {
               className={styles.pill}
               onClick={() => update({ type: "setAll", action: "add" })}
             >
-              Add all
+              {BULK_LABELS.add}
             </button>
             <button
               type="button"
               className={styles.pill}
               onClick={() => update({ type: "setAll", action: "skip" })}
             >
-              Skip all
+              {BULK_LABELS.skip}
             </button>
           </div>
         )}
@@ -224,7 +233,7 @@ function WordRow({
         </span>
         <span className={styles.choice}>
           {adding && <CheckIcon size={16} weight={2.8} />}
-          {adding ? "Add" : "Skip"}
+          {choiceLabel(decision.action)}
         </span>
       </button>
 

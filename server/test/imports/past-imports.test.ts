@@ -91,11 +91,40 @@ describe("GET /api/imports (§9.2)", () => {
     await seedWord("Bahn", laterRow);
     await seedWord("Bus", laterRow, { status: "learned" });
 
+    const photos = { source: "photos" };
     expect(await pastImports()).toEqual([
       // Completed at the same moment: the newer row first.
-      { id: laterRow, name: null, completedAt: sameTime.toISOString(), wordCount: 2 },
-      { id: earlierRow, name: null, completedAt: sameTime.toISOString(), wordCount: 1 },
-      { id: older, name: "Lesson 3", completedAt: threeDaysAgo.toISOString(), wordCount: 3 },
+      { id: laterRow, name: null, ...photos, completedAt: sameTime.toISOString(), wordCount: 2 },
+      { id: earlierRow, name: null, ...photos, completedAt: sameTime.toISOString(), wordCount: 1 },
+      {
+        id: older,
+        name: "Lesson 3",
+        ...photos,
+        completedAt: threeDaysAgo.toISOString(),
+        wordCount: 3,
+      },
+    ]);
+  });
+
+  it("says how each import's words came in: photos or a typed list", async () => {
+    const photographed = await seedImport({ completedAt: daysAgo(2) });
+    await seedWord("Tisch", photographed);
+    const typed = first(
+      await db
+        .insert(imports)
+        .values({
+          userId: SINGLE_USER_ID,
+          status: "done",
+          source: "typed",
+          completedAt: daysAgo(1),
+        })
+        .returning({ id: imports.id }),
+    ).id;
+    await seedWord("Stuhl", typed);
+
+    expect((await pastImports()).map((i) => [i.id, i.source])).toEqual([
+      [typed, "typed"],
+      [photographed, "photos"],
     ]);
   });
 

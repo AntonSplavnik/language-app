@@ -3,11 +3,14 @@ import {
   type ImportListResponse,
   RenameImportRequest,
   SaveRequest,
+  TypedImportRequest,
+  type TypedImportResponse,
 } from "@language-app/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { HttpError } from "../http/errors";
 import { SINGLE_USER_ID } from "../user";
+import { saveTypedWords } from "../words/typed";
 import { listPastImports, renameImport } from "./past";
 import {
   addPhoto,
@@ -47,6 +50,14 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
     const { id } = Params.parse(request.params);
     const { name } = RenameImportRequest.parse(request.body);
     return renameImport(db, userId, id, name);
+  });
+
+  /** A typed list, saved as one import (§6.7, §9.3). */
+  app.post("/api/imports/typed", async (request): Promise<TypedImportResponse> => {
+    const { words } = TypedImportRequest.parse(request.body);
+    return saveTypedWords({ db, ai: deps.ai, log: request.log }, userId, words, {
+      asImport: true,
+    });
   });
 
   app.post("/api/imports/:id/photos", async (request) => {

@@ -1,9 +1,13 @@
 import type { Article, Pos, VerbForms } from "@language-app/core";
 import { z } from "zod";
-import type { dictionaryEntries } from "../db/schema";
+import type { dictionaryEntries, dictionaryForms } from "../db/schema";
 
 // Maps one line of the kaikki.org German JSONL (Wiktionary via wiktextract) to a
-// dictionary_entries row (docs/design.md §7). Field mapping checked against the 2026-10-03 file.
+// dictionary_entries row and dictionary_forms rows (docs/design.md §7). Field mapping checked
+// against the 2026-10-03 file.
+
+/** An inflected form and the base word it belongs to: ging → gehen (verb). */
+export type FormRow = typeof dictionaryForms.$inferInsert;
 
 export type DictionaryRow = Omit<typeof dictionaryEntries.$inferInsert, "id"> & {
   genders: Article[];
@@ -77,6 +81,7 @@ const Entry = z.object({
 });
 type Entry = z.infer<typeof Entry>;
 type Form = NonNullable<Entry["forms"]>[number];
+type Sense = NonNullable<Entry["senses"]>[number];
 
 /** An IPA transcription (`ipa`) or a recording (`audio` + `mp3_url`); rhymes etc. are ignored. */
 const Sound = z.object({
@@ -87,20 +92,52 @@ const Sound = z.object({
 });
 type Sound = z.infer<typeof Sound>;
 
+/** A form-of sense names its base word: `{ word: "gehen" }`. */
+const FormOf = z.object({ word: z.string() });
+
+/** The dictionary entry of one line, or null when the line isn't one; see {@link mapLine}. */
 export function mapEntry(raw: unknown): DictionaryRow | null {
+  return mapLine(raw).entry;
+}
+
+/**
+ * One line of the file: its dictionary entry (null when it has none, e.g. a line that only points
+ * to other words) and the forms its form-of senses name (ging → gehen), each base word once. A
+ * form equal to its base word, ignoring case, is left out: the lookup finds that word anyway.
+ */
+export function mapLine(raw: unknown): { entry: DictionaryRow | null; forms: FormRow[] } {
+  const none = { entry: null, forms: [] };
   const parsed = Entry.safeParse(raw);
-  if (!parsed.success) return null;
+  if (!parsed.success) return none;
   const entry = parsed.data;
 
   // The raw all-languages dump also works: keep German only.
-  if (entry.lang_code !== undefined && entry.lang_code !== "de") return null;
+  if (entry.lang_code !== undefined && entry.lang_code !== "de") return none;
   const pos = POS[entry.pos];
-  if (!pos) return null;
+  if (!pos) return none;
 
   // Senses like "nominative plural of Tisch" only point to another word.
+  const pointers = (entry.senses ?? []).filter(isPointer);
   const senses = (entry.senses ?? []).filter((s) => !isPointer(s));
-  if (senses.length === 0) return null;
+  return {
+    entry: senses.length > 0 ? entryRow(entry, pos, senses) : null,
+    forms: formRows(entry.word, pos, pointers),
+  };
+}
 
+function formRows(form: string, pos: Pos, pointers: Sense[]): FormRow[] {
+  const lemmas = pointers.flatMap((sense) =>
+    (sense.form_of ?? []).flatMap((target) => {
+      const parsed = FormOf.safeParse(target);
+      return parsed.success ? [parsed.data.word.trim()] : [];
+    }),
+  );
+  return unique(lemmas)
+    .filter((lemma) => lemma && lemma.toLowerCase() !== form.toLowerCase())
+    .map((lemma) => ({ form, lemma, pos }));
+}
+
+function entryRow(entry: Entry, pos: Pos, senses: Sense[]): DictionaryRow {
   const forms = entry.forms ?? [];
   return {
     lemma: entry.word,
@@ -144,12 +181,12 @@ function pronunciation(raw: unknown[]): Pronunciation {
   return { ipa, audioFile: recording?.audio ?? null, audioUrl: recording?.mp3_url ?? null };
 }
 
-function isPointer(sense: NonNullable<Entry["senses"]>[number]): boolean {
+function isPointer(sense: Sense): boolean {
   const formOf = Boolean(sense.form_of) || Boolean(sense.tags?.includes("form-of"));
   return formOf && !DERIVED_WORD.test(sense.glosses?.at(-1) ?? "");
 }
 
-function genders(senses: NonNullable<Entry["senses"]>): Article[] {
+function genders(senses: Sense[]): Article[] {
   const tags = new Set(senses.flatMap((s) => s.tags ?? []));
   return GENDER_TAGS.filter(([tag]) => tags.has(tag)).map(([, article]) => article);
 }

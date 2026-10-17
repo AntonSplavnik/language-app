@@ -1,6 +1,6 @@
-import { count } from "drizzle-orm";
+import { asc, count, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { dictionaryEntries } from "../../src/db/schema";
+import { dictionaryEntries, dictionaryForms } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
 import { lookupWords } from "../../src/dictionary/lookup";
 import { useTestDb } from "../helpers/db";
@@ -9,15 +9,63 @@ const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
 
 const rowCount = async () => (await db.select({ n: count() }).from(dictionaryEntries))[0]?.n;
+const formRows = () =>
+  db.select().from(dictionaryForms).orderBy(asc(dictionaryForms.form), asc(dictionaryForms.lemma));
 
 describe("loadDictionary (§7)", () => {
   it("loads the mapped entries and reports counts per part of speech", async () => {
     const result = await loadDictionary(db, SAMPLE);
 
-    expect(result.read).toBe(53);
+    expect(result.read).toBe(74);
     expect(result.inserted).toBe(await rowCount());
-    expect(result.byPos.noun).toBe(18);
+    // 18 before typed words, then die Bank ×2, Liter, der/das Morgen, Regen, Regenschirm,
+    // Regenschauer, Tischler, Tischdecke.
+    expect(result.byPos.noun).toBe(28);
     expect(result.byPos.verb).toBe(5);
+  });
+
+  it("fills the forms table from the form-of entries, each form once per base word", async () => {
+    const result = await loadDictionary(db, SAMPLE);
+
+    const rows = await formRows();
+    expect(result.forms).toBe(rows.length);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { form: "Banken", lemma: "Bank", pos: "noun" },
+        { form: "Regenschirme", lemma: "Regenschirm", pos: "noun" },
+        { form: "Tische", lemma: "Tisch", pos: "noun" },
+        { form: "aufgestanden", lemma: "aufstehen", pos: "verb" },
+        { form: "gegangen", lemma: "gehen", pos: "verb" },
+        { form: "ging", lemma: "gehen", pos: "verb" },
+        { form: "möbliert", lemma: "möblieren", pos: "verb" },
+        { form: "schneller", lemma: "schnell", pos: "adjective" },
+      ]),
+    );
+    // Two entries each say schneller is a form of schnell; the table has it once.
+    expect(rows.filter((r) => r.form === "schneller")).toHaveLength(1);
+    // A form never equals its base word.
+    expect(rows.filter((r) => r.form.toLowerCase() === r.lemma.toLowerCase())).toEqual([]);
+  });
+
+  it("leaves the tables' indexes as the migrations made them (rebuilt after inserting)", async () => {
+    const indexes = async () =>
+      (
+        await db.execute<{ indexdef: string }>(
+          sql`SELECT indexdef FROM pg_indexes WHERE tablename IN ('dictionary_entries', 'dictionary_forms') ORDER BY indexname`,
+        )
+      ).rows.map((r) => r.indexdef);
+    const before = await indexes();
+    expect(before.some((def) => def.includes("gin_trgm_ops"))).toBe(true);
+
+    await loadDictionary(db, SAMPLE);
+    expect(await indexes()).toEqual(before);
+  });
+
+  it("loading again replaces the forms table too", async () => {
+    await loadDictionary(db, SAMPLE);
+    const first = await formRows();
+    await loadDictionary(db, SAMPLE);
+    expect(await formRows()).toEqual(first);
   });
 
   it("stores the pronunciation of each entry", async () => {

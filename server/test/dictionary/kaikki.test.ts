@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { mapEntry } from "../../src/dictionary/kaikki";
+import { mapEntry, mapLine } from "../../src/dictionary/kaikki";
 
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url);
 const entries: unknown[] = readFileSync(SAMPLE, "utf8")
@@ -111,6 +111,69 @@ describe("mapEntry: kaikki JSONL → dictionary_entries (§7)", () => {
     expect(mapEntry({ ...tisch, lang_code: "en" })).toBeNull();
     expect(mapEntry({ ...tisch, pos: "suffix" })).toBeNull();
     expect(mapEntry({ nonsense: true })).toBeNull();
+  });
+});
+
+describe("mapLine: form-of entries → dictionary_forms (§7, forms table)", () => {
+  const formsOf = (word: string) =>
+    entries.filter((e) => (e as { word: string }).word === word).flatMap((e) => mapLine(e).forms);
+
+  it("keeps what an inflected form points to: form, base word and part of speech", () => {
+    expect(formsOf("ging")).toEqual([{ form: "ging", lemma: "gehen", pos: "verb" }]);
+    expect(formsOf("gegangen")).toEqual([{ form: "gegangen", lemma: "gehen", pos: "verb" }]);
+    expect(formsOf("Tische")).toEqual([{ form: "Tische", lemma: "Tisch", pos: "noun" }]);
+    expect(formsOf("aufgestanden")).toEqual([
+      { form: "aufgestanden", lemma: "aufstehen", pos: "verb" },
+    ]);
+  });
+
+  it("an entry whose senses point to one base word several times gives it once", () => {
+    // schneller: a comparative entry, and an entry with three inflection senses.
+    const schneller = { form: "schneller", lemma: "schnell", pos: "adjective" };
+    expect(formsOf("schneller")).toEqual([schneller, schneller]);
+    // möbliert: the adjective is an entry; its two verb-form entries point to möblieren.
+    const moebliert = { form: "möbliert", lemma: "möblieren", pos: "verb" };
+    expect(formsOf("möbliert")).toEqual([moebliert, moebliert]);
+  });
+
+  it("derived words are entries of their own, not forms", () => {
+    expect(formsOf("Freundin")).toEqual([]);
+    expect(formsOf("Blümchen")).toEqual([]);
+    expect(formsOf("Tisch")).toEqual([]);
+  });
+
+  it("a form equal to its base word, ignoring case, is left out", () => {
+    const ging = entries.find((e) => (e as { word: string }).word === "ging") as object;
+    expect(mapLine({ ...ging, word: "Gehen" }).forms).toEqual([]);
+  });
+
+  it("an entry with form-of senses and other senses gives both", () => {
+    const tisch = entries.find((e) => (e as { word: string }).word === "Tisch") as {
+      senses: object[];
+    };
+    const mixed = {
+      ...tisch,
+      word: "Tische",
+      senses: [
+        ...tisch.senses,
+        { glosses: ["plural of Tisch"], tags: ["form-of", "plural"], form_of: [{ word: "Tisch" }] },
+      ],
+    };
+    const { entry, forms } = mapLine(mixed);
+    expect(entry?.lemma).toBe("Tische");
+    expect(forms).toEqual([{ form: "Tische", lemma: "Tisch", pos: "noun" }]);
+  });
+
+  it("skips forms of unknown parts of speech, other languages and malformed pointers", () => {
+    const ging = entries.find((e) => (e as { word: string }).word === "ging") as object;
+    expect(mapLine({ ...ging, pos: "name" }).forms).toEqual([]);
+    expect(mapLine({ ...ging, lang_code: "en" }).forms).toEqual([]);
+    expect(
+      mapLine({
+        ...ging,
+        senses: [{ glosses: ["x of y"], tags: ["form-of"], form_of: [{ nope: 1 }, "gehen"] }],
+      }).forms,
+    ).toEqual([]);
   });
 });
 

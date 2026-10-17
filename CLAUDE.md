@@ -30,6 +30,7 @@ pnpm test                 # all unit + server tests; never calls Claude
 pnpm test:live            # real Claude API calls (~15¢ on Opus, ~1¢ on Haiku); run after changes under server/src/ai
 pnpm --filter server ai:try extract <photo> [--save name]      # one real call: words, tokens, time, cost
 pnpm --filter server ai:try enrich <words.json> [--save name]  # --save records a fixture in server/test/fixtures/ai/
+pnpm --filter server ai:try describe <text> [--entry file] [--save name]  # Ask AI (Call 3) for a typed word
 pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary, ~11 s
 pnpm --filter server dict:lookup <lemma> <pos> [article]       # what the dictionary check sees for a word
 pnpm --filter server demo:import <photo> [--save]            # whole import flow against a running `pnpm dev` (one real AI call)

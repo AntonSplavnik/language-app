@@ -17,6 +17,7 @@ export async function listPastImports(db: Executor, userId: number): Promise<Imp
     .select({
       id: imports.id,
       name: imports.name,
+      source: imports.source,
       completedAt: imports.completedAt,
       wordCount: count(userWords.id),
     })

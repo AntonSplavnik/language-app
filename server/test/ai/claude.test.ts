@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
+import { DescribeInput, EnrichInputWord } from "@language-app/core";
 import { asc } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { createClaudeAi, FALLBACK_BETA, MAX_TOKENS } from "../../src/ai/claude";
 import { AiError } from "../../src/ai/types";
 import { dbUsageSink } from "../../src/ai/usage";
@@ -37,7 +39,7 @@ function setupWithModel(model: string, ...steps: Array<BetaMessage | Error>) {
   const ai = createClaudeAi({
     transport: replay.transport,
     recordUsage: dbUsageSink(db),
-    models: { extract: model, enrich: model },
+    models: { extract: model, enrich: model, describe: model },
     effort: "low",
     learnerLanguage: "en",
   });
@@ -213,8 +215,72 @@ describe("extractWords (§11.2)", () => {
   });
 });
 
+describe("describeWord (§11.6)", () => {
+  const fixtures = {
+    misspelt: loadAiFixture("describe-misspelt-noun"),
+    verb: loadAiFixture("describe-inflected-verb"),
+    english: loadAiFixture("describe-english"),
+    entry: loadAiFixture("describe-entry-bank"),
+  };
+  const inputOf = (fixture: (typeof fixtures)[keyof typeof fixtures]) =>
+    DescribeInput.parse(fixture.input);
+
+  it("returns the recorded answers: a misspelt noun, an inflected verb, an English word, an entry", async () => {
+    const { ai } = setup(
+      fixtures.misspelt.response,
+      fixtures.verb.response,
+      fixtures.english.response,
+      fixtures.entry.response,
+    );
+    expect(await ai.describeWord(inputOf(fixtures.misspelt), ctx)).toMatchObject({
+      german: true,
+      lemma: "Regenschirm",
+      pos: "noun",
+      article: "der",
+    });
+    expect(await ai.describeWord(inputOf(fixtures.verb), ctx)).toMatchObject({
+      german: true,
+      lemma: "gehen",
+      pos: "verb",
+      article: null,
+    });
+    expect((await ai.describeWord(inputOf(fixtures.english), ctx)).german).toBe(false);
+    expect(await ai.describeWord(inputOf(fixtures.entry), ctx)).toMatchObject({
+      lemma: "Bank",
+      translation: "bank",
+    });
+  });
+
+  it("sends the input as JSON to the describe model, with the spec's settings", async () => {
+    const replay = replayTransport(fixtures.misspelt.response);
+    const ai = createClaudeAi({
+      transport: replay.transport,
+      recordUsage: dbUsageSink(db),
+      models: { extract: "claude-haiku-5-5", enrich: "claude-haiku-5-5", describe: MODEL },
+      effort: "low",
+      learnerLanguage: "en",
+    });
+    await ai.describeWord({ text: "Regenschrim" }, ctx);
+
+    const request = first(replay.requests);
+    expect(request).toMatchObject({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      betas: [FALLBACK_BETA],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema" } },
+    });
+    expect(request).not.toHaveProperty("thinking");
+    expect(request.system).toContain('"german" to false');
+    expect(request.messages[0]?.content).toEqual([
+      { type: "text", text: JSON.stringify({ text: "Regenschrim" }) },
+    ]);
+    expect(await usageRows()).toMatchObject([{ callType: "describe", importId: null, ok: true }]);
+  });
+});
+
 describe("enrichWords (§11.3)", () => {
-  const input = enrichFixture.input ?? [];
+  const input = z.array(EnrichInputWord).parse(enrichFixture.input);
 
   it("returns one entry per word, matched by ref", async () => {
     const { ai } = setup(enrichFixture.response);

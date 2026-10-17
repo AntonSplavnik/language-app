@@ -36,7 +36,7 @@ export function cardFront(word: WordView): CardFront {
 export function cardBack(word: WordView): CardBack {
   return {
     headword: word.pos === "noun" && word.article ? `${word.article} ${word.lemma}` : word.lemma,
-    forms: formsLine(word),
+    forms: formsText(word),
     example: word.exampleDe ? { de: word.exampleDe, translation: word.exampleTranslation } : null,
     note: word.note,
     detailsPending: !word.enriched,
@@ -44,7 +44,11 @@ export function cardBack(word: WordView): CardBack {
   };
 }
 
-function formsLine(word: WordView): string | null {
+/**
+ * A word's forms as the card back writes them: "pl. die Tische", "ging · ist gegangen"; null when
+ * there are none. Also a dictionary entry's, on Confirm word (§10 screen 15).
+ */
+export function formsText(word: Pick<WordView, "pos" | "plural" | "forms">): string | null {
   if (word.pos === "noun") {
     return word.plural ? `pl. die ${word.plural}` : null;
   }

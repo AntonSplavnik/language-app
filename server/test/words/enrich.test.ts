@@ -52,7 +52,11 @@ function setup(
   const ai = createClaudeAi({
     transport: replay.transport,
     recordUsage: dbUsageSink(db),
-    models: { extract: "claude-haiku-5-5", enrich: "claude-haiku-5-5" },
+    models: {
+      extract: "claude-haiku-5-5",
+      enrich: "claude-haiku-5-5",
+      describe: "claude-haiku-5-5",
+    },
     effort: "medium",
     learnerLanguage: "en",
   });
@@ -166,6 +170,42 @@ describe("enrichWords (§6.6)", () => {
     for (const id of [kuehlschrank, dieTisch]) {
       expect(await word(id)).toMatchObject({ ipa: null, audioFile: null, audioUrl: null });
     }
+  });
+
+  it("leaves the facts of a word typed from a dictionary entry as they are (§6.7)", async () => {
+    // die Bank "bank" → Banken; the dictionary step alone would take the first entry's Bänke.
+    const bank = await addWord("Bank", "noun", "die", "bank");
+    await db
+      .update(words)
+      .set({ plural: "Banken", formsSource: "dictionary", ipa: "/baŋk/", audioFile: null })
+      .where(eq(words.id, bank));
+    const s = setup();
+
+    expect(await s.enrich([bank])).toEqual({ enriched: 1, pending: 0 });
+    expect(enrichInputOf(first(s.requests))).toMatchObject([{ lemma: "Bank", needsForms: false }]);
+    expect(await word(bank)).toMatchObject({
+      plural: "Banken",
+      formsSource: "dictionary",
+      ipa: "/baŋk/",
+      audioFile: null,
+      exampleDe: "Das ist ein Beispiel mit Bank.",
+    });
+  });
+
+  it("a word with a pronunciation keeps it, and still gets the forms the dictionary has", async () => {
+    // Typed from an entry without a plural, but with a recording of its own.
+    const tisch = await addWord("Tisch", "noun", "der", "table");
+    await db
+      .update(words)
+      .set({ ipa: "/tiʃ/", audioFile: "Own.ogg", audioUrl: "https://upload.wikimedia.org/own.mp3" })
+      .where(eq(words.id, tisch));
+    await setup().enrich([tisch]);
+    expect(await word(tisch)).toMatchObject({
+      plural: "Tische",
+      formsSource: "dictionary",
+      ipa: "/tiʃ/",
+      audioFile: "Own.ogg",
+    });
   });
 
   it("skips words that are already enriched, without an AI call", async () => {

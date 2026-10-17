@@ -50,6 +50,25 @@ const WORDS = new Set([
   // before the one tagged Germany
   "Zimmer",
   "November",
+  // typed words (§6.7): two entries of one gender with different plurals (die Bank "bench" /
+  // "bank"), one entry with two genders (der/das Liter), a lemma in two cases (morgen, der Morgen)
+  "Bank",
+  "Liter",
+  "morgen",
+  "Morgen",
+  // … words to find by prefix and by similarity (Regensch → Regenschirm, Regenschrim → Regenschirm)
+  "Regen",
+  "Regenschirm",
+  "Regenschauer",
+  "Tischler",
+  "Tischdecke",
+  // … and form-of entries for the forms table (ging → gehen, Tische → Tisch above)
+  "ging",
+  "gegangen",
+  "aufgestanden",
+  "schneller",
+  "Banken",
+  "Regenschirme",
 ]);
 const KEEP = ["word", "pos", "lang_code", "forms", "senses", "sounds"] as const;
 

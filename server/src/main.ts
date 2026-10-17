@@ -21,12 +21,24 @@ if (!learner) throw new Error("The single user is missing; run `pnpm db:migrate`
 const ai = createClaudeAi({
   transport: anthropicTransport(config.ANTHROPIC_API_KEY),
   recordUsage: dbUsageSink(db),
-  models: { extract: config.AI_MODEL_EXTRACT, enrich: config.AI_MODEL_ENRICH },
+  models: {
+    extract: config.AI_MODEL_EXTRACT,
+    enrich: config.AI_MODEL_ENRICH,
+    describe: config.AI_MODEL_DESCRIBE,
+  },
   effort: config.AI_EFFORT,
   learnerLanguage: learner.learnerLanguage,
 });
 
-const app = buildApp({ db, ai, dailyPhotoLimit: config.DAILY_PHOTO_LIMIT }, { logger: true });
+const app = buildApp(
+  {
+    db,
+    ai,
+    dailyPhotoLimit: config.DAILY_PHOTO_LIMIT,
+    dailyDescribeLimit: config.DAILY_DESCRIBE_LIMIT,
+  },
+  { logger: true },
+);
 app.addHook("onClose", () => db.$client.end());
 
 // Only Vite talks to the server (it proxies /api), so listen on localhost only.

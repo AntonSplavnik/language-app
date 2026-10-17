@@ -1,6 +1,7 @@
 import type { Article, Candidate, SaveDecision } from "@language-app/core";
 
-// The learner's Add / Skip choices on the Review screen (§6.4), keyed by candidate key.
+// The learner's Practice / Ignore choices on the Review screen (§6.4), keyed by candidate key. The
+// API keeps the actions `add` / `skip`: Practice saves the word as learning, Ignore as ignored.
 
 export type Decision = { action: "add" | "skip"; article?: Article };
 export type Decisions = Record<string, Decision>;
@@ -64,6 +65,37 @@ export function reviewReducer(state: Decisions, action: ReviewAction): Decisions
 
 export const countAdds = (decisions: Decisions) =>
   Object.values(decisions).filter((d) => d.action === "add").length;
+
+/** The state on a word's card: Practice (saved as learning) or Ignore (kept, never practised). */
+export const choiceLabel = (action: Decision["action"]) =>
+  action === "add" ? "Practice" : "Ignore";
+
+/** The pills that set every word at once. */
+export const BULK_LABELS = { add: "Practice all", skip: "Ignore all" } as const;
+
+const words = (count: number) => `${count} ${count === 1 ? "word" : "words"}`;
+
+/** "9 new words · 8 to practise", under the title. */
+export const reviewSummary = (fresh: number, adds: number) => ({
+  fresh: `${fresh} new ${fresh === 1 ? "word" : "words"}`,
+  adds: `${adds} to practise`,
+});
+
+/** The save button: what saving does, or what it is doing. */
+export function saveLabel({
+  adds,
+  fresh,
+  saving,
+}: {
+  adds: number;
+  fresh: number;
+  saving: boolean;
+}): string {
+  if (saving) return adds > 0 ? "Adding details…" : "Saving…";
+  if (adds > 0) return `Save ${words(adds)}`;
+  if (fresh === 0) return "Finish";
+  return fresh === 1 ? "Ignore 1 word" : `Ignore all ${fresh} words`;
+}
 
 /** The body of POST /imports/:id/save: the original key, plus the applied article if any. */
 export function toSaveDecisions(candidates: Candidate[], decisions: Decisions): SaveDecision[] {

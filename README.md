@@ -61,8 +61,8 @@ pnpm db:migrate          # create the tables in the dev database
 The `.env` values that matter:
 
 - `ANTHROPIC_API_KEY`: needed for imports. The server starts without it; only the AI calls fail.
-- `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`: the Claude model for each AI call, and one effort level for both. Defaults: `claude-opus-5-5` at `low`. See [AI models and cost](#ai-models-and-cost).
-- `DAILY_PHOTO_LIMIT`: photo reads per day (default 50).
+- `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`: the Claude model for each AI call, and one effort level for all three. Defaults: `claude-opus-5-5` at `low`. See [AI models and cost](#ai-models-and-cost).
+- `DAILY_PHOTO_LIMIT`: photo reads per day (default 50). `DAILY_DESCRIBE_LIMIT`: **Ask AI** calls per day when adding words by hand (default 200), a safety net rather than a budget.
 - `SERVER_PORT` (default 3000) and `WEB_PORT` (default 5173). Vite will not start if its port is taken, so change `WEB_PORT` if 5173 is in use.
 - `DATABASE_URL` and `TEST_DATABASE_URL` already match `docker-compose.yml`.
 
@@ -77,7 +77,7 @@ curl -o data/kaikki/kaikki.org-dictionary-German.jsonl \
 pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl
 ```
 
-The import writes about 98,000 entries in roughly 11 s. Running it again replaces the table.
+The import writes about 98,000 entries and 249,000 inflected forms (*ging* → *gehen*, used when you type a word) in roughly 14 s. Running it again replaces both tables. A database loaded before words could be typed by hand needs it run once more after `pnpm db:migrate`, to fill the forms.
 
 Words saved before pronunciation existed get theirs once the dictionary has been re-imported with the command above:
 
@@ -107,7 +107,7 @@ The Mac has to keep running `pnpm dev`. There is no login, so anyone on your net
 
 ## AI models and cost
 
-There are two Claude calls: **extract** reads one photo, and **enrich** writes example sentences and missing forms for up to 30 words at a time.
+There are three Claude calls: **extract** reads one photo, **enrich** writes example sentences and missing forms for up to 30 words at a time, and **describe** is **Ask AI** when adding a word by hand (the word you meant, or a short translation of a dictionary entry; ≈0.01¢ a call on Haiku 5.5, ≈0.5¢ on Opus 5.5).
 
 - **Default** (code and `.env.example`): Claude Opus 5.5 at effort `low`.
 - **Cheaper, for development:** Claude Haiku 5.5 at effort `medium`. It splits some separable verbs, which gives a wrong lemma (*kreuzen* for *ankreuzen*), and misses a few long compounds.
@@ -115,6 +115,7 @@ There are two Claude calls: **extract** reads one photo, and **enrich** writes e
 ```sh
 AI_MODEL_EXTRACT=claude-haiku-5-5
 AI_MODEL_ENRICH=claude-haiku-5-5
+AI_MODEL_DESCRIBE=claude-haiku-5-5
 AI_EFFORT=medium
 ```
 
@@ -128,7 +129,7 @@ Measured on 2026-10-11 on the densest test page (an exercise page), photo shrunk
 
 Across three real pages, Opus took 13–25 s and 5–8¢ per page. Sonnet's mistakes are mostly extra words you can skip in review. Enriching 11 words cost 2.7¢ on Opus, 1.3¢ on Sonnet and 0.07¢ on Haiku. The full comparison is in [docs/design.md §11.4](docs/design.md#114-cost).
 
-Every call writes a row to the `ai_usage` table (model, tokens, time), so real costs can be worked out from it. `DAILY_PHOTO_LIMIT` (default 50) caps photo reads per day; every attempt counts, failed ones included.
+Every call writes a row to the `ai_usage` table (model, tokens, time), so real costs can be worked out from it. `DAILY_PHOTO_LIMIT` (default 50) caps photo reads per day and `DAILY_DESCRIBE_LIMIT` (default 200) Ask AI calls; every attempt counts, failed ones included.
 
 ## Development
 
@@ -149,6 +150,7 @@ Server scripts. Paths are relative to the directory you run them from.
 ```sh
 pnpm --filter server ai:try extract <photo> [--save <name>]      # one real extract call: words, tokens, time, cost
 pnpm --filter server ai:try enrich <words.json> [--save <name>]  # the same for enrich
+pnpm --filter server ai:try describe <text> [--entry <entry.json>] [--save <name>]  # the same for Ask AI
 pnpm --filter server dict:lookup See noun die                    # what the dictionary check sees for a word
 pnpm --filter server backfill:pronunciation                     # pronunciation for words saved before it existed
 pnpm --filter server demo:import <photo> [--save]                # the whole import flow against a running pnpm dev
@@ -156,7 +158,7 @@ pnpm --filter server demo:import <photo> [--save]                # the whole imp
 
 - `pnpm test` never calls Claude. Server tests replay real Claude responses recorded in `server/test/fixtures/ai/` (with `ai:try … --save <name>`). Error cases such as refusals, `max_tokens` and 429/5xx are built from those recordings.
 - Server tests use a separate database, `language_app_test`, rebuilt from the migrations at the start of each run.
-- Run `pnpm test:live` after changes under `server/src/ai/`. It uses the models set in `.env` and up to two photos from `server/test/live/photos/` (git-ignored).
+- Run `pnpm test:live` after changes under `server/src/ai/`. It uses the models set in `.env`, up to two photos from `server/test/live/photos/` (git-ignored), a 3-word enrich batch and two Ask AI calls.
 - The rules for working on the repo (spec first, test-first milestones, every API shape a Zod schema in `core/`) are in [CLAUDE.md](CLAUDE.md).
 
 ## Data and licences

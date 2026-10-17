@@ -3,6 +3,7 @@ import type { HealthResponse } from "@language-app/core";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { AiClient } from "./ai/types";
 import type { Db } from "./db/client";
+import { dictionaryRoutes } from "./dictionary/routes";
 import { registerErrorHandling } from "./http/errors";
 import { importRoutes } from "./imports/routes";
 import { practiceRoutes } from "./practice/routes";
@@ -14,6 +15,8 @@ export type AppDeps = {
   ai: AiClient;
   /** Extract calls allowed per user per day (§11.5). */
   dailyPhotoLimit: number;
+  /** Ask AI (describe) calls allowed per user per day (§11.5). */
+  dailyDescribeLimit: number;
 };
 
 /** Photos arrive already shrunk to ≈0.5 MB (§6.2); this only stops accidents. */
@@ -29,6 +32,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   statsRoutes(app, deps);
   importRoutes(app, deps);
   wordRoutes(app, deps);
+  dictionaryRoutes(app, deps);
   practiceRoutes(app, deps);
 
   return app;

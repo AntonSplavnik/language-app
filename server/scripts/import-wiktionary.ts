@@ -1,5 +1,6 @@
-// Loads the kaikki.org German dictionary into dictionary_entries (docs/design.md §7), replacing
-// what is there. Accepts the German JSONL or the gzipped all-languages raw dump.
+// Loads the kaikki.org German dictionary into dictionary_entries and its inflected forms into
+// dictionary_forms (docs/design.md §7), replacing what is there. Accepts the German JSONL or the
+// gzipped all-languages raw dump.
 //
 //   pnpm --filter server import:wiktionary <file.jsonl | file.jsonl.gz>
 import { resolve } from "node:path";
@@ -26,7 +27,9 @@ try {
     },
   );
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
-  console.log(`\nRead ${result.read} lines, wrote ${result.inserted} entries in ${seconds} s.`);
+  console.log(
+    `\nRead ${result.read} lines, wrote ${result.inserted} entries and ${result.forms} forms in ${seconds} s.`,
+  );
   if (result.invalid > 0) console.log(`Skipped ${result.invalid} lines that were not valid JSON.`);
   console.table(result.byPos);
 } finally {

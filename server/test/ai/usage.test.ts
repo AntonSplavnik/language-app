@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countExtractCallsToday, type UsageRecord } from "../../src/ai/usage";
+import { countCallsToday, type UsageRecord } from "../../src/ai/usage";
 import { aiUsage, users } from "../../src/db/schema";
 import { SINGLE_USER_ID } from "../../src/user";
 import { first, useTestDb } from "../helpers/db";
@@ -18,15 +18,26 @@ const row = (overrides: Partial<UsageRecord>): UsageRecord => ({
   ...overrides,
 });
 
-describe("countExtractCallsToday (§11.5)", () => {
+describe("countCallsToday (§11.5)", () => {
   it("counts today's extract attempts, failed ones included", async () => {
     await db.insert(aiUsage).values([
       row({ createdAt: at(11, 0, 30) }),
       row({ createdAt: at(11, 14), ok: false }),
       row({ createdAt: at(10, 23, 59) }), // yesterday
       row({ createdAt: at(11, 9), callType: "enrich" }), // not a photo
+      row({ createdAt: at(11, 9), callType: "describe" }), // Ask AI
     ]);
-    expect(await countExtractCallsToday(db, SINGLE_USER_ID, now)).toBe(2);
+    expect(await countCallsToday(db, SINGLE_USER_ID, "extract", now)).toBe(2);
+  });
+
+  it("counts Ask AI calls on their own: the Ask AI limit is separate from the photo limit", async () => {
+    await db.insert(aiUsage).values([
+      row({ createdAt: at(11, 8), callType: "describe" }),
+      row({ createdAt: at(11, 9), callType: "describe", ok: false }),
+      row({ createdAt: at(10, 22), callType: "describe" }), // yesterday
+      row({ createdAt: at(11, 10) }), // a photo
+    ]);
+    expect(await countCallsToday(db, SINGLE_USER_ID, "describe", now)).toBe(2);
   });
 
   it("counts only the given learner", async () => {
@@ -37,6 +48,6 @@ describe("countExtractCallsToday (§11.5)", () => {
         .returning({ id: users.id }),
     );
     await db.insert(aiUsage).values([row({ userId: other.id, createdAt: at(11, 10) })]);
-    expect(await countExtractCallsToday(db, SINGLE_USER_ID, now)).toBe(0);
+    expect(await countCallsToday(db, SINGLE_USER_ID, "extract", now)).toBe(0);
   });
 });

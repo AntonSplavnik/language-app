@@ -1,3 +1,4 @@
+import type { AiCallType } from "@language-app/core";
 import { and, count, eq, gte } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { aiUsage } from "../db/schema";
@@ -13,10 +14,14 @@ export function dbUsageSink(db: Db): UsageSink {
   };
 }
 
-/** Extract attempts since local midnight, for the daily photo limit (§11.5). */
-export async function countExtractCallsToday(
+/**
+ * Attempts of one call type since local midnight, failed ones included, for the daily limits
+ * (§11.5): `extract` for photos, `describe` for Ask AI.
+ */
+export async function countCallsToday(
   db: Db,
   userId: number,
+  callType: AiCallType,
   now: Date = new Date(),
 ): Promise<number> {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -26,7 +31,7 @@ export async function countExtractCallsToday(
     .where(
       and(
         eq(aiUsage.userId, userId),
-        eq(aiUsage.callType, "extract"),
+        eq(aiUsage.callType, callType),
         gte(aiUsage.createdAt, startOfDay),
       ),
     );

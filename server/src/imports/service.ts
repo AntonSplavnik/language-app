@@ -8,7 +8,7 @@ import type {
 } from "@language-app/core";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
-import { countExtractCallsToday } from "../ai/usage";
+import { countCallsToday } from "../ai/usage";
 import type { Db, Executor } from "../db/client";
 import { imports, users, userWords, words, wordTranslations } from "../db/schema";
 import { checkWord } from "../dictionary/check";
@@ -22,6 +22,39 @@ import { candidateKey, newCandidateWords, type WordIdentity } from "./candidates
 const TARGET_LANGUAGE = "de";
 
 export type ImportDeps = { db: Db; ai: AiClient; dailyPhotoLimit: number };
+
+/**
+ * The `words` row with this identity, created when there is none (§6.5, §6.7). `values` are only
+ * used for a new row; an existing one is reused unchanged. Rows are found or created in a fixed
+ * order by the callers, so concurrent saves lock them in the same order.
+ */
+export async function findOrCreateWordRow(
+  tx: Executor,
+  identity: WordIdentity,
+  values: Omit<typeof words.$inferInsert, "language" | "lemma" | "pos" | "article">,
+): Promise<{ id: number; created: boolean }> {
+  const [created] = await tx
+    .insert(words)
+    .values({ language: TARGET_LANGUAGE, ...identity, ...values })
+    .onConflictDoNothing()
+    .returning({ id: words.id });
+  if (created) return { id: created.id, created: true };
+
+  const [existing] = await tx
+    .select({ id: words.id })
+    .from(words)
+    .where(
+      and(
+        eq(words.language, TARGET_LANGUAGE),
+        eq(words.lemma, identity.lemma),
+        eq(words.pos, identity.pos),
+        // `= NULL` never matches; non-nouns have a NULL article.
+        sql`${words.article} IS NOT DISTINCT FROM ${identity.article}`,
+      ),
+    );
+  if (!existing) throw new Error(`word ${candidateKey(identity)} was neither created nor found`);
+  return { id: existing.id, created: false };
+}
 type ImportRow = typeof imports.$inferSelect;
 
 export async function createImport(db: Db, userId: number, name?: string): Promise<ImportView> {
@@ -58,7 +91,7 @@ export async function addPhoto(
 ): Promise<PhotoUploadResponse> {
   const row = await findImport(db, userId, id);
   if (row.status !== "collecting") throw importClosed();
-  if ((await countExtractCallsToday(db, userId)) >= dailyPhotoLimit) {
+  if ((await countCallsToday(db, userId, "extract")) >= dailyPhotoLimit) {
     throw new HttpError(429, "daily_limit", "Daily photo limit reached");
   }
 
@@ -251,35 +284,11 @@ async function findOrCreateWord(
   word: PlannedWord,
   learnerLanguage: string,
 ): Promise<number> {
-  const [created] = await tx
-    .insert(words)
-    .values({
-      language: TARGET_LANGUAGE,
-      lemma: word.lemma,
-      pos: word.pos,
-      article: word.article,
-      checkStatus: word.checkStatus,
-    })
-    .onConflictDoNothing()
-    .returning({ id: words.id });
-
-  const wordId =
-    created?.id ??
-    (
-      await tx
-        .select({ id: words.id })
-        .from(words)
-        .where(
-          and(
-            eq(words.language, TARGET_LANGUAGE),
-            eq(words.lemma, word.lemma),
-            eq(words.pos, word.pos),
-            // `= NULL` never matches; non-nouns have a NULL article.
-            sql`${words.article} IS NOT DISTINCT FROM ${word.article}`,
-          ),
-        )
-    )[0]?.id;
-  if (wordId === undefined) throw new Error(`word ${word.key} was neither created nor found`);
+  const { id: wordId } = await findOrCreateWordRow(
+    tx,
+    { lemma: word.lemma, pos: word.pos, article: word.article },
+    { checkStatus: word.checkStatus },
+  );
 
   await tx
     .insert(wordTranslations)

@@ -22,6 +22,17 @@ import {
 } from "./schemas/sessions";
 import { StatsResponse } from "./schemas/stats";
 import {
+  type AddWordsRequest,
+  AddWordsResponse,
+  type DescribeRequest,
+  DescribeResponse,
+  LookupResponse,
+  SuggestResponse,
+  type TypedImportRequest,
+  TypedImportResponse,
+  type TypedWord,
+} from "./schemas/typed";
+import {
   DeleteWordResponse,
   EnrichPendingResponse,
   type UpdateWordRequest,
@@ -116,6 +127,19 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     startReview: (id: number) => postJson(ImportView, `/imports/${id}/review`),
     saveImport: (id: number, decisions: SaveDecision[]) =>
       postJson(SaveResponse, `/imports/${id}/save`, { decisions } satisfies SaveRequest),
+    /** A typed list, saved as one import (§9.3); `importId` is null when nothing was added. */
+    saveTypedImport: (words: TypedWord[]) =>
+      postJson(TypedImportResponse, "/imports/typed", { words } satisfies TypedImportRequest),
+
+    /** Dictionary entries for the letters typed so far (§9.3). */
+    suggest: (q: string) => request(SuggestResponse, `/dictionary/suggest${queryString({ q })}`),
+    /** The dictionary entries, base words or similar words for one typed word (§9.3). */
+    lookup: (q: string) => request(LookupResponse, `/dictionary/lookup${queryString({ q })}`),
+    /** Ask AI (Call 3): the word meant by the text, or with `entryId` a translation for it. */
+    describeWord: (body: DescribeRequest) => postJson(DescribeResponse, "/words/describe", body),
+    /** The entries chosen for one typed text, saved without an import (§9.3). */
+    addWords: (words: TypedWord[]) =>
+      postJson(AddWordsResponse, "/words", { words } satisfies AddWordsRequest),
 
     /** Retries enrichment for the learner's words that have no details yet. */
     enrichPending: () => postJson(EnrichPendingResponse, "/words/enrich-pending"),

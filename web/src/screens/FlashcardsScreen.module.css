@@ -1,52 +1,5 @@
 /* Flashcards (§10): close and progress in the header, the card, the three answers below. */
 
-/* "Practice" with "5 / 20" at its right, over a thin bar. */
-.progress {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-left: 2px;
-}
-
-.progressLine {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.heading {
-  margin: 0;
-  font: inherit;
-}
-
-.position {
-  font-variant-numeric: tabular-nums;
-}
-
-.current {
-  color: var(--text);
-}
-
-.track {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--track);
-  overflow: hidden;
-}
-
-/* --accent-ink, not --accent: lime would vanish against the light track. */
-.fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent-ink);
-  transition: width 260ms ease-out;
-}
-
 .stage {
   flex: 1;
   min-height: 360px;

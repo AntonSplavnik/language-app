@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { ApiClientError, CreateSessionRequest, createApiClient } from "../src";
+import {
+  ApiClientError,
+  CreateSessionRequest,
+  createApiClient,
+  DescribeRequest,
+  LookupQuery,
+  SuggestQuery,
+  TYPED_IMPORT_MAX,
+  TYPED_LIST_MAX,
+  TYPED_WORDS_MAX,
+  TypedImportRequest,
+  TypedWord,
+} from "../src";
 
 const json = (status: number, body: unknown) => async () =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -136,7 +148,22 @@ describe("import endpoints", () => {
 
   it("listImports reads the past imports", async () => {
     const past = {
-      imports: [{ id: 5, name: null, completedAt: "2026-10-13T12:50:30.720Z", wordCount: 9 }],
+      imports: [
+        {
+          id: 5,
+          name: null,
+          source: "photos",
+          completedAt: "2026-10-13T12:50:30.720Z",
+          wordCount: 9,
+        },
+        {
+          id: 6,
+          name: null,
+          source: "typed",
+          completedAt: "2026-10-14T12:50:30.720Z",
+          wordCount: 3,
+        },
+      ],
     };
     const { calls, api } = recording(past);
     expect(await api.listImports()).toEqual(past);
@@ -145,7 +172,7 @@ describe("import endpoints", () => {
 
   it("listImports rejects an import without its word count", async () => {
     const { api } = recording({
-      imports: [{ id: 5, name: null, completedAt: "2026-10-13T12:50:30.720Z" }],
+      imports: [{ id: 5, name: null, source: "photos", completedAt: "2026-10-13T12:50:30.720Z" }],
     });
     await expect(api.listImports()).rejects.toMatchObject({ code: "invalid_response" });
   });
@@ -334,5 +361,149 @@ describe("word endpoints", () => {
     // A DELETE without a body must not claim to send JSON (Fastify rejects an empty JSON body).
     expect(calls[2]?.init?.body).toBeUndefined();
     expect(new Headers(calls[2]?.init?.headers).get("content-type")).toBeNull();
+  });
+});
+
+describe("typed word endpoints (§9.3)", () => {
+  const regenschirm = {
+    entryId: 12657,
+    lemma: "Regenschirm",
+    pos: "noun",
+    article: "der",
+    plural: "Regenschirme",
+    forms: null,
+    glosses: ["umbrella (used for protection against rain)"],
+    ipa: null,
+    audioUrl: null,
+    inMyWords: null,
+  };
+
+  function recording(answers: Record<string, unknown>) {
+    const calls: Array<{ method: string; url: string; body: unknown }> = [];
+    const api = createApiClient({
+      fetch: async (input, init) => {
+        const method = init?.method ?? "GET";
+        const url = String(input);
+        calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null });
+        const path = url.split("?")[0];
+        return new Response(JSON.stringify(answers[`${method} ${path}`]), { status: 200 });
+      },
+    });
+    return { calls, api };
+  }
+
+  it("suggest and lookup send the typed text in the query string", async () => {
+    const { calls, api } = recording({
+      "GET /api/dictionary/suggest": { suggestions: [regenschirm] },
+      "GET /api/dictionary/lookup": { entries: [], forms: [], similar: [regenschirm] },
+    });
+    expect(await api.suggest("Regensch")).toEqual({ suggestions: [regenschirm] });
+    expect((await api.lookup("Regen schrim & co")).similar).toEqual([regenschirm]);
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      "GET /api/dictionary/suggest?q=Regensch",
+      "GET /api/dictionary/lookup?q=Regen%20schrim%20%26%20co",
+    ]);
+  });
+
+  it("lookup rejects an entry without its inMyWords", async () => {
+    const { inMyWords: _, ...withoutIt } = regenschirm;
+    const { api } = recording({
+      "GET /api/dictionary/lookup": { entries: [withoutIt], forms: [], similar: [] },
+    });
+    await expect(api.lookup("Regenschirm")).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("describeWord, addWords and saveTypedImport post JSON to their paths", async () => {
+    const word = {
+      lemma: "Regenschirm",
+      pos: "noun" as const,
+      article: "der" as const,
+      translation: "umbrella",
+    };
+    const added = {
+      added: [{ userWordId: 7, lemma: "Regenschirm", article: "der" }],
+      alreadyInList: 0,
+      detailsPending: 0,
+    };
+    const { calls, api } = recording({
+      "POST /api/words/describe": {
+        lemma: "Regenschirm",
+        pos: "noun",
+        article: "der",
+        translation: "umbrella",
+      },
+      "POST /api/words": added,
+      "POST /api/imports/typed": { ...added, importId: 9 },
+    });
+
+    expect(await api.describeWord({ text: "Regenschrim" })).toMatchObject({
+      lemma: "Regenschirm",
+    });
+    await api.describeWord({ text: "Bank", entryId: 1901 });
+    expect(await api.addWords([word])).toEqual(added);
+    expect((await api.saveTypedImport([{ ...word, entryId: 12657 }])).importId).toBe(9);
+
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      "POST /api/words/describe",
+      "POST /api/words/describe",
+      "POST /api/words",
+      "POST /api/imports/typed",
+    ]);
+    expect(calls.map((c) => c.body)).toEqual([
+      { text: "Regenschrim" },
+      { text: "Bank", entryId: 1901 },
+      { words: [word] },
+      { words: [{ ...word, entryId: 12657 }] },
+    ]);
+  });
+
+  it("a typed list that added nothing has no import", async () => {
+    const { api } = recording({
+      "POST /api/imports/typed": { added: [], alreadyInList: 2, detailsPending: 0, importId: null },
+    });
+    expect(
+      await api.saveTypedImport([
+        { lemma: "See", pos: "noun", article: "der", translation: "lake" },
+      ]),
+    ).toEqual({ added: [], alreadyInList: 2, detailsPending: 0, importId: null });
+  });
+});
+
+describe("typed word schemas (§9.3)", () => {
+  const word = { lemma: " Regenschirm ", pos: "noun", article: "der", translation: " umbrella " };
+
+  it("a typed word is trimmed and needs a lemma and a translation of at most 200 characters", () => {
+    expect(TypedWord.parse(word)).toEqual({
+      lemma: "Regenschirm",
+      pos: "noun",
+      article: "der",
+      translation: "umbrella",
+    });
+    expect(TypedWord.safeParse({ ...word, lemma: "  " }).success).toBe(false);
+    expect(TypedWord.safeParse({ ...word, translation: " " }).success).toBe(false);
+    expect(TypedWord.safeParse({ ...word, translation: "x".repeat(200) }).success).toBe(true);
+    expect(TypedWord.safeParse({ ...word, translation: "x".repeat(201) }).success).toBe(false);
+    expect(TypedWord.safeParse({ ...word, article: "den" }).success).toBe(false);
+  });
+
+  it("a typed list holds 1 to 150 words: 30 texts with up to 5 entries chosen for each", () => {
+    expect(TYPED_IMPORT_MAX).toBe(TYPED_LIST_MAX * TYPED_WORDS_MAX);
+    expect(TYPED_IMPORT_MAX).toBe(150);
+    expect(TypedImportRequest.safeParse({ words: [] }).success).toBe(false);
+    expect(TypedImportRequest.safeParse({ words: Array(150).fill(word) }).success).toBe(true);
+    expect(TypedImportRequest.safeParse({ words: Array(151).fill(word) }).success).toBe(false);
+  });
+
+  it("the search and Ask AI take a trimmed text of at most 50 characters", () => {
+    expect(SuggestQuery.parse({})).toEqual({ q: "" });
+    expect(SuggestQuery.parse({ q: "  Re " })).toEqual({ q: "Re" });
+    expect(SuggestQuery.safeParse({ q: "x".repeat(51) }).success).toBe(false);
+    expect(LookupQuery.safeParse({ q: "   " }).success).toBe(false);
+    expect(LookupQuery.parse({ q: ` ${"x".repeat(50)} ` }).q).toHaveLength(50);
+    expect(DescribeRequest.safeParse({ text: "" }).success).toBe(false);
+    expect(DescribeRequest.parse({ text: " ging ", entryId: 3 })).toEqual({
+      text: "ging",
+      entryId: 3,
+    });
   });
 });

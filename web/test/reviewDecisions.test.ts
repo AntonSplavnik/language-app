@@ -1,9 +1,13 @@
 import type { Candidate } from "@language-app/core";
 import { describe, expect, it } from "vitest";
 import {
+  BULK_LABELS,
+  choiceLabel,
   countAdds,
   initialDecisions,
   reviewReducer,
+  reviewSummary,
+  saveLabel,
   toSaveDecisions,
 } from "../src/state/reviewDecisions";
 
@@ -107,5 +111,28 @@ describe("review decisions (§6.4)", () => {
   it("a saved article that the dictionary does not offer is dropped", () => {
     const saved = { "Zeitung|noun|der": { action: "add" as const, article: "das" as const } };
     expect(initialDecisions(candidates, saved)["Zeitung|noun|der"]).toEqual({ action: "add" });
+  });
+});
+
+describe("Review wording: Practice / Ignore (§6.4, §10 screen 3)", () => {
+  it("each word is Practice or Ignore; the API keeps add and skip", () => {
+    expect(choiceLabel("add")).toBe("Practice");
+    expect(choiceLabel("skip")).toBe("Ignore");
+    expect(BULK_LABELS).toEqual({ add: "Practice all", skip: "Ignore all" });
+  });
+
+  it("the summary counts the words to practise", () => {
+    expect(reviewSummary(9, 8)).toEqual({ fresh: "9 new words", adds: "8 to practise" });
+    expect(reviewSummary(1, 0)).toEqual({ fresh: "1 new word", adds: "0 to practise" });
+  });
+
+  it("the save button says what saving does", () => {
+    expect(saveLabel({ adds: 8, fresh: 9, saving: false })).toBe("Save 8 words");
+    expect(saveLabel({ adds: 1, fresh: 9, saving: false })).toBe("Save 1 word");
+    expect(saveLabel({ adds: 0, fresh: 9, saving: false })).toBe("Ignore all 9 words");
+    expect(saveLabel({ adds: 0, fresh: 1, saving: false })).toBe("Ignore 1 word");
+    expect(saveLabel({ adds: 0, fresh: 0, saving: false })).toBe("Finish");
+    expect(saveLabel({ adds: 8, fresh: 9, saving: true })).toBe("Adding details…");
+    expect(saveLabel({ adds: 0, fresh: 9, saving: true })).toBe("Saving…");
   });
 });

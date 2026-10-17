@@ -10,6 +10,7 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from "react-route
 import { api } from "../api";
 import { ArrowUpIcon, CheckIcon, CloseIcon } from "../components/icons";
 import { Page } from "../components/Page";
+import { StepProgress } from "../components/StepProgress";
 import { readJson, removeItem, writeJson } from "../lib/storage";
 import { errorMessage, useToast } from "../lib/toast";
 import { Card, isCardControl } from "../practice/Card";
@@ -321,18 +322,7 @@ function PracticeHeader({
       <Link to="/" className={ui.round} aria-label="End practice">
         <CloseIcon size={18} weight={2.2} />
       </Link>
-      <div className={styles.progress}>
-        <div className={styles.progressLine}>
-          <h1 className={styles.heading}>Practice</h1>
-          <span className={styles.position}>
-            <span className={styles.current}>{position}</span> / {total}
-          </span>
-        </div>
-        {/* The numbers say it; the bar is only for the eye. */}
-        <div className={styles.track} aria-hidden="true">
-          <div className={styles.fill} style={{ width: `${(answered / total) * 100}%` }} />
-        </div>
-      </div>
+      <StepProgress label="Practice" position={position} done={answered} total={total} />
     </>
   );
 }

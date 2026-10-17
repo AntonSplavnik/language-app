@@ -36,6 +36,13 @@
       "when": 1792133009715,
       "tag": "0004_past-imports",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792217399797,
+      "tag": "0005_typed-words",
+      "breakpoints": true
     }
   ]
 }

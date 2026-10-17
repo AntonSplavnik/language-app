@@ -1,11 +1,11 @@
-import { IMPORT_NAME_MAX, type SaveResponse } from "@language-app/core";
+import { IMPORT_NAME_MAX } from "@language-app/core";
 import { useId, useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api";
 import { CheckIcon, PlayIcon, SparkleIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { PendingDetails } from "../components/PendingDetails";
-import { doneLines, needsName } from "../imports/done";
+import { type DoneState, doneLines, doneSource, moreWords, needsName } from "../imports/done";
 import { usePastImports } from "../imports/usePastImports";
 import { errorMessage, useToast } from "../lib/toast";
 import { useStartSession } from "../practice/useStartSession";
@@ -15,12 +15,13 @@ import styles from "./DoneScreen.module.css";
 /** After saving (§10 Done). The counts come from the save response; a reload just says "saved". */
 export function DoneScreen() {
   const importId = Number(useParams().id);
-  const result = useLocation().state as SaveResponse | null;
+  const result = useLocation().state as DoneState | null;
   const { start, starting } = useStartSession();
   const { headline, note } = doneLines(result);
   // Done reads the past imports to find this one, so a reloaded Done screen offers naming too.
   const { state: past } = usePastImports();
   const offerName = past.kind === "ready" && needsName(past.imports, importId);
+  const more = moreWords(doneSource(result, past, importId));
 
   return (
     <Page
@@ -40,11 +41,8 @@ export function DoneScreen() {
               <PlayIcon size={18} />
             </button>
           )}
-          <Link
-            to="/imports/new"
-            className={`${ui.button} ${ui.secondary} ${ui.large} ${ui.block}`}
-          >
-            Import more pages
+          <Link to={more.to} className={`${ui.button} ${ui.secondary} ${ui.large} ${ui.block}`}>
+            {more.label}
           </Link>
           <Link to="/" className={`${ui.button} ${ui.block} ${styles.home}`}>
             Home

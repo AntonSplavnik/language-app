@@ -553,7 +553,11 @@ describe("DELETE /api/words/:id", () => {
     const ai = createClaudeAi({
       transport: replay.transport,
       recordUsage: dbUsageSink(db),
-      models: { extract: "claude-haiku-5-5", enrich: "claude-haiku-5-5" },
+      models: {
+        extract: "claude-haiku-5-5",
+        enrich: "claude-haiku-5-5",
+        describe: "claude-haiku-5-5",
+      },
       effort: "medium",
       learnerLanguage: "en",
     });

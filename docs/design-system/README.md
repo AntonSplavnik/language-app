@@ -36,14 +36,14 @@ A visual version with live previews of every component in both themes is the **G
 
 ### Progress
 
-- [ProgressBar](components/ProgressBar.md): How far along something is, as a rounded bar on `track` filled with **`accent-ink`** (never `accent`: lime is 1.1:1 on the light track).
+- [ProgressBar](components/ProgressBar.md): How far along something is, as a rounded bar on `track` filled with **`accent-ink`** (never `accent`: lime is 1.1:1 on the light track). The header's session bar is `StepProgress` (Flashcards, Confirm word).
 - [Streak](components/Streak.md): Right answers in a row towards learned (`LEARNED_STREAK`, 3), in two sizes:
 
 ### Navigation
 
 - [MenuCard](components/MenuCard.md): A card of rows that each open a screen: the name, a short grey status and a chevron (Settings' sections, an import's actions).
 - [PageHeader](components/PageHeader.md): The top of every screen, from `Page` (`web/src/components/Page.tsx`): sticky, `bg` at 88% with a 12 px blur, min 60 px, gutter 20.
-- [SegmentedTabs](components/SegmentedTabs.md): My words' status tabs: Learning, Learned, Ignored, each with its count.
+- [SegmentedTabs](components/SegmentedTabs.md): A segmented control of links (`SegmentedTabs`): My words' status tabs (Learning, Learned, Ignored, each with its count), Add words' One word / A list.
 
 ### Forms
 
@@ -55,7 +55,8 @@ A visual version with live previews of every component in both themes is the **G
 
 ### Lists
 
-- [ReviewRow](components/ReviewRow.md): A candidate word on Review: a card (`radius-xl`, 8 apart) whose **whole body is one toggle button** (`aria-pressed`) between Add and Skip.
+- [ReviewRow](components/ReviewRow.md): A candidate word on Review: a card (`radius-xl`, 8 apart) whose **whole body is one toggle button** (`aria-pressed`) between Practice and Ignore.
+- [EntryCard](components/EntryCard.md): A dictionary entry to choose on Confirm word: a Review-like toggle card with a ring that fills with a check, a translation field with gloss chips and Ask AI when chosen, and the hand form under the cards.
 - [WordRow](components/WordRow.md): A word in a list, straight on the page with a hairline under it (My words; Summary's missed words use the same row with the translation at the right).
 
 ### Feedback
@@ -79,11 +80,11 @@ A visual version with live previews of every component in both themes is the **G
 
 German Words is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `Headword`, `MenuCard`, `SelectPill`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 
-- **Plain, short, specific.** Say what happens, in the fewest words that still say it: "Save 9 words", "Review words (13)", "1 skipped; they won't be suggested again." No exclamation marks, no cheerleading, no apologies.
+- **Plain, short, specific.** Say what happens, in the fewest words that still say it: "Save 9 words", "Review words (13)", "1 ignored; they won't be suggested again." No exclamation marks, no cheerleading, no apologies.
 - **You and your.** The app talks to the learner: "your words", "Words you missed", "Pick what to practise". It never says "I" or "we".
 - **Sentence case everywhere**: titles, buttons, labels ("Not learned yet", "Import more pages"). Uppercase only through CSS on small labels (`label`, `badge`, the gender chip), never typed in caps.
 - **British spelling**, the verb *practise* and the noun *practice*: "149 words to practise", the Practice button.
@@ -135,7 +136,7 @@ Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stro
 
 ## Accessibility rules
 
-- Real elements even for custom looks: `<button>`, `<a href>`, `<input>` with a `<label>`, native `<select>`, visually hidden radios behind source cards, `aria-pressed` on Review's toggle cards, `aria-current` on tabs, `aria-expanded` on the known-words toggle.
+- Real elements even for custom looks: `<button>`, `<a href>`, `<input>` with a `<label>`, native `<select>`, visually hidden radios behind source cards, `aria-pressed` on Review's and Confirm word's toggle cards and the gloss chips, `aria-current` on tabs, `aria-expanded` on the known-words and hand-form toggles.
 - Icon-only buttons have an `aria-label` ("Back", "Edit word", "End practice", "Remove photo", "Listen to “der Anruf”").
 - Progress drawn as dots, bars or segments also exists as screen-reader text ("1 of 3 right in a row").
 - Nothing in the web code may need a secure context (the iPhone opens the app over plain HTTP).

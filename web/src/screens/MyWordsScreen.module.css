@@ -51,57 +51,6 @@
   outline-offset: -1px;
 }
 
-/* A segmented control; the current tab is a high-contrast pill. */
-.tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  padding: 4px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.tab {
-  min-width: 0;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.tab:focus-visible {
-  outline: 2px solid var(--accent-ink);
-  outline-offset: 1px;
-}
-
-.activeTab {
-  background: var(--text);
-  color: var(--bg);
-}
-
-.tabCount {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--surface-raised);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.activeTab .tabCount {
-  background: var(--bg);
-  color: var(--text);
-}
-
 .error {
   display: flex;
   align-items: center;

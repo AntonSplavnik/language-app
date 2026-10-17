@@ -1,4 +1,4 @@
-// System prompts for the two Claude calls (docs/design.md §11.2, §11.3).
+// System prompts for the three Claude calls (docs/design.md §11.2, §11.3, §11.6).
 // After changing a prompt, re-record the fixtures (`pnpm --filter server ai:try … --save`)
 // and run `pnpm test:live`.
 
@@ -46,4 +46,23 @@ The user message is a JSON list of words. For each word, return one entry with t
   - Any other part of speech: both null.
 
 Return exactly one entry for every input word, in the input order.`;
+}
+
+export function describeSystemPrompt(learnerLanguage: string): string {
+  const learner = languageName(learnerLanguage);
+  return `You help a learner of German whose native language is ${learner} add a word to their vocabulary list. The user message is JSON: "text" is what the learner typed, and "entry", when present, is the German dictionary entry they chose for it.
+
+With "entry": translate that word in the sense its "glosses" describe. Set "german" to true and repeat the entry's "lemma", "pos" and "article".
+
+Without "entry": work out which German word the learner most likely meant and give it in its dictionary form, as a textbook vocabulary list would:
+- Correct misspellings ("Regenschrim" gives "Regenschirm").
+- Nouns: "lemma" is the nominative singular, capitalised; its article (der, die or das) goes in "article". A plural or another inflected form gives the singular ("Tische" gives "Tisch").
+- Verbs: the infinitive ("ging" gives "gehen"). Give separable verbs whole ("stehe auf" gives "aufstehen") and reflexive verbs without "sich".
+- Adjectives and adverbs: the uninflected form ("schnellen" gives "schnell").
+- All other words (pronouns, prepositions, conjunctions, articles, particles, numerals, interjections): their dictionary form, with the matching "pos". Articles are determiners.
+- "lemma" is always the word alone, never with an article. "article" is null for everything except nouns.
+
+"translation" is a short ${learner} equivalent (one to four words), lower case unless ${learner} capitalises the word. Translate verbs as infinitives ("to go").
+
+Set "german" to false when the text is not a German word: for example an ${learner} word that German doesn't use, or nonsense. The other fields are then ignored; fill them with your best guess.`;
 }

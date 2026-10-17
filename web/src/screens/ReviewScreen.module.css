@@ -1,5 +1,5 @@
-/* Review (§10): the counts with Add all / Skip all, the words already known, then one card per
-   new word, the whole card an Add/Skip toggle. */
+/* Review (§10): the counts with Practice all / Ignore all, the words already known, then one card
+   per new word, the whole card a Practice/Ignore toggle. */
 
 .muted {
   color: var(--muted);
@@ -30,7 +30,7 @@
   gap: 6px;
 }
 
-/* Add all, Skip all. */
+/* Practice all, Ignore all. */
 .pill {
   appearance: none;
   height: 36px;
@@ -173,7 +173,7 @@
   font-weight: 600;
 }
 
-/* Add or Skip, at the right. */
+/* Practice or Ignore, at the right. */
 .choice {
   flex: none;
   height: 40px;

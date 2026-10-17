@@ -1,0 +1,422 @@
+/* Confirm word (§10 screen 15): what was typed, the dictionary's entries as cards like Review's
+   (each a toggle), a chosen card's translation, and the hand form for a word the dictionary
+   doesn't have. */
+
+/* "Confirm word" next to the back button, as PageHeader's small title. */
+.title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* "You typed regenschrim". */
+.typed {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.typedText {
+  font-style: italic;
+  color: var(--text-soft);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 14px 18px;
+  color: var(--danger);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* "Did you mean…?", "ging is a form of gehen", "The AI suggests der Regenschirm". */
+.heading {
+  margin: 0;
+  padding: 4px 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.heading svg {
+  flex: none;
+}
+
+.heading em {
+  font-style: italic;
+}
+
+.heading strong {
+  --article-weight: 700;
+  color: var(--text);
+}
+
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* As a Review card. Chosen: a 2 px accent-ink edge, the padding 1 px less so nothing moves. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.chosen {
+  border: 2px solid var(--accent-ink);
+}
+
+.cardMain {
+  appearance: none;
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 14px 18px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chosen .cardMain {
+  padding: 13px 13px 13px 17px;
+}
+
+button.cardMain:active {
+  background: var(--surface-muted);
+}
+
+button.cardMain:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 20px;
+}
+
+.word {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.headword {
+  --article-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+/* "noun · pl. die Banken", "verb · ging · ist gegangen". */
+.meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.glosses {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+
+/* The state at the right: an empty ring, or the lime check when chosen. */
+.tick {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--track-strong);
+  display: grid;
+  place-items: center;
+}
+
+.chosen .tick {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Already in the list: dimmed, with a link to the word instead of the toggle. */
+.inList .word {
+  opacity: 0.55;
+}
+
+.inListLink {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 40px;
+  padding: 0 4px 0 8px;
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.inListLink:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* A chosen card's translation, under its word. */
+.translation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 13px 15px 17px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A gloss to fill the field with; the one in the field is marked. */
+.chip {
+  appearance: none;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.3;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chip[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* Ask AI: a Cancel-style pill (ui.pill + ui.pillSecondary), a step smaller beside the chips. */
+.askAi {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+/* The hand form: a step below the cards, like Review's known words. */
+.hand {
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 50%, var(--bg));
+  overflow: hidden;
+}
+
+.handToggle,
+.handTitle {
+  margin: 0;
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 16px 0 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.handToggle {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.handToggle:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 18px;
+}
+
+.chevron {
+  flex: none;
+  transition: transform 150ms ease;
+}
+
+[aria-expanded="true"] > .chevron {
+  transform: rotate(180deg);
+}
+
+.handFields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 2px 16px 18px 18px;
+}
+
+.handField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.handField legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+/* A native select drawn like the fields, with a chevron (the phone's own picker opens). */
+.selectWrap {
+  position: relative;
+  display: block;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 44px;
+  cursor: pointer;
+}
+
+.selectChevron {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.articles {
+  display: flex;
+  gap: 8px;
+}
+
+/* der / die / das: the article in its gender colour; chosen, on its soft chip. */
+.article {
+  appearance: none;
+  min-width: 72px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.article:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.der {
+  color: var(--der);
+}
+
+.die {
+  color: var(--die);
+}
+
+.das {
+  color: var(--das);
+}
+
+.der[aria-pressed="true"] {
+  border-color: var(--der);
+  background: var(--der-soft);
+}
+
+.die[aria-pressed="true"] {
+  border-color: var(--die);
+  background: var(--die-soft);
+}
+
+.das[aria-pressed="true"] {
+  border-color: var(--das);
+  background: var(--das-soft);
+}
+
+.handAsk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.askHint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Remove beside Add in a list: Add is the wider one. */
+.actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 10px;
+}
+
+/* As tall and round as Add beside it (two classes: over ui.large). */
+.actions .remove {
+  min-height: 60px;
+  border-radius: 20px;
+  font-size: 17px;
+}

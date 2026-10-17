@@ -46,13 +46,15 @@ export async function enrichWords(
   if (pendingWords.length === 0) return { enriched: 0, pending: 0 };
 
   // 1. Dictionary first: forms and pronunciation. Copied now, so a word keeps them even if the AI
-  // fails.
+  // fails. A word typed from a dictionary entry already has that entry's facts (§6.7): one whose
+  // forms_source is set is left as it is, and a pronunciation it has is kept.
   const dictionary = await lookupWords(db, pendingWords);
   const fromDictionary = new Map<number, Forms>();
   for (const word of pendingWords) {
+    if (word.formsSource) continue;
     const entries = entriesForWord(word, dictionary.get(wordKey(word)) ?? []);
     const forms = dictionaryForms(word, entries);
-    const pronunciation = pronunciationOf(entries);
+    const pronunciation = word.ipa || word.audioUrl ? null : pronunciationOf(entries);
     if (forms) fromDictionary.set(word.id, forms);
     if (!forms && !pronunciation) continue;
     await db
@@ -73,7 +75,10 @@ export async function enrichWords(
         pos: word.pos,
         article: word.article,
         translation: word.translation ?? word.lemma,
-        needsForms: (word.pos === "noun" || word.pos === "verb") && !fromDictionary.has(word.id),
+        needsForms:
+          (word.pos === "noun" || word.pos === "verb") &&
+          !word.formsSource &&
+          !fromDictionary.has(word.id),
       }));
 
       let output: EnrichOutput;
@@ -153,6 +158,9 @@ async function loadPending(db: Db, wordIds: number[], language: string) {
       lemma: words.lemma,
       pos: words.pos,
       article: words.article,
+      formsSource: words.formsSource,
+      ipa: words.ipa,
+      audioUrl: words.audioUrl,
       translation: wordTranslations.translation,
     })
     .from(words)

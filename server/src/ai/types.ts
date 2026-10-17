@@ -1,4 +1,10 @@
-import type { EnrichInputWord, EnrichOutput, ExtractOutput } from "@language-app/core";
+import type {
+  DescribeInput,
+  DescribeOutput,
+  EnrichInputWord,
+  EnrichOutput,
+  ExtractOutput,
+} from "@language-app/core";
 
 /** Who a call is for, so its cost lands on the right `ai_usage` row. */
 export type AiCallContext = {
@@ -7,7 +13,7 @@ export type AiCallContext = {
 };
 
 /**
- * The two Claude calls (§11). Kept behind an interface so tests can replay recorded responses
+ * The three Claude calls (§11). Kept behind an interface so tests can replay recorded responses
  * and another provider could be added without touching the import flow.
  */
 export interface AiClient {
@@ -15,6 +21,8 @@ export interface AiClient {
   extractWords(jpeg: Uint8Array, ctx: AiCallContext): Promise<ExtractOutput>;
   /** Call 2 (§11.3): example sentences, plus plural/verb forms where asked, for up to 30 words. */
   enrichWords(words: EnrichInputWord[], ctx: AiCallContext): Promise<EnrichOutput>;
+  /** Call 3 (§11.6): the word a typed text means, or a translation of a chosen entry (Ask AI). */
+  describeWord(input: DescribeInput, ctx: AiCallContext): Promise<DescribeOutput>;
 }
 
 export type AiErrorCode =

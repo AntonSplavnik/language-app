@@ -1,8 +1,8 @@
 import { ApiClientError, IMPORT_NAME_MAX, type ImportView } from "@language-app/core";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api";
-import { CameraIcon, CheckIcon, CloseIcon, PlusIcon } from "../components/icons";
+import { CameraIcon, CheckIcon, ChevronRightIcon, CloseIcon, PlusIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { pickPhotos } from "../device/pickPhotos";
 import { shrinkImage } from "../device/shrinkImage";
@@ -216,15 +216,22 @@ export function ImportScreen() {
       )}
 
       {nothingYet ? (
-        <button type="button" className={styles.drop} onClick={addPhotos}>
-          <span className={styles.dropIcon}>
-            <CameraIcon size={32} />
-          </span>
-          <span className={styles.dropText}>
-            <span className={styles.dropTitle}>Take or choose photos</span>
-            <span className={styles.dropHint}>Photograph the pages you studied</span>
-          </span>
-        </button>
+        <>
+          <button type="button" className={styles.drop} onClick={addPhotos}>
+            <span className={styles.dropIcon}>
+              <CameraIcon size={32} />
+            </span>
+            <span className={styles.dropText}>
+              <span className={styles.dropTitle}>Take or choose photos</span>
+              <span className={styles.dropHint}>Photograph the pages you studied</span>
+            </span>
+          </button>
+          {/* Words typed by hand instead (§6.7). */}
+          <Link to="/words/new" className={`${ui.button} ${ui.quiet} ${styles.typeWords}`}>
+            or type words
+            <ChevronRightIcon size={16} />
+          </Link>
+        </>
       ) : (
         <ul className={styles.grid}>
           {state.photos.map((photo) => (

@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes } from "react-router";
+import { AddWordsScreen } from "./screens/AddWordsScreen";
+import { ConfirmWordScreen } from "./screens/ConfirmWordScreen";
 import { DoneScreen } from "./screens/DoneScreen";
 import { EditWordScreen } from "./screens/EditWordScreen";
 import { FlashcardsScreen } from "./screens/FlashcardsScreen";
@@ -28,6 +30,9 @@ export function App() {
       <Route path="/practice/:id/summary" element={<SummaryScreen />} />
       {/* The tab, search and view live in the query: /words?status=learned&q=tisch&import=5 */}
       <Route path="/words" element={<MyWordsScreen />} />
+      {/* Words typed by hand; static paths win over /words/:id. One word or ?mode=list. */}
+      <Route path="/words/new" element={<AddWordsScreen />} />
+      <Route path="/words/new/confirm" element={<ConfirmWordScreen />} />
       <Route path="/words/:id" element={<WordDetailScreen />} />
       {/* A screen, not a modal: a swipe back closes it and leaves the word open. */}
       <Route path="/words/:id/edit" element={<EditWordScreen />} />

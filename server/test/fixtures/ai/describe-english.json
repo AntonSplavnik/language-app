@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "kind": "describe",
+    "source": "umbrella",
+    "recordedAt": "2026-10-17T06:23:37.303Z",
+    "requestedModel": "claude-haiku-5-5",
+    "effort": "medium",
+    "promptHash": "1edb4cf67eb0",
+    "durationMs": 1722
+  },
+  "input": {
+    "text": "umbrella"
+  },
+  "response": {
+    "model": "claude-haiku-5-5",
+    "id": "msg_011Cg7L5NhR4y8LF7ZHZo98a",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "",
+        "signature": "CAQShggKEAgSGAI4AUIIdGhpbmtpbmcSDEtrhqWALVbuDFNwRBoMK2BqhWddXGjLY+ZwIjB7oFEHtJKaKi4FTe4xfbmh0cy0ZIKrS6vKXFOTXkjfpy7TbR6bXZqxIOkt9M59aHgqowco9Xji/SFY38HWHyVeoZcFCm2/u80FQq+oEqZx1t1L1drM88lwjSKn/M7gIcrwSFBJvRaWtd2OBgRZezcwrFjAqvgPhkTQBDrhtNCKdghvlZU/B3hLgBA7iLGuXEVanJxOqxPJIjzxwVH2mFkPgpEL8m86lDq4bLdlLWxeK/wmthWsIWn49Ob6ORKby81i4lQnDZVVm6eSD1pV9cX6wrVBQiWVZA5VS4T9adncprNR4KjFVXG+CvR3atnG6FRCQhZOaBIP/syCTdVjQkbfSuBoli1CZU5pDKmd7XReWDYdDYcZGTpBUna2lT2YtU4dVzbXAG/QmKBpkvkAbOTbX3vanxfHGPp6k+zl6xhMiOhkafLITD+HOCOqenqSgSSCWgBIlbc0Uw7ymH/8maHztXLpM3Eg5A4fzKOyBDd6AGB7xL7Os2gXdFmuCLprpPLl+SHbcfKOSqR+hk60TEdjzXxb4lonNQBG4kb3STFFWid5Z+YaoCyvEGSj9AgNSPRDW4GpOQXotnkPbZ4ItI0eMyHSGKlYuB1KSmPHUpkwCiQf7GwJJAS7yg+E5EjHiklNTrBIZYbekoxKcrqJjg4MNvjKDy1XdDM2VMFzZTBvGs+YWDhL6a4Ija5C/QnwJr/bv16fEEoaSr/Rcp+mqEtqFwAzbEVo2jQLuKZvf7X9ivxFkRq8nwVDs9vFLaSEOlZQ5H6oxn0AoVz6Mx3cteuugwOOtVzHHWF7H2js4euwWTi9aqktpFFlaVBBvXHtFUAj+9V0HBB9bejoMC3wWOGTpb9iiEBg32tDHMtAbcXwKAYnaG7Xa/oCDsZzeG9DsmlI+/EuVZT8pP+KpqqT02k0RSGqPcP4dw/olBN12lYgJOoxFn2LZPzyaNTfakT6s8mwAIZwNKJa9pw5+ohGi5oqvKgVXC/rtKbZnwiB7n14HbuBLNBPOnHxt9UWZ4sNHGYWnNTq5lrhYBHm3UKFpDkoSiOHM65DXxC3IF6GQcQQQc5qxJDI7f8XDS2fAqFs9zObQa8nDo44gERl/DXGmUf2AF8EchcSUyf1M/0012Urf9Y6L8u+RngUxQWfxeMlmqjN+dM/9Mj1LcO2/A5XoH3S1dxDe+RS2vxRcz9fbtxHQz+wXTVzjF/w/RFsrHzSln9mCpGzQEOIf01km29zf6YX3ULTZHFgKHUElkZH8LlelgJ+fkVrxtlWeZmnP9aIhKN6n6WiuOG7yYImnlXDRNMHPhy6t+cFGAE="
+      },
+      {
+        "type": "text",
+        "text": "{\"german\":false,\"lemma\":\"Regenschirm\",\"pos\":\"noun\",\"article\":\"der\",\"translation\":\"umbrella\"}"
+      }
+    ],
+    "container": null,
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 1045,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 210,
+      "output_tokens_details": {
+        "thinking_tokens": 167
+      },
+      "service_tier": "standard",
+      "inference_geo": "global",
+      "speed": "standard"
+    },
+    "diagnostics": null
+  }
+}

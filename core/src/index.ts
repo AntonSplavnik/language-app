@@ -8,5 +8,6 @@ export * from "./schemas/health";
 export * from "./schemas/imports";
 export * from "./schemas/sessions";
 export * from "./schemas/stats";
+export * from "./schemas/typed";
 export * from "./schemas/words";
 export * from "./shuffle";

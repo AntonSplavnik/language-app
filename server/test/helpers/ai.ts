@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import type { EnrichedWord, EnrichInputWord } from "@language-app/core";
+import type { DescribeInput, EnrichedWord, EnrichInputWord } from "@language-app/core";
 import type { MessageRequest, MessageTransport } from "../../src/ai/transport";
 
 /** A real Claude response recorded with `pnpm --filter server ai:try … --save <name>`. */
 export type AiFixture = {
-  meta: { kind: "extract" | "enrich"; source: string; requestedModel: string };
-  input?: EnrichInputWord[];
+  meta: { kind: "extract" | "enrich" | "describe"; source: string; requestedModel: string };
+  /** What was sent: the enrich batch, or Call 3's input. */
+  input?: EnrichInputWord[] | DescribeInput;
   response: BetaMessage;
 };
 

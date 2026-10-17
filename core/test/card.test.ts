@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { cardBack, cardFront, displayTranslation, type WordView } from "../src";
+import { cardBack, cardFront, displayTranslation, formsText, type WordView } from "../src";
+
+describe("formsText (§8.2, §10 screen 15)", () => {
+  it("writes a dictionary entry's forms as the card back does", () => {
+    expect(formsText({ pos: "noun", plural: "Banken", forms: null })).toBe("pl. die Banken");
+    expect(
+      formsText({
+        pos: "verb",
+        plural: null,
+        forms: { praeteritum: "ging", partizip2: "gegangen", auxiliary: "sein" },
+      }),
+    ).toBe("ging · ist gegangen");
+    expect(formsText({ pos: "adverb", plural: null, forms: null })).toBeNull();
+    expect(formsText({ pos: "noun", plural: null, forms: null })).toBeNull();
+  });
+});
 
 const tisch: WordView = {
   userWordId: 1,
