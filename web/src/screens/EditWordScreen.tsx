@@ -1,14 +1,15 @@
 import { CUSTOM_TRANSLATION_MAX, cardBack, NOTE_MAX } from "@language-app/core";
 import { useId, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 import { api } from "../api";
 import { Headword } from "../components/Headword";
 import { TrashIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { WordLoadState } from "../components/WordLoadState";
+import { useHistoryStep } from "../lib/sheetHistory";
 import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
-import { afterDelete, type EditState, type HistoryStep, leaveEdit } from "../words/editHistory";
+import { afterDelete, type EditState, leaveEdit } from "../words/editHistory";
 import { wordsUrl } from "../words/listQuery";
 import { useWord } from "../words/useWord";
 import { changesOf, draftOf, type WordDraft } from "../words/wordForm";
@@ -21,7 +22,7 @@ import styles from "./EditWordScreen.module.css";
 export function EditWordScreen() {
   const id = Number(useParams().id);
   const state = useLocation().state as EditState | null;
-  const navigate = useNavigate();
+  const go = useHistoryStep();
   const toast = useToast();
   const formId = useId();
   const { word, loading, load } = useWord(id);
@@ -30,14 +31,17 @@ export function EditWordScreen() {
   const [busy, setBusy] = useState<null | "save" | "delete">(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const go = (step: HistoryStep) =>
-    "back" in step ? navigate(-step.back) : navigate(step.to, { replace: true, state: step.state });
   // Cancel, like the browser's Back, drops what was typed without asking.
   const leave = () => go(leaveEdit(id, state));
   const listUrl = state?.from ?? wordsUrl({ status: word?.status ?? "learning", q: "" });
 
   const cancel = (
-    <button type="button" className={styles.cancel} disabled={busy !== null} onClick={leave}>
+    <button
+      type="button"
+      className={`${ui.pill} ${ui.pillSecondary}`}
+      disabled={busy !== null}
+      onClick={leave}
+    >
       Cancel
     </button>
   );
@@ -48,7 +52,7 @@ export function EditWordScreen() {
         title="Edit word"
         leading={cancel}
         action={
-          <button type="button" className={styles.save} disabled>
+          <button type="button" className={`${ui.pill} ${ui.pillPrimary}`} disabled>
             Save
           </button>
         }
@@ -98,7 +102,7 @@ export function EditWordScreen() {
         <button
           type="submit"
           form={formId}
-          className={styles.save}
+          className={`${ui.pill} ${ui.pillPrimary}`}
           disabled={!changes || busy !== null}
         >
           {busy === "save" && <span className={ui.spinner} />}
@@ -117,9 +121,9 @@ export function EditWordScreen() {
         }}
       >
         <label className={`${ui.card} ${styles.field}`}>
-          <span className={styles.label}>Your translation</span>
+          <span className={ui.label}>Your translation</span>
           <input
-            className={styles.input}
+            className={`${ui.input} ${ui.sunk}`}
             value={draft.customTranslation}
             placeholder={word.translation}
             maxLength={CUSTOM_TRANSLATION_MAX}
@@ -132,9 +136,9 @@ export function EditWordScreen() {
           </span>
         </label>
         <label className={`${ui.card} ${styles.field}`}>
-          <span className={styles.label}>Note</span>
+          <span className={ui.label}>Note</span>
           <textarea
-            className={`${styles.input} ${styles.textarea}`}
+            className={`${ui.input} ${ui.sunk} ${styles.textarea}`}
             rows={4}
             value={draft.note}
             placeholder="Shown on the back of the card"

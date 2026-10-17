@@ -128,7 +128,15 @@ export const RotateIcon = (props: IconProps) => (
   </Stroke>
 );
 
-/** Taking photos: Import's drop zone, the Last import source. */
+/** Settings, on Home. */
+export const GearIcon = (props: IconProps) => (
+  <Stroke weight={1.8} {...props}>
+    <path d="M10.5 5.7 10.7 2.9h2.6l.2 2.8 1.9.8 2.1-1.8 1.8 1.8-1.8 2.1.8 1.9 2.8.2v2.6l-2.8.2-.8 1.9 1.8 2.1-1.8 1.8-2.1-1.8-1.9.8-.2 2.8h-2.6l-.2-2.8-1.9-.8-2.1 1.8-1.8-1.8 1.8-2.1-.8-1.9-2.8-.2v-2.6l2.8-.2.8-1.9-1.8-2.1 1.8-1.8 2.1 1.8z" />
+    <circle cx="12" cy="12" r="2.8" />
+  </Stroke>
+);
+
+/** Taking photos: Import's drop zone, the Import source. */
 export const CameraIcon = (props: IconProps) => (
   <Stroke weight={1.8} {...props}>
     <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8l1.4-2h4.6l1.4 2h1.8A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" />

@@ -3,28 +3,40 @@ import {
   type CardResultRequest,
   type CardResultResponse,
   type SessionResponse,
-  type SessionSource,
   type SessionSummary,
 } from "@language-app/core";
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 import type { Db, Executor } from "../db/client";
-import { cardResults, sessions, userWords } from "../db/schema";
+import { cardResults, imports, sessions, userWords } from "../db/schema";
 import { HttpError } from "../http/errors";
 import { learnerLanguageOf, wordViewQuery } from "../words/views";
-import { selectCards } from "./select";
+import { type SessionChoice, selectCards } from "./select";
 
 // Practice sessions (docs/design.md §8).
 
 export async function startSession(
   db: Db,
   userId: number,
-  source: SessionSource,
+  choice: SessionChoice,
 ): Promise<SessionResponse> {
-  const cards = await selectCards(db, userId, source);
+  const { source, importId } = choice;
+  // Only a finished import of the learner's can be practised (§9).
+  if (importId !== undefined) {
+    const [found] = await db
+      .select({ id: imports.id })
+      .from(imports)
+      .where(and(eq(imports.id, importId), eq(imports.userId, userId), eq(imports.status, "done")));
+    if (!found) throw new HttpError(404, "import_not_found", "Import not found");
+  }
+
+  const cards = await selectCards(db, userId, choice);
   if (cards.length === 0) {
     throw new HttpError(400, "no_words", "No words to practise from this source");
   }
-  const [session] = await db.insert(sessions).values({ userId, source }).returning();
+  const [session] = await db
+    .insert(sessions)
+    .values({ userId, source, importId: importId ?? null })
+    .returning();
   if (!session) throw new Error("insert returned no row");
   return { id: session.id, source, cards };
 }

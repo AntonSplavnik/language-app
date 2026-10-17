@@ -10,12 +10,26 @@ import { api } from "../api";
 import { Headword } from "../components/Headword";
 import { BookIcon, SearchIcon } from "../components/icons";
 import { Page } from "../components/Page";
-import { errorMessage } from "../lib/toast";
+import { SelectPill } from "../components/SelectPill";
+import { type LabelledImport, labelImports } from "../imports/labels";
+import { usePastImports } from "../imports/usePastImports";
+import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
 import { wordCount } from "../words/counts";
+import { groupByDay } from "../words/groupByDay";
 import { groupByLetter } from "../words/groupByLetter";
 import { progressLabel } from "../words/labels";
-import { type ListQuery, listParams, parseListQuery, TABS, wordsUrl } from "../words/listQuery";
+import {
+  type ListQuery,
+  type ListView,
+  listParams,
+  listRequest,
+  parseListQuery,
+  TABS,
+  viewFromValue,
+  viewValue,
+  wordsUrl,
+} from "../words/listQuery";
 import styles from "./MyWordsScreen.module.css";
 
 /** Typing waits this long before searching. */
@@ -26,46 +40,69 @@ const STREAK_DOTS = Array.from({ length: LEARNED_STREAK }, (_, index) => index +
 
 type Loaded = { query: ListQuery; data: WordListResponse };
 
-/** The learner's words by status, with search (§10 My words). */
+/** The learner's words by status, with search and the view menu (§10 My words). */
 export function MyWordsScreen() {
+  const toast = useToast();
   const [params, setParams] = useSearchParams();
   const query = parseListQuery(params);
-  const { status, q } = query;
+  const { status, q, view } = query;
+  // A string, so effects and callbacks don't run again for an equal view.
+  const viewKey = viewValue(view);
 
   const [text, setText] = useState(q);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const latestRequest = useRef(0);
+  const { state: past } = usePastImports();
+  const imports = past.kind === "ready" ? labelImports(past.imports) : null;
 
-  // The search goes into the URL, so Back from a word returns to the same results. `replace`:
-  // tabs and searches are not steps the Back button should walk through.
-  const search = useCallback(
-    (value: string) => setParams(listParams({ status, q: value }), { replace: true }),
-    [status, setParams],
+  // The search and the view go into the URL, so Back from a word returns to the same list.
+  // `replace`: tabs, searches and views are not steps the Back button should walk through.
+  const show = useCallback(
+    (change: Partial<ListQuery>) =>
+      setParams(listParams({ status, q, view: viewFromValue(viewKey), ...change }), {
+        replace: true,
+      }),
+    [status, q, viewKey, setParams],
   );
 
   useEffect(() => {
     if (text.trim() === q) return;
-    const timer = setTimeout(() => search(text), SEARCH_DELAY_MS);
+    const timer = setTimeout(() => show({ q: text }), SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [text, q, search]);
+  }, [text, q, show]);
 
   // Only the latest request may show its answer: typing can overtake a slow one.
   const load = useCallback(() => {
     const request = ++latestRequest.current;
+    const asked: ListQuery = { status, q, view: viewFromValue(viewKey) };
     setError(null);
-    api.listWords({ status, q }).then(
-      (data) => request === latestRequest.current && setLoaded({ query: { status, q }, data }),
+    api.listWords(listRequest(asked)).then(
+      (data) => request === latestRequest.current && setLoaded({ query: asked, data }),
       (failure) => request === latestRequest.current && setError(errorMessage(failure)),
     );
-  }, [status, q]);
+  }, [status, q, viewKey]);
 
   useEffect(load, [load]);
 
-  // While another search loads, the previous results of the same tab stay on screen.
-  const shown = loaded?.query.status === status ? loaded : null;
+  // Without the imports the list still loads as asked; the menu offers only the All words views.
+  const importsError = past.kind === "error" ? past.message : null;
+  useEffect(() => {
+    if (importsError) toast.show(importsError);
+  }, [importsError, toast]);
+
+  // An import that is no longer in the menu (its words were all deleted) falls back to A–Z.
+  const importGone =
+    view.kind === "import" && imports !== null && !imports.some((i) => i.id === view.importId);
+  useEffect(() => {
+    if (importGone) show({ view: { kind: "az" } });
+  }, [importGone, show]);
+
+  // While another search loads, the previous results of the same tab and view stay on screen.
+  const shown =
+    loaded?.query.status === status && viewValue(loaded.query.view) === viewKey ? loaded : null;
   const here = wordsUrl(query);
-  // How many words there are in all; a search's counts are only its matches.
+  // How many words there are in all (in the chosen import); a search's counts are only its matches.
   const total = loaded && !loaded.query.q ? wordCount(loaded.data.counts) : null;
 
   return (
@@ -79,7 +116,7 @@ export function MyWordsScreen() {
         onSubmit={(event) => {
           event.preventDefault();
           // Enter searches at once and closes the keyboard.
-          search(text);
+          show({ q: text });
           (document.activeElement as HTMLElement | null)?.blur();
         }}
       >
@@ -98,11 +135,13 @@ export function MyWordsScreen() {
         />
       </form>
 
+      <ViewMenu view={view} imports={imports} onChange={(next) => show({ view: next })} />
+
       <nav className={styles.tabs} aria-label="Word status">
         {TABS.map((tab) => (
           <Link
             key={tab.status}
-            to={wordsUrl({ status: tab.status, q })}
+            to={wordsUrl({ status: tab.status, q, view })}
             replace
             className={`${styles.tab} ${tab.status === status ? styles.activeTab : ""}`}
             aria-current={tab.status === status ? "page" : undefined}
@@ -134,21 +173,72 @@ export function MyWordsScreen() {
         ) : (
           <div className={styles.results} aria-busy={shown.query.q !== q}>
             {shown.query.q ? (
-              // While searching: one flat list, without letter headings.
+              // While searching: one flat list, without headings, in either order.
               <WordList words={shown.data.words} from={here} />
             ) : (
-              groupByLetter(shown.data.words).map((group) => (
-                // Keyed by its first word: a letter can come back later in the server's order.
-                <section key={group.words[0]?.userWordId}>
-                  <h2 className={styles.letter}>{group.letter}</h2>
-                  <WordList words={group.words} from={here} />
-                </section>
-              ))
+              <Sections words={shown.data.words} view={shown.query.view} from={here} />
             )}
           </div>
         ))}
     </Page>
   );
+}
+
+const VIEW_TEXT = { az: "All words · A–Z", newest: "All words · Newest first" };
+
+/**
+ * All words · A–Z, All words · Newest first, then the past imports under "Imports" (§10). Until the
+ * imports are in (or when they fail to load), an import in the URL shows as "One import".
+ */
+function ViewMenu({
+  view,
+  imports,
+  onChange,
+}: {
+  view: ListView;
+  imports: LabelledImport[] | null;
+  onChange: (view: ListView) => void;
+}) {
+  const chosen =
+    view.kind === "import" ? imports?.find((item) => item.id === view.importId) : undefined;
+  const text = view.kind === "import" ? (chosen?.label ?? "One import") : VIEW_TEXT[view.kind];
+  return (
+    <SelectPill
+      className={styles.view}
+      label="Words to show"
+      text={text}
+      value={viewValue(view)}
+      onChange={(value) => onChange(viewFromValue(value))}
+    >
+      <option value="az">{VIEW_TEXT.az}</option>
+      <option value="newest">{VIEW_TEXT.newest}</option>
+      {imports && imports.length > 0 && (
+        <optgroup label="Imports">
+          {imports.map((item) => (
+            <option key={item.id} value={viewValue({ kind: "import", importId: item.id })}>
+              {item.label}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {view.kind === "import" && !chosen && <option value={viewValue(view)}>{text}</option>}
+    </SelectPill>
+  );
+}
+
+/** Newest first under day headings; A–Z (all words or one import's) under letter headings. */
+function Sections({ words, view, from }: { words: WordListItem[]; view: ListView; from: string }) {
+  const groups =
+    view.kind === "newest"
+      ? groupByDay(words)
+      : groupByLetter(words).map((group) => ({ heading: group.letter, words: group.words }));
+  return groups.map((group) => (
+    // Keyed by its first word: a heading can come back later in the server's order.
+    <section key={group.words[0]?.userWordId}>
+      <h2 className={styles.letter}>{group.heading}</h2>
+      <WordList words={group.words} from={from} />
+    </section>
+  ));
 }
 
 function WordList({ words, from }: { words: WordListItem[]; from: string }) {
@@ -211,39 +301,51 @@ const EMPTY: Record<ListQuery["status"], { title: string; text: string }> = {
 };
 
 function EmptyList({ query, counts }: { query: ListQuery; counts: WordListResponse["counts"] }) {
-  if (!query.q) {
+  const tab = TABS.find((t) => t.status === query.status)?.label.toLowerCase();
+  // A search, or one import, may have words in the other tabs.
+  const elsewhere = TABS.filter((t) => t.status !== query.status && counts[t.status] > 0).map(
+    (t) => (
+      <Link
+        key={t.status}
+        to={wordsUrl({ status: t.status, q: query.q, view: query.view })}
+        replace
+        className={`${ui.button} ${ui.quiet}`}
+      >
+        {counts[t.status]} in {t.label} ›
+      </Link>
+    ),
+  );
+
+  if (query.q) {
     return (
       <div className={styles.empty}>
         <EmptyIcon />
-        <p className={styles.emptyTitle}>{EMPTY[query.status].title}</p>
-        <p>{EMPTY[query.status].text}</p>
-        {query.status === "learning" && (
-          <Link to="/imports/new" className={`${ui.button} ${ui.secondary}`}>
-            New import
-          </Link>
-        )}
+        <p className={styles.emptyTitle}>
+          No {tab} words match “{query.q}”.
+        </p>
+        {elsewhere}
       </div>
     );
   }
-  // The search may have found words in the other tabs.
-  const elsewhere = TABS.filter((tab) => tab.status !== query.status && counts[tab.status] > 0);
+  if (query.view.kind === "import") {
+    return (
+      <div className={styles.empty}>
+        <EmptyIcon />
+        <p className={styles.emptyTitle}>No {tab} words from this import.</p>
+        {elsewhere}
+      </div>
+    );
+  }
   return (
     <div className={styles.empty}>
       <EmptyIcon />
-      <p className={styles.emptyTitle}>
-        No {TABS.find((tab) => tab.status === query.status)?.label.toLowerCase()} words match “
-        {query.q}”.
-      </p>
-      {elsewhere.map((tab) => (
-        <Link
-          key={tab.status}
-          to={wordsUrl({ status: tab.status, q: query.q })}
-          replace
-          className={`${ui.button} ${ui.quiet}`}
-        >
-          {counts[tab.status]} in {tab.label} ›
+      <p className={styles.emptyTitle}>{EMPTY[query.status].title}</p>
+      <p>{EMPTY[query.status].text}</p>
+      {query.status === "learning" && (
+        <Link to="/imports/new" className={`${ui.button} ${ui.secondary}`}>
+          New import
         </Link>
-      ))}
+      )}
     </div>
   );
 }

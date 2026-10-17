@@ -97,6 +97,37 @@
   flex: none;
 }
 
+/* "Name this import": the label, then the field with the Save pill beside it. */
+.naming {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 18px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Once saved: one line with a check. */
+.named {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  font-size: 15px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.namedIcon {
+  flex: none;
+  color: var(--accent-ink);
+}
+
 .actions {
   display: flex;
   flex-direction: column;

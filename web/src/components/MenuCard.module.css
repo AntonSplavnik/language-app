@@ -1,0 +1,67 @@
+/* A card of rows that open screens (§10 Settings, an import's page). See
+   docs/design-system/components/MenuCard.md. */
+
+.menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu li + li {
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 14px 8px 18px;
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The first and last rows follow the card's corners (its radius less the 1 px border), so the
+   pressed ground and the focus ring stay inside it. */
+.menu li:first-child .row {
+  border-top-left-radius: calc(var(--radius-card) - 1px);
+  border-top-right-radius: calc(var(--radius-card) - 1px);
+}
+
+.menu li:last-child .row {
+  border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  border-bottom-right-radius: calc(var(--radius-card) - 1px);
+}
+
+.row:active {
+  background: var(--surface-muted);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+}
+
+/* title-card */
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* body, muted */
+.status {
+  flex: none;
+  font-size: 15px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chevron {
+  flex: none;
+  color: var(--muted);
+}

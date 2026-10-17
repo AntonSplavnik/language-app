@@ -1,4 +1,4 @@
-import type { SessionSource } from "@language-app/core";
+import type { CreateSessionRequest } from "@language-app/core";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../api";
@@ -10,10 +10,11 @@ export function useStartSession() {
   const toast = useToast();
   const [starting, setStarting] = useState(false);
 
-  const start = async (source: SessionSource) => {
+  /** A source, with the import to practise for `import`. */
+  const start = async (choice: CreateSessionRequest) => {
     setStarting(true);
     try {
-      const session = await api.createSession({ source });
+      const session = await api.createSession(choice);
       navigate(`/practice/${session.id}`, { state: session });
     } catch (error) {
       toast.show(errorMessage(error));

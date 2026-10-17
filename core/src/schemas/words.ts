@@ -48,12 +48,20 @@ export type EnrichPendingResponse = z.infer<typeof EnrichPendingResponse>;
 export const CUSTOM_TRANSLATION_MAX = 200;
 export const NOTE_MAX = 2000;
 
-/** `GET /api/words?status=&q=` (§9). */
+/** The order of the word list: by lemma ignoring case (A–Z), or the most recently added first. */
+export const WordSort = z.enum(["az", "newest"]);
+export type WordSort = z.infer<typeof WordSort>;
+
+/** `GET /api/words?status=&q=&importId=&sort=` (§9.1). */
 export const WordListQuery = z.object({
   /** Absent: every status. */
   status: WordStatus.optional(),
   /** Case-insensitive substring of the German lemma, the stored or the custom translation. */
   q: z.string().max(100).optional(),
+  /** Only the words this import created; an id that isn't one of the learner's matches nothing. */
+  importId: z.coerce.number().int().positive().optional(),
+  /** `az` when absent. */
+  sort: WordSort.optional(),
 });
 export type WordListQuery = z.infer<typeof WordListQuery>;
 
@@ -62,13 +70,21 @@ export const WordListItem = WordView.extend({
   status: WordStatus,
   timesSeen: z.number().int().nonnegative(),
   correctStreak: z.number().int().nonnegative(),
+  /** When the word was added to the learner's list (My words' day headings). */
+  addedAt: z.iso.datetime(),
 });
 export type WordListItem = z.infer<typeof WordListItem>;
 
 export const WordListResponse = z.object({
-  /** Alphabetical by lemma, ignoring case. */
+  /**
+   * `az`: by lemma, ignoring case. `newest`: the most recently added first, then the newest row
+   * first.
+   */
   words: z.array(WordListItem),
-  /** Words per status that match `q` (all of them without `q`), whatever `status` asked for. */
+  /**
+   * Words per status that match `q` and `importId` (all of them without either), whatever
+   * `status` asked for.
+   */
   counts: z.record(WordStatus, z.number().int().nonnegative()),
 });
 export type WordListResponse = z.infer<typeof WordListResponse>;

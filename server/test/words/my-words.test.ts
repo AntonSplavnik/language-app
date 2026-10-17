@@ -16,6 +16,7 @@ import type { MessageRequest } from "../../src/ai/transport";
 import { dbUsageSink } from "../../src/ai/usage";
 import {
   cardResults,
+  imports,
   sessions,
   users,
   userWords,
@@ -49,6 +50,8 @@ type Seed = {
   timesSeen?: number;
   timesCorrect?: number;
   correctStreak?: number;
+  importId?: number | null;
+  addedAt?: Date;
 };
 
 /** A shared word with an English translation and a user_words row. Returns the user_words id. */
@@ -65,6 +68,8 @@ async function seedWord(
     timesSeen = 0,
     timesCorrect = 0,
     correctStreak = 0,
+    importId = null,
+    addedAt,
   }: Seed = {},
 ) {
   const word = first(
@@ -86,8 +91,19 @@ async function seedWord(
         timesSeen,
         timesCorrect,
         correctStreak,
+        importId,
+        addedAt,
       })
       .returning({ id: userWords.id }),
+  ).id;
+}
+
+async function seedImport(userId = SINGLE_USER_ID) {
+  return first(
+    await db
+      .insert(imports)
+      .values({ userId, status: "done", photoCount: 1, completedAt: new Date() })
+      .returning({ id: imports.id }),
   ).id;
 }
 
@@ -199,6 +215,116 @@ describe("GET /api/words (§9)", () => {
 
   it("rejects an unknown status", async () => {
     const res = await app().inject({ method: "GET", url: "/api/words?status=forgotten" });
+    expect(res.statusCode).toBe(400);
+    expect(errorCode(res)).toBe("invalid_request");
+  });
+
+  it("gives each word the time it was added", async () => {
+    const addedAt = new Date("2026-10-13T12:50:30.720Z");
+    await seedWord("Tisch", { addedAt });
+    expect((await list()).words[0]?.addedAt).toBe("2026-10-13T12:50:30.720Z");
+  });
+});
+
+describe("GET /api/words?importId= (§9.1)", () => {
+  it("keeps only the words the import created, in any status, and counts only those", async () => {
+    const lesson = await seedImport();
+    const other = await seedImport();
+    await seedWord("Tisch", { importId: lesson });
+    await seedWord("Stuhl", { importId: lesson, status: "learned" });
+    await seedWord("Bett", { importId: lesson, status: "ignored" });
+    await seedWord("Zug", { importId: other });
+    await seedWord("Bahn");
+
+    const all = await list(`?importId=${lesson}`);
+    expect(lemmas(all)).toEqual(["Bett", "Stuhl", "Tisch"]);
+    expect(all.counts).toEqual({ learning: 1, learned: 1, ignored: 1 });
+
+    const ignored = await list(`?status=ignored&importId=${lesson}`);
+    expect(lemmas(ignored)).toEqual(["Bett"]);
+    expect(ignored.counts).toEqual({ learning: 1, learned: 1, ignored: 1 });
+  });
+
+  it("combines with the search: the counts are the import's matches per status", async () => {
+    const lesson = await seedImport();
+    await seedWord("Tisch", { importId: lesson, translation: "table" });
+    await seedWord("Nachttisch", {
+      importId: lesson,
+      translation: "bedside table",
+      status: "ignored",
+    });
+    await seedWord("Stuhl", { importId: lesson, translation: "chair" });
+    await seedWord("Schreibtisch", { translation: "desk" });
+
+    const body = await list(`?status=learning&q=tisch&importId=${lesson}`);
+    expect(lemmas(body)).toEqual(["Tisch"]);
+    expect(body.counts).toEqual({ learning: 1, learned: 0, ignored: 1 });
+  });
+
+  it("an import that isn't the learner's matches nothing", async () => {
+    const other = await otherLearner();
+    const theirs = await seedImport(other);
+    await seedWord("Tisch", { importId: theirs, userId: other });
+    await seedWord("Stuhl");
+
+    for (const importId of [theirs, 999]) {
+      const body = await list(`?importId=${importId}`);
+      expect(body.words).toEqual([]);
+      expect(body.counts).toEqual({ learning: 0, learned: 0, ignored: 0 });
+    }
+  });
+
+  it("rejects a malformed import id", async () => {
+    for (const url of ["/api/words?importId=abc", "/api/words?importId=0"]) {
+      const res = await app().inject({ method: "GET", url });
+      expect(res.statusCode).toBe(400);
+      expect(errorCode(res)).toBe("invalid_request");
+    }
+  });
+});
+
+describe("GET /api/words?sort= (§9.1)", () => {
+  const at = (day: number, hour = 12) => new Date(Date.UTC(2026, 9, day, hour));
+
+  it("newest: the most recently added first, then the newest row first", async () => {
+    await seedWord("Apfel", { addedAt: at(11) });
+    await seedWord("Zug", { addedAt: at(13, 9) });
+    await seedWord("Bahn", { addedAt: at(13, 9) });
+    await seedWord("Tisch", { addedAt: at(13, 18) });
+    await seedWord("Mond", { addedAt: at(12), status: "learned" });
+
+    expect(lemmas(await list("?sort=newest"))).toEqual(["Tisch", "Bahn", "Zug", "Mond", "Apfel"]);
+    expect(lemmas(await list("?sort=newest&status=learning"))).toEqual([
+      "Tisch",
+      "Bahn",
+      "Zug",
+      "Apfel",
+    ]);
+  });
+
+  it("A–Z is the default and can be asked for", async () => {
+    await seedWord("Zug", { addedAt: at(13) });
+    await seedWord("apfel", { addedAt: at(11) });
+    await seedWord("Bahn", { addedAt: at(12) });
+    expect(lemmas(await list())).toEqual(["apfel", "Bahn", "Zug"]);
+    expect(lemmas(await list("?sort=az"))).toEqual(["apfel", "Bahn", "Zug"]);
+  });
+
+  it("combines with the search and the import", async () => {
+    const lesson = await seedImport();
+    await seedWord("Tisch", { importId: lesson, addedAt: at(11) });
+    await seedWord("Schreibtisch", { importId: lesson, addedAt: at(12) });
+    await seedWord("Nachttisch", { addedAt: at(13) });
+    await seedWord("Stuhl", { importId: lesson, addedAt: at(14) });
+
+    expect(lemmas(await list(`?sort=newest&q=tisch&importId=${lesson}`))).toEqual([
+      "Schreibtisch",
+      "Tisch",
+    ]);
+  });
+
+  it("rejects an unknown sort", async () => {
+    const res = await app().inject({ method: "GET", url: "/api/words?sort=oldest" });
     expect(res.statusCode).toBe(400);
     expect(errorCode(res)).toBe("invalid_request");
   });

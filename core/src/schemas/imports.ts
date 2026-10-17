@@ -18,9 +18,12 @@ export const Candidate = z.object({
 });
 export type Candidate = z.infer<typeof Candidate>;
 
+/** Longest import name, e.g. "Lesson 4" (§5), counted after trimming. */
+export const IMPORT_NAME_MAX = 100;
+
 /** `POST /api/imports` */
 export const CreateImportRequest = z.object({
-  name: z.string().trim().max(100).optional(),
+  name: z.string().trim().max(IMPORT_NAME_MAX).optional(),
 });
 export type CreateImportRequest = z.infer<typeof CreateImportRequest>;
 
@@ -69,3 +72,32 @@ export const SaveResponse = z.object({
   detailsPending: z.number().int().nonnegative(),
 });
 export type SaveResponse = z.infer<typeof SaveResponse>;
+
+/**
+ * A past import (§9.2): `done`, with at least one `learning` or `learned` word. Imports that added
+ * nothing to learn are never listed.
+ */
+export const ImportSummary = z.object({
+  id: z.number().int(),
+  name: z.string().nullable(),
+  completedAt: z.iso.datetime(),
+  /** Its `learning` + `learned` words: what a session from it can draw on (at least 1). */
+  wordCount: z.number().int().positive(),
+});
+export type ImportSummary = z.infer<typeof ImportSummary>;
+
+/** `GET /api/imports`: the past imports, newest first (`completedAt`, then id). */
+export const ImportListResponse = z.object({ imports: z.array(ImportSummary) });
+export type ImportListResponse = z.infer<typeof ImportListResponse>;
+
+/** `PATCH /api/imports/:id`. Trimmed; an empty or blank name, or null, clears it. */
+export const RenameImportRequest = z.object({
+  name: z.string().trim().max(IMPORT_NAME_MAX).nullable(),
+});
+export type RenameImportRequest = z.infer<typeof RenameImportRequest>;
+
+export const RenameImportResponse = z.object({
+  id: z.number().int(),
+  name: z.string().nullable(),
+});
+export type RenameImportResponse = z.infer<typeof RenameImportResponse>;

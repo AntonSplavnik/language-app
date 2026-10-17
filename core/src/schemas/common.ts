@@ -45,7 +45,8 @@ export type FormsSource = z.infer<typeof FormsSource>;
 export const ImportStatus = z.enum(["collecting", "reviewing", "done"]);
 export type ImportStatus = z.infer<typeof ImportStatus>;
 
-export const SessionSource = z.enum(["last_import", "last_7_days", "not_learned"]);
+/** Where a practice session takes its words from (§8.1); `import` is one past import (§9.2). */
+export const SessionSource = z.enum(["import", "last_7_days", "not_learned"]);
 export type SessionSource = z.infer<typeof SessionSource>;
 
 export const Auxiliary = z.enum(["haben", "sein"]);

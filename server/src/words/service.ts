@@ -6,7 +6,7 @@ import type {
   WordListResponse,
   WordStatus,
 } from "@language-app/core";
-import { and, asc, count, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { userWords, words, wordTranslations } from "../db/schema";
 import { HttpError } from "../http/errors";
@@ -29,22 +29,36 @@ function searchFilter(q: string | undefined): SQL | undefined {
   );
 }
 
+/**
+ * The learner's words (§9.1): one status or all, searched, from one import or all, A–Z or newest
+ * first. The counts per status cover the same search and import, whatever status was asked for.
+ */
 export async function listWords(
   db: Db,
   userId: number,
-  { status, q }: WordListQuery,
+  { status, q, importId, sort = "az" }: WordListQuery,
 ): Promise<WordListResponse> {
   const language = await learnerLanguageOf(db, userId);
-  const mine = eq(userWords.userId, userId);
+  // The words the import created; an import of another learner's has none of this learner's.
+  const mine = and(
+    eq(userWords.userId, userId),
+    importId === undefined ? undefined : eq(userWords.importId, importId),
+  );
   const search = searchFilter(q);
+  const order =
+    sort === "newest"
+      ? [desc(userWords.addedAt), desc(userWords.id)]
+      : [sql`lower(${words.lemma})`, asc(words.lemma), asc(userWords.id)];
 
-  const list = await wordViewQuery(db, language, {
+  const rows = await wordViewQuery(db, language, {
     status: userWords.status,
     timesSeen: userWords.timesSeen,
     correctStreak: userWords.correctStreak,
+    addedAt: userWords.addedAt,
   })
     .where(and(mine, search, status ? eq(userWords.status, status) : undefined))
-    .orderBy(sql`lower(${words.lemma})`, asc(words.lemma), asc(userWords.id));
+    .orderBy(...order);
+  const list = rows.map((row) => ({ ...row, addedAt: row.addedAt.toISOString() }));
 
   // The same search in every tab, so a word the learner looks for in the wrong tab is still found.
   const perStatus = await db

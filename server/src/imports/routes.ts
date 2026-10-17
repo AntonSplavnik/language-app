@@ -1,8 +1,14 @@
-import { CreateImportRequest, SaveRequest } from "@language-app/core";
+import {
+  CreateImportRequest,
+  type ImportListResponse,
+  RenameImportRequest,
+  SaveRequest,
+} from "@language-app/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { HttpError } from "../http/errors";
 import { SINGLE_USER_ID } from "../user";
+import { listPastImports, renameImport } from "./past";
 import {
   addPhoto,
   createImport,
@@ -21,6 +27,11 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
   const { db } = deps;
   const userId = SINGLE_USER_ID;
 
+  app.get(
+    "/api/imports",
+    async (): Promise<ImportListResponse> => ({ imports: await listPastImports(db, userId) }),
+  );
+
   app.post("/api/imports", async (request, reply) => {
     const { name } = CreateImportRequest.parse(request.body ?? {});
     reply.code(201);
@@ -30,6 +41,12 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
   app.get("/api/imports/:id", async (request) => {
     const { id } = Params.parse(request.params);
     return getImport(db, userId, id);
+  });
+
+  app.patch("/api/imports/:id", async (request) => {
+    const { id } = Params.parse(request.params);
+    const { name } = RenameImportRequest.parse(request.body);
+    return renameImport(db, userId, id, name);
   });
 
   app.post("/api/imports/:id/photos", async (request) => {

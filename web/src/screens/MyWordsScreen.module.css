@@ -120,6 +120,7 @@
   opacity: 0.6;
 }
 
+/* A letter section's heading, or with Newest first a day's ("Today", "Yesterday", "13 Oct"). */
 .letter {
   margin: 0;
   padding: 14px 4px 6px;
@@ -127,6 +128,11 @@
   font-size: 15px;
   font-weight: 700;
   color: var(--muted);
+}
+
+/* The view menu (SelectPill) under the search, at its natural width. */
+.view {
+  align-self: flex-start;
 }
 
 /* No box: rows sit on the page, with a hairline under each. */

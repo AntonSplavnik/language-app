@@ -1,0 +1,70 @@
+/* A native select shown as a pill (SelectPill): the chosen text, a chevron, and the select itself
+   invisible on top, so a tap opens the phone's own picker. */
+
+.pill {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pill:active {
+  background: var(--surface-muted);
+}
+
+/* On a card (Practice setup's Import card): a raised pill, no border. */
+.onCard {
+  height: 36px;
+  padding: 0 10px 0 14px;
+  border: 0;
+  background: var(--surface-raised);
+}
+
+.onCard:active {
+  background: var(--surface-raised);
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon {
+  flex: none;
+  color: var(--muted);
+}
+
+/* Invisible but there: it takes the tap and the keyboard. 16px or more, or iOS Safari zooms the
+   page when it gets focus. */
+.select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  font-size: 16px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.pill:has(.select:focus-visible) {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}

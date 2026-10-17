@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiClientError, createApiClient } from "../src";
+import { ApiClientError, CreateSessionRequest, createApiClient } from "../src";
 
 const json = (status: number, body: unknown) => async () =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -133,6 +133,34 @@ describe("import endpoints", () => {
     expect(save.calls[0]?.url).toBe("/api/imports/3/save");
     expect(JSON.parse(String(save.calls[0]?.init?.body))).toEqual({ decisions });
   });
+
+  it("listImports reads the past imports", async () => {
+    const past = {
+      imports: [{ id: 5, name: null, completedAt: "2026-10-13T12:50:30.720Z", wordCount: 9 }],
+    };
+    const { calls, api } = recording(past);
+    expect(await api.listImports()).toEqual(past);
+    expect(`${calls[0]?.init?.method ?? "GET"} ${calls[0]?.url}`).toBe("GET /api/imports");
+  });
+
+  it("listImports rejects an import without its word count", async () => {
+    const { api } = recording({
+      imports: [{ id: 5, name: null, completedAt: "2026-10-13T12:50:30.720Z" }],
+    });
+    await expect(api.listImports()).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("renameImport patches the name, or null to clear it", async () => {
+    const { calls, api } = recording({ id: 3, name: "Lesson 4" });
+    expect(await api.renameImport(3, "Lesson 4")).toEqual({ id: 3, name: "Lesson 4" });
+    await api.renameImport(3, null);
+    expect(calls.map((c) => `${c.init?.method} ${c.url}`)).toEqual([
+      "PATCH /api/imports/3",
+      "PATCH /api/imports/3",
+    ]);
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ name: "Lesson 4" });
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ name: null });
+  });
 });
 
 describe("session endpoints", () => {
@@ -172,6 +200,34 @@ describe("session endpoints", () => {
     expect(calls[1]?.body).toEqual({ source: "not_learned" });
     expect(calls[2]?.body).toEqual(result);
   });
+
+  it("createSession sends the import to practise", async () => {
+    let body: unknown;
+    const api = createApiClient({
+      fetch: async (_input, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ id: 9, source: "import", cards: [] }));
+      },
+    });
+    expect(await api.createSession({ source: "import", importId: 5 })).toEqual({
+      id: 9,
+      source: "import",
+      cards: [],
+    });
+    expect(body).toEqual({ source: "import", importId: 5 });
+  });
+});
+
+describe("CreateSessionRequest (§9)", () => {
+  it("needs an importId for import, and allows none for the other sources", () => {
+    expect(CreateSessionRequest.safeParse({ source: "import", importId: 5 }).success).toBe(true);
+    expect(CreateSessionRequest.safeParse({ source: "not_learned" }).success).toBe(true);
+    expect(CreateSessionRequest.safeParse({ source: "import" }).success).toBe(false);
+    expect(CreateSessionRequest.safeParse({ source: "last_7_days", importId: 5 }).success).toBe(
+      false,
+    );
+    expect(CreateSessionRequest.safeParse({ source: "last_import" }).success).toBe(false);
+  });
 });
 
 describe("word endpoints", () => {
@@ -206,7 +262,15 @@ describe("word endpoints", () => {
     addedAt: "2026-10-10T09:00:00.000Z",
   };
   const listed = {
-    words: [{ ...tisch, status: "learning", timesSeen: 2, correctStreak: 1 }],
+    words: [
+      {
+        ...tisch,
+        status: "learning",
+        timesSeen: 2,
+        correctStreak: 1,
+        addedAt: "2026-10-10T09:00:00.000Z",
+      },
+    ],
     counts: { learning: 1, learned: 0, ignored: 0 },
   };
 
@@ -236,6 +300,16 @@ describe("word endpoints", () => {
       "/api/words?status=learned&q=der%20Tisch%20%26%20co",
       "/api/words?status=ignored",
       "/api/words",
+    ]);
+  });
+
+  it("listWords sends the import and the order", async () => {
+    const { calls, api } = recording();
+    await api.listWords({ status: "learning", importId: 5 });
+    await api.listWords({ sort: "newest", q: "tisch" });
+    expect(calls.map((c) => c.url)).toEqual([
+      "/api/words?status=learning&importId=5",
+      "/api/words?sort=newest&q=tisch",
     ]);
   });
 

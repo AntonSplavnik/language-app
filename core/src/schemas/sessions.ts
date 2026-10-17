@@ -9,7 +9,10 @@ export type PracticeCard = z.infer<typeof PracticeCard>;
 /** Most cards in one session (§8.1). */
 export const SESSION_SIZE = 20;
 
-/** `GET /api/sessions/options`: how many words each source has, in display order (§8.1). */
+/**
+ * `GET /api/sessions/options`: how many words each source has, in display order (§8.1). The count
+ * of `import` is the most recent past import's (§9.2); 0 when there is none.
+ */
 export const SessionOptionsResponse = z.object({
   options: z.array(
     z.object({
@@ -21,8 +24,16 @@ export const SessionOptionsResponse = z.object({
 });
 export type SessionOptionsResponse = z.infer<typeof SessionOptionsResponse>;
 
-/** `POST /api/sessions` */
-export const CreateSessionRequest = z.object({ source: SessionSource });
+/** `POST /api/sessions`: `importId`, the import to practise, goes with source `import` only. */
+export const CreateSessionRequest = z
+  .object({
+    source: SessionSource,
+    importId: z.number().int().positive().optional(),
+  })
+  .refine((body) => (body.source === "import") === (body.importId !== undefined), {
+    message: "Send importId with the import source, and only with it",
+    path: ["importId"],
+  });
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequest>;
 
 export const SessionResponse = z.object({

@@ -1,0 +1,14 @@
+/* An import's page (§10 screen 12): the label as the large title, one muted line, the actions. */
+
+/* A long name without spaces wraps rather than widening the page. */
+.title {
+  overflow-wrap: anywhere;
+}
+
+/* body, muted; close under the title, apart from the card. */
+.facts {
+  margin: -6px 0 8px;
+  font-size: 15px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

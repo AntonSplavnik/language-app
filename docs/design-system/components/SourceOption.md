@@ -7,3 +7,4 @@ A radio choice drawn as a card (Practice setup): icon well, title over descripti
 - **Selected:** 2 px `accent-ink` border, padding minus 1 px, and the well turns `accent` with an `on-accent` icon.
 - **No words:** the whole card at 0.45, not selectable.
 - The real radio stays in the card, visually hidden; keyboard focus draws the ring around the card.
+- **With a menu** (the Import source): the title sits over a SelectPill (`onCard`) of the past imports in place of the description, the count at the right is the chosen import's, and choosing in the menu also chooses the card. A label can hold only one control, so this card is a `div` in a grid (well · title over menu · count) whose label (`display: contents`: radio, well, title, count) covers the whole card with its `::after`; the menu sits above that layer. Without past imports it is a plain faded card with a description.

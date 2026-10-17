@@ -93,6 +93,99 @@
   width: 100%;
 }
 
+/* A small pill button beside a field or in a header: Cancel and Save on Edit word and Rename
+   import, Done's Save. Goes with .pillPrimary or .pillSecondary. */
+.pill {
+  appearance: none;
+  flex: none;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* Save: lime when there is something to save. */
+.pillPrimary {
+  padding: 0 18px;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+/* Nothing to save yet: grey, like a disabled primary button. */
+.pillPrimary:disabled {
+  background: var(--surface-raised);
+  color: var(--muted);
+  cursor: default;
+}
+
+/* Cancel. */
+.pillSecondary {
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pillSecondary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* A small uppercase label over a field or a section (YOUR TRANSLATION, NAME THIS IMPORT,
+   NAME). */
+.label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* A text field on the page (Import's name). 16px or more, or iOS Safari zooms the page when the
+   field gets focus. */
+.input {
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  padding: 0 16px;
+  font-size: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -1px;
+}
+
+/* The same field sunk into a card (Edit word, Rename import, Done's name). */
+.sunk {
+  font-size: 17px;
+  border-color: var(--track);
+  background: var(--bg);
+}
+
 /* A card (§10): a surface with a hairline border, no shadow. */
 .card {
   background: var(--surface);

@@ -1,3 +1,5 @@
+import { type HistoryStep, leaveSheet } from "../lib/sheetHistory";
+
 /** What Word detail's Edit link stores in the history entry of Edit word (§10). */
 export type EditState = {
   /** The list Word detail was opened from, if any; the detail's Back goes there. */
@@ -6,16 +8,17 @@ export type EditState = {
   fromDetail?: boolean;
 };
 
-/** Go back a number of history entries, or replace Edit word's entry with another screen. */
-export type HistoryStep = { back: number } | { to: string; state?: { from: string } };
-
 /**
  * Save and Cancel return to the word's detail without adding a history entry: back to the detail
- * it was opened from, or (opened directly, e.g. a typed URL) replaced by the detail.
+ * it was opened from, or (opened directly, e.g. a typed URL) replaced by the detail, which keeps
+ * the list to go back to.
  */
 export function leaveEdit(id: number, state: EditState | null): HistoryStep {
-  if (state?.fromDetail) return { back: 1 };
-  return { to: `/words/${id}`, state: state?.from ? { from: state.from } : undefined };
+  return leaveSheet(
+    `/words/${id}`,
+    Boolean(state?.fromDetail),
+    state?.from ? { from: state.from } : undefined,
+  );
 }
 
 /**

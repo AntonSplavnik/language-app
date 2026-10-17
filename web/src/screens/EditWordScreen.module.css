@@ -1,52 +1,7 @@
 /* Edit word (§10): an iOS-style sheet with pill buttons in the header, each field on a card, and
    Delete word at the bottom. */
 
-.cancel,
-.save {
-  appearance: none;
-  height: 40px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.cancel {
-  padding: 0 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 600;
-}
-
-.save {
-  padding: 0 18px;
-  border: 0;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 700;
-}
-
-.cancel:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-/* Nothing to save yet: grey, like a disabled primary button. */
-.save:disabled {
-  background: var(--surface-raised);
-  color: var(--muted);
-  cursor: default;
-}
-
-.cancel:focus-visible,
-.save:focus-visible {
-  outline: 2px solid var(--accent-ink);
-  outline-offset: 2px;
-}
+/* Cancel and Save are ui.pill; the labels and fields ui.label, ui.input and ui.sunk. */
 
 /* The headword in the sheet's title, its article in the gender colour. */
 .title {
@@ -68,37 +23,14 @@
   padding: 18px 18px 16px;
 }
 
-.label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-/* Sunk into the card. 16px or more, or iOS Safari zooms the page when the field gets focus. */
-.input {
-  width: 100%;
-  height: 52px;
-  padding: 0 16px;
-  font-size: 17px;
-  border-radius: 16px;
-  border: 1px solid var(--track);
-  background: var(--bg);
-  color: var(--text);
-}
-
-.textarea {
+/* Two classes, so it wins over ui.input's height and padding whatever order the stylesheets load
+   in. */
+.field .textarea {
   height: auto;
   min-height: 120px;
   padding: 14px 16px;
   line-height: 1.45;
   resize: vertical;
-}
-
-.input:focus {
-  outline: 2px solid var(--accent-ink);
-  outline-offset: -1px;
 }
 
 .help {

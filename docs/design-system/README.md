@@ -41,6 +41,7 @@ A visual version with live previews of every component in both themes is the **G
 
 ### Navigation
 
+- [MenuCard](components/MenuCard.md): A card of rows that each open a screen: the name, a short grey status and a chevron (Settings' sections, an import's actions).
 - [PageHeader](components/PageHeader.md): The top of every screen, from `Page` (`web/src/components/Page.tsx`): sticky, `bg` at 88% with a 12 px blur, min 60 px, gutter 20.
 - [SegmentedTabs](components/SegmentedTabs.md): My words' status tabs: Learning, Learned, Ignored, each with its count.
 
@@ -48,6 +49,7 @@ A visual version with live previews of every component in both themes is the **G
 
 - [SearchField](components/SearchField.md): The search on My words: 48 px, `radius-field`, `surface` + `border`, a 18 px search icon inside at the left in `muted`, 16 px text.
 - [SourceOption](components/SourceOption.md): A radio choice drawn as a card (Practice setup): icon well, title over description, and the count at the right.
+- [SelectPill](components/SelectPill.md): A native select drawn as a pill with the chosen text and a chevron, the select invisible on top (My words' view menu, Practice setup's Import menu).
 - [StatusSelect](components/StatusSelect.md): The word's status on Word detail: a native `<select>` (Learning / Learned / Ignored) styled as a pill, so the phone's own picker opens.
 - [TextField](components/TextField.md): Text inputs, in two settings:
 
@@ -77,7 +79,7 @@ A visual version with live previews of every component in both themes is the **G
 
 German Words is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.card`, `ui.round`, `ui.spinner`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `Headword`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `Headword`, `MenuCard`, `SelectPill`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 
@@ -129,7 +131,7 @@ Use the named styles (`display-hero` … `badge`) and nothing between them. Inpu
 
 ## Iconography
 
-Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stroke="currentColor"`, round caps and joins, stroke 2 (1.8 for the book, camera, calendar and target; 1.9 for the trash), drawn at 20 px by default (16 px inside small text, 22 px in answer buttons, 24–32 px in big wells). They inherit the text colour of their control and are always `aria-hidden`: the button around them carries the `aria-label`. The only filled icon is Play. Add a new icon to `icons.tsx` in the same style rather than importing an icon set. The SVG files in the Icons asset group are copies for reference, drawn in a fixed grey ink (`#85848f`); in the app they take the text colour.
+Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stroke="currentColor"`, round caps and joins, stroke 2 (1.8 for the book, camera, calendar, target and gear; 1.9 for the trash), drawn at 20 px by default (16 px inside small text, 22 px in answer buttons, 24–32 px in big wells). They inherit the text colour of their control and are always `aria-hidden`: the button around them carries the `aria-label`. The only filled icon is Play. Add a new icon to `icons.tsx` in the same style rather than importing an icon set. The SVG files in the Icons asset group are copies for reference, drawn in a fixed grey ink (`#85848f`); in the app they take the text colour.
 
 ## Accessibility rules
 

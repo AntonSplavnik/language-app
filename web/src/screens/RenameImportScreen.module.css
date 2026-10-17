@@ -1,0 +1,22 @@
+/* Rename import (§10 screen 13): Edit word's sheet with one field card. Cancel and Save are
+   ui.pill; the label and field ui.label, ui.input and ui.sunk. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 16px;
+}
+
+/* caption */
+.help {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}

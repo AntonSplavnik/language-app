@@ -12,6 +12,7 @@ import {
   cardResults,
   imports,
   sessions,
+  users,
   userWords,
   words,
   wordTranslations,
@@ -96,16 +97,23 @@ async function options() {
   );
 }
 
-async function startSession(source: string) {
-  const res = await app().inject({ method: "POST", url: "/api/sessions", payload: { source } });
+async function startSession(source: string, importId?: unknown) {
+  const res = await app().inject({
+    method: "POST",
+    url: "/api/sessions",
+    payload: importId === undefined ? { source } : { source, importId },
+  });
   return res;
 }
 
-async function session(source: string) {
-  const res = await startSession(source);
+async function session(source: string, importId?: number) {
+  const res = await startSession(source, importId);
   expect(res.statusCode).toBe(200);
   return SessionResponse.parse(res.json());
 }
+
+const errorCode = (res: { json: () => unknown }) =>
+  (res.json() as { error: { code: string } }).error.code;
 
 const lemmas = (s: { cards: Array<{ lemma: string }> }) => s.cards.map((c) => c.lemma);
 
@@ -132,22 +140,39 @@ describe("GET /api/sessions/options (§8.1)", () => {
     await seedWord("Lampe", { importId: lesson, status: "ignored" });
     await seedWord("Alt", { addedAt: daysAgo(30) });
 
-    expect(await options()).toEqual({ last_import: 2, last_7_days: 2, not_learned: 2 });
+    expect(await options()).toEqual({ import: 2, last_7_days: 2, not_learned: 2 });
+  });
+
+  it("import counts the most recent past import: a newer import without words to learn doesn't count", async () => {
+    const older = await seedImport(daysAgo(3));
+    await seedWord("Tisch", { importId: older });
+    await seedWord("Stuhl", { importId: older });
+    const allSkipped = await seedImport(daysAgo(1));
+    await seedWord("Bett", { importId: allSkipped, status: "ignored" });
+    await seedImport(null);
+
+    expect((await options()).import).toBe(2);
+  });
+
+  it("import has no words before any import is done", async () => {
+    await seedImport(null);
+    await seedWord("Tisch");
+    expect(await options()).toEqual({ import: 0, last_7_days: 1, not_learned: 1 });
   });
 });
 
 describe("POST /api/sessions (§8.1)", () => {
-  it("last import: the words of the most recently finished import", async () => {
+  it("import: the learning and learned words of the chosen import", async () => {
     const older = await seedImport(daysAgo(3));
     const newest = await seedImport(daysAgo(1));
-    const unfinished = await seedImport(null);
     await seedWord("Alt", { importId: older });
+    await seedWord("AltGelernt", { importId: older, status: "learned" });
     await seedWord("Neu", { importId: newest });
-    await seedWord("Gelernt", { importId: newest, status: "learned" });
-    await seedWord("Ignoriert", { importId: newest, status: "ignored" });
-    await seedWord("Offen", { importId: unfinished });
+    await seedWord("Ignoriert", { importId: older, status: "ignored" });
+    await seedWord("Ohne");
 
-    expect(lemmas(await session("last_import")).sort()).toEqual(["Gelernt", "Neu"]);
+    expect(lemmas(await session("import", older)).sort()).toEqual(["Alt", "AltGelernt"]);
+    expect(lemmas(await session("import", newest))).toEqual(["Neu"]);
   });
 
   it("last 7 days: words added in the last week", async () => {
@@ -194,6 +219,12 @@ describe("POST /api/sessions (§8.1)", () => {
     for (let i = 0; i < 25; i++) await seedWord(`Wort${i}`);
     expect((await session("not_learned")).cards).toHaveLength(20);
     expect((await session("last_7_days")).cards).toHaveLength(20);
+
+    const lesson = await seedImport(daysAgo(1));
+    for (let i = 0; i < 25; i++) await seedWord(`Lektion${i}`, { importId: lesson });
+    const cards = lemmas(await session("import", lesson));
+    expect(cards).toHaveLength(20);
+    expect(cards.every((lemma) => lemma.startsWith("Lektion"))).toBe(true);
   });
 
   it("cards carry what the card shows (§8.2)", async () => {
@@ -239,9 +270,9 @@ describe("POST /api/sessions (§8.1)", () => {
   });
 
   it("refuses a source without words, and records a started session otherwise", async () => {
-    const empty = await startSession("last_import");
+    const empty = await startSession("not_learned");
     expect(empty.statusCode).toBe(400);
-    expect(empty.json().error.code).toBe("no_words");
+    expect(errorCode(empty)).toBe("no_words");
 
     await seedWord("Tisch");
     const started = await session("not_learned");
@@ -250,8 +281,75 @@ describe("POST /api/sessions (§8.1)", () => {
     ).toMatchObject({
       userId: SINGLE_USER_ID,
       source: "not_learned",
+      importId: null,
       finishedAt: null,
     });
+  });
+
+  it("an import session records which import it practises", async () => {
+    const lesson = await seedImport(daysAgo(1));
+    await seedWord("Tisch", { importId: lesson });
+    const started = await session("import", lesson);
+    expect(started.source).toBe("import");
+    expect(
+      first(await db.select().from(sessions).where(eq(sessions.id, started.id))),
+    ).toMatchObject({ source: "import", importId: lesson, finishedAt: null });
+  });
+
+  it("import needs an importId, and no other source takes one", async () => {
+    const lesson = await seedImport(daysAgo(1));
+    await seedWord("Tisch", { importId: lesson });
+
+    for (const res of [
+      await startSession("import"),
+      await startSession("import", null),
+      await startSession("import", "abc"),
+      await startSession("not_learned", lesson),
+      await startSession("last_7_days", lesson),
+    ]) {
+      expect(res.statusCode).toBe(400);
+      expect(errorCode(res)).toBe("invalid_request");
+    }
+    expect(await db.select().from(sessions)).toEqual([]);
+  });
+
+  it("404 for an import that is unknown, not done or another learner's", async () => {
+    const unfinished = await seedImport(null);
+    await seedWord("Offen", { importId: unfinished });
+    const [other] = await db
+      .insert(users)
+      .values({ name: "Other", learnerLanguage: "en", targetLanguage: "de" })
+      .returning({ id: users.id });
+    const theirs = first(
+      await db
+        .insert(imports)
+        .values({
+          userId: other?.id as number,
+          status: "done",
+          photoCount: 1,
+          completedAt: daysAgo(1),
+        })
+        .returning({ id: imports.id }),
+    ).id;
+
+    for (const importId of [999, unfinished, theirs]) {
+      const res = await startSession("import", importId);
+      expect(res.statusCode).toBe(404);
+      expect(errorCode(res)).toBe("import_not_found");
+    }
+    expect(await db.select().from(sessions)).toEqual([]);
+  });
+
+  it("no_words for a done import without learning or learned words", async () => {
+    const allSkipped = await seedImport(daysAgo(1));
+    await seedWord("Bett", { importId: allSkipped, status: "ignored" });
+    const nothingSaved = await seedImport(daysAgo(1));
+
+    for (const importId of [allSkipped, nothingSaved]) {
+      const res = await startSession("import", importId);
+      expect(res.statusCode).toBe(400);
+      expect(errorCode(res)).toBe("no_words");
+    }
   });
 });
 

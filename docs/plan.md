@@ -218,11 +218,11 @@ Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-a
 ### Phase 1: words
 
 #### M9: Past imports and date added
-Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, §8.1, §9, §9.2 and §10.
-- **No Imports screen of its own.** Past imports are reached where they are used:
+Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, §8.1, §9, §9.2 and §10 (screens 1, 3, 4, 7 and 10–13).
+- **Past imports are reached where they are used** (no Imports screen on Home or in My words):
   - **Practice setup:** the `last_import` source becomes `import`, a card with a menu of the past imports (newest first, so the latest is the default and starting still takes two taps). Up to 20 words, shuffled, as before.
   - **My words:** a view menu under the search: All words · A–Z, All words · Newest first (grouped by day), or one import.
-  - **Settings** (new, a gear on Home): the list of past imports, renamed in place. Later settings (M16's daily goal) go there too.
+  - **Settings** (new, a gear on Home) → **Imports** → one import → **Rename** (a sheet like Edit word). Settings is a menu, so later settings (M16's daily goal) join it, and later actions on an import join the import's page. Changed from rename-in-place during the user's check on 2026-10-16.
   - **Done:** "Name this import" when the import has no name.
 - An unnamed import is shown by its date, with the time when several share a day.
 - An import that adds nothing to learn (no new words on the pages, or every new word skipped) gets no entry anywhere, and Done says why ("Every word on these pages is already in your list."). The same goes for an import whose words were later all deleted or set to Ignored.

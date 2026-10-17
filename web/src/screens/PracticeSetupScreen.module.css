@@ -124,3 +124,50 @@
   font-size: 14px;
   color: var(--muted);
 }
+
+/* The Import card: its title over the menu of past imports, in place of a description. The label
+   (radio, well, title, count) takes part in the card's grid, and its ::after layer covers the
+   card, so a tap anywhere on it chooses the card; the menu sits above that layer. */
+.importOption {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "well title count"
+    "well menu count";
+  column-gap: 14px;
+  row-gap: 6px;
+  align-items: center;
+  cursor: default;
+}
+
+.importLabel {
+  display: contents;
+  cursor: pointer;
+}
+
+.importLabel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.importOption .well {
+  grid-area: well;
+}
+
+.importOption .title {
+  grid-area: title;
+  align-self: end;
+}
+
+.importOption .count {
+  grid-area: count;
+}
+
+/* The menu of past imports (SelectPill), above the label's layer. */
+.menu {
+  grid-area: menu;
+  justify-self: start;
+  z-index: 1;
+}

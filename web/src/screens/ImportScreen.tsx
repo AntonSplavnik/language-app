@@ -1,4 +1,4 @@
-import { ApiClientError, type ImportView } from "@language-app/core";
+import { ApiClientError, IMPORT_NAME_MAX, type ImportView } from "@language-app/core";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api";
@@ -205,11 +205,11 @@ export function ImportScreen() {
             Name <span className={styles.optional}>(optional)</span>
           </span>
           <input
-            className={styles.input}
+            className={ui.input}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Lesson 4"
-            maxLength={100}
+            maxLength={IMPORT_NAME_MAX}
             enterKeyHint="done"
           />
         </label>

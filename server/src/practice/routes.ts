@@ -20,10 +20,9 @@ export function practiceRoutes(app: FastifyInstance, { db }: { db: Db }) {
     return { options: SOURCES.map((source) => ({ source, count: counts[source] })) };
   });
 
-  app.post("/api/sessions", async (request) => {
-    const { source } = CreateSessionRequest.parse(request.body);
-    return startSession(db, userId, source);
-  });
+  app.post("/api/sessions", async (request) =>
+    startSession(db, userId, CreateSessionRequest.parse(request.body)),
+  );
 
   app.post("/api/sessions/:id/results", async (request) => {
     const { id } = Params.parse(request.params);

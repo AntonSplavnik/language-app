@@ -3,8 +3,11 @@ import { ApiError } from "./schemas/common";
 import { HealthResponse } from "./schemas/health";
 import {
   type CreateImportRequest,
+  ImportListResponse,
   ImportView,
   PhotoUploadResponse,
+  type RenameImportRequest,
+  RenameImportResponse,
   type SaveDecision,
   type SaveRequest,
   SaveResponse,
@@ -95,7 +98,14 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     health: () => request(HealthResponse, "/health"),
     stats: () => request(StatsResponse, "/stats"),
 
+    /** The past imports (§9.2), newest first. */
+    listImports: () => request(ImportListResponse, "/imports"),
     createImport: (body: CreateImportRequest = {}) => postJson(ImportView, "/imports", body),
+    /** A new name, or null (or blank) to clear it. */
+    renameImport: (id: number, name: string | null) =>
+      sendJson(RenameImportResponse, "PATCH", `/imports/${id}`, {
+        name,
+      } satisfies RenameImportRequest),
     getImport: (id: number) => request(ImportView, `/imports/${id}`),
     /** One already-shrunk JPEG per request (§6.2). */
     uploadPhoto: (id: number, jpeg: Blob) => {
@@ -127,9 +137,11 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 export type ApiClient = ReturnType<typeof createApiClient>;
 
 /** `?a=1&b=2` from the given values, leaving out empty ones; "" when nothing is left. */
-function queryString(params: Record<string, string | undefined>): string {
+function queryString(params: Record<string, string | number | undefined>): string {
   const pairs = Object.entries(params).flatMap(([key, value]) =>
-    value ? [`${encodeURIComponent(key)}=${encodeURIComponent(value)}`] : [],
+    value !== undefined && value !== ""
+      ? [`${encodeURIComponent(key)}=${encodeURIComponent(value)}`]
+      : [],
   );
   return pairs.length > 0 ? `?${pairs.join("&")}` : "";
 }

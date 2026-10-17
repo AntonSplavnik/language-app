@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { wordCount } from "../src/words/counts";
 import { groupByLetter } from "../src/words/groupByLetter";
 import { checkLabel, dayText, progressLabel } from "../src/words/labels";
-import { parseListQuery, wordsUrl } from "../src/words/listQuery";
+import {
+  listRequest,
+  parseListQuery,
+  viewFromValue,
+  viewValue,
+  wordsUrl,
+} from "../src/words/listQuery";
 
 describe("letter sections of the list (§10)", () => {
   const words = (...lemmas: string[]) => lemmas.map((lemma, id) => ({ id, lemma }));
@@ -69,11 +75,18 @@ describe("word count in the header (§10)", () => {
 });
 
 describe("My words URL (§10)", () => {
+  const AZ = { kind: "az" } as const;
+
   it("reads the tab and the search, Learning by default", () => {
-    expect(parseListQuery(new URLSearchParams(""))).toEqual({ status: "learning", q: "" });
+    expect(parseListQuery(new URLSearchParams(""))).toEqual({
+      status: "learning",
+      q: "",
+      view: AZ,
+    });
     expect(parseListQuery(new URLSearchParams("status=ignored&q=+tisch+"))).toEqual({
       status: "ignored",
       q: "tisch",
+      view: AZ,
     });
     expect(parseListQuery(new URLSearchParams("status=nonsense")).status).toBe("learning");
   });
@@ -87,7 +100,55 @@ describe("My words URL (§10)", () => {
     expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
       status: "ignored",
       q: "über & co",
+      view: AZ,
     });
+  });
+
+  it("reads the view: newest first, or one import", () => {
+    const view = (query: string) => parseListQuery(new URLSearchParams(query)).view;
+    expect(view("sort=newest")).toEqual({ kind: "newest" });
+    expect(view("import=5")).toEqual({ kind: "import", importId: 5 });
+    // An import shows its words A–Z; a sort next to it is ignored.
+    expect(view("import=5&sort=newest")).toEqual({ kind: "import", importId: 5 });
+    for (const odd of ["sort=oldest", "import=abc", "import=0", "import=-2", "import=1.5"]) {
+      expect(view(odd)).toEqual(AZ);
+    }
+  });
+
+  it("puts the view in the URL only when it isn't A–Z", () => {
+    expect(wordsUrl({ status: "learning", q: "", view: AZ })).toBe("/words?status=learning");
+    expect(wordsUrl({ status: "learning", q: "", view: { kind: "newest" } })).toBe(
+      "/words?status=learning&sort=newest",
+    );
+    const url = wordsUrl({ status: "ignored", q: "tisch", view: { kind: "import", importId: 5 } });
+    expect(url).toBe("/words?status=ignored&q=tisch&import=5");
+    expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
+      status: "ignored",
+      q: "tisch",
+      view: { kind: "import", importId: 5 },
+    });
+  });
+
+  it("asks the server for the view's words and order", () => {
+    expect(listRequest({ status: "learning", q: "", view: AZ })).toEqual({
+      status: "learning",
+      q: "",
+    });
+    expect(listRequest({ status: "learned", q: "tisch", view: { kind: "newest" } })).toEqual({
+      status: "learned",
+      q: "tisch",
+      sort: "newest",
+    });
+    expect(
+      listRequest({ status: "ignored", q: "", view: { kind: "import", importId: 5 } }),
+    ).toEqual({ status: "ignored", q: "", importId: 5 });
+  });
+
+  it("the view menu's values stand for the views", () => {
+    const views = [AZ, { kind: "newest" }, { kind: "import", importId: 5 }] as const;
+    expect(views.map(viewValue)).toEqual(["az", "newest", "import-5"]);
+    for (const view of views) expect(viewFromValue(viewValue(view))).toEqual(view);
+    expect(viewFromValue("import-x")).toEqual(AZ);
   });
 });
 

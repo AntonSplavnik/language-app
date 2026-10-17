@@ -5,6 +5,7 @@ import {
   type WordDetail,
   type WordListItem,
 } from "@language-app/core";
+import { dateText, daysBefore } from "../lib/dates";
 
 /**
  * The progress mark on a My words row: a "new" pill, or one dot per right answer in a row
@@ -94,21 +95,12 @@ export function historyLine(
   return parts.join(" · ");
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const startOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-
 /** "today", "yesterday", "3 days ago" within a week, otherwise the date. */
 export function dayText(iso: string, now: Date = new Date()): string {
   const date = new Date(iso);
-  // Rounded, because a day with a clock change is 23 or 25 hours long.
-  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+  const days = daysBefore(date, now);
   if (days === 0) return "today";
   if (days === 1) return "yesterday";
   if (days > 1 && days < 7) return `${days} days ago`;
-  return date.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-  });
+  return dateText(date, now);
 }

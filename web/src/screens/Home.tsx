@@ -6,6 +6,7 @@ import {
   ArrowUpRightIcon,
   BookIcon,
   ChevronRightIcon,
+  GearIcon,
   PlayIcon,
   PlusIcon,
 } from "../components/icons";
@@ -35,8 +36,11 @@ export function Home() {
 
   return (
     <div className={styles.page}>
-      <header>
+      <header className={styles.header}>
         <h1 className={styles.title}>German words</h1>
+        <Link to="/settings" className={ui.round} aria-label="Settings">
+          <GearIcon />
+        </Link>
       </header>
 
       <main className={styles.main}>

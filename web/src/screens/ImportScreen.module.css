@@ -31,22 +31,6 @@
   color: var(--muted);
 }
 
-/* 16px keeps iOS Safari from zooming in on focus. */
-.input {
-  height: 52px;
-  padding: 0 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 16px;
-}
-
-.input:focus {
-  outline: 2px solid var(--accent-ink);
-  outline-offset: -1px;
-}
-
 /* Before the first photo: one big target for the camera or the photo library. */
 .drop {
   appearance: none;
