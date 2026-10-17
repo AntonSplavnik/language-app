@@ -237,7 +237,7 @@ Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, �
 - No AI change.
 
 #### M10: Add a word by hand
-Settled with the user on 2026-10-16 (the `docs/design.md` sections are written after M9 is committed, for review before any code):
+Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7, §7 (forms table, search), §9.3, §10 screens 2, 3, 14 and 15, §11.5 and §11.6:
 - **Entry:** the New import screen, "or type a word" next to the photo drop zone.
 - **One word or a list:** the learner types one German word or several (one per line). Either way the words are confirmed **one at a time** ("2 of 5"). A single word is saved on its own (`import_id = null`, no group); a list is saved as **one import**, so it is among the past imports (M9) and Done offers Practice these now and Name this import.
 - **What the dictionary supplies:** genders, plural, forms, pronunciation, English glosses. A word with several entries (*See*: der See "lake" / die See "sea"; *morgen* / der Morgen; three *Band*s) shows each as a card with its gloss, and the learner picks the one or ones they mean.
@@ -254,6 +254,14 @@ Settled with the user on 2026-10-16 (the `docs/design.md` sections are written a
 - **Confirming a typed list:** each word is **Add** or **Remove**. Remove saves nothing (the word was typed on purpose, so it isn't kept as `ignored`; a later import may offer it).
 - **Photo Review wording** (the user, 2026-10-16): Skip really means "keep in my list as Ignored, never practise, never offer again" (§6.5), so the labels change, not the behaviour: each word's toggle is **Practice** / **Ignore**, the pills **Practice all** / **Ignore all**, and the texts follow ("8 to practise", "1 ignored; they won't be suggested again.", Done's "N ignored…" when nothing was added). The API keeps `action: add | skip`.
 - The new AI call needs the `claude-api` skill, its prompt and recorded fixtures, and `pnpm test:live`.
+- **Schema changes:** `imports.source`, `dictionary_forms`, the `pg_trgm` extension with a trigram index on `dictionary_entries`. After the migration the dictionary is imported once more (≈11 s) to fill the forms table; try both on a copy of the dev database first.
+- **Tests first:**
+  - dictionary import: the forms table from the sample file (the sample gains form-of entries such as *ging*, *Tische*, *aufgestanden*), forms equal to their base word left out, loading twice is idempotent;
+  - search: suggestions by prefix (exact first, then shorter, ignoring case), topped up with similar words, at most 8, `inMyWords`; lookup's order (exact → forms → similar) and the similarity threshold; one view per gender;
+  - `POST /words`: a new word from an entry gets its plural, forms and pronunciation (*die Bank* "bank" → *Banken*, not *Bänke*); a hand word gets its dictionary check; a reused word gets a custom translation only when it differs; a word already in the list is left alone; repeats count once; a stale `entryId` counts as by hand; at most 5;
+  - `POST /imports/typed`: one `done` import with `source = typed`, listed among past imports and practisable; nothing added → `importId: null` and no import; enrichment runs (replayed) and skips the dictionary step for words that have their facts;
+  - Call 3: the four recorded fixtures (entry translation, misspelt noun, inflected verb, English → 422 `not_german`), an `ai_usage` row as `describe`, the daily limit (429);
+  - web: a typed list's lines (trim, repeats, the 30 limit), shortened glosses, Confirm word's steps (choose, translation, add, remove, back), the Practice / Ignore wording on Review and Done.
 
 #### M11: Import from PDF
 - The learner picks a PDF and a page range (e.g. 42–45) each time, so a whole book can stay one file. The chosen pages go through the photo flow: extract → merge → compare → dictionary check → review → save → enrichment.

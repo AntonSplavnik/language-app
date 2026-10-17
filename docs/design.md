@@ -1,7 +1,7 @@
 # Language App — Prototype Design
 
 **Date:** 2026-10-11, last updated 2026-10-17
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports); kept in sync with the code
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports); kept in sync with the code. **M10 (adding words by hand) is specified but not built yet:** §6.7, §9.3, §10 screens 14–15 and §11.6 are new, and what §5, §6.4, §6.6, §7, §9, §10 screens 2–3, §11.5, §12–§14 say about typed words, the forms table, the dictionary search, Call 3 and the Practice / Ignore wording is still to be built
 
 ## 1. Purpose
 
@@ -169,6 +169,7 @@ Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCA
 | `name` | Optional, e.g. "Lesson 4"; typed before the first photo, given on the Done screen or changed later in Settings (§10). Without one, screens show the import's date (§10, import labels) |
 | `status` | `collecting` (photos being added) / `reviewing` / `done` |
 | `photo_count` | |
+| `source` | `photos` (the default) or `typed`: a list of words typed by hand (§6.7) |
 | `candidates` | JSON list of merged extraction results (see §6.3), so a reload never loses the review |
 | `created_at`, `completed_at` | |
 
@@ -194,18 +195,26 @@ Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCA
 | Field | Notes |
 |---|---|
 | `id` | |
-| `lemma`, `pos` | Indexed together, also as `(lower(lemma), pos)` for the case-insensitive lookup |
+| `lemma`, `pos` | Indexed together, also as `(lower(lemma), pos)` for the case-insensitive lookup, and `lower(lemma)` with a trigram index (`pg_trgm`) for suggestions and similar words (§7) |
 | `genders` | Array, e.g. `[der]`, `[der, das]` |
 | `plurals` | Array |
 | `forms` | JSON, same shape as `words.forms` |
 | `glosses_en` | Array of short English glosses |
 | `ipa`, `audio_file`, `audio_url` | The entry's pronunciation (§7), same meaning as in `words`; nullable |
 
+### `dictionary_forms` — inflected forms, loaded from Wiktionary
+| Field | Notes |
+|---|---|
+| `form` | An inflected form, e.g. `ging`, `Tische`, `aufgestanden`; indexed as `lower(form)` |
+| `lemma`, `pos` | The base word it is a form of (`gehen` verb, `Tisch` noun, `aufstehen` verb) |
+
+`UNIQUE (form, lemma, pos)`; a form can belong to several base words. Used only to find typed words (§6.7).
+
 ### `ai_usage`
 | Field | Notes |
 |---|---|
 | `id`, `user_id`, `import_id` | |
-| `call_type` | `extract` / `enrich` |
+| `call_type` | `extract` / `enrich` / `describe` (§11.6) |
 | `model` | |
 | `input_tokens`, `output_tokens` | From the API response `usage`; input includes cache-creation and cache-read tokens |
 | `stop_reason` | |
@@ -251,7 +260,7 @@ Each candidate in `imports.candidates`:
   - Not found → `not_found`
 
 ### 6.4 Review
-- New candidates are listed, all set to **Add** by default. Tapping a row toggles Add / Skip. "Add all" / "Skip all" buttons.
+- New candidates are listed, all set to **Practice** by default. Tapping a row toggles Practice / Ignore. "Practice all" / "Ignore all" buttons. The labels say what saving does (§6.5): Practice → `learning`; Ignore → `ignored`, kept in the list but never practised or offered again. The API keeps the actions `add` / `skip`.
 - `in_my_words` candidates are shown only as a count ("31 already in your words") that expands to a read-only list.
 - `mismatch` rows show a warning: "AI: *die* Tisch · Dictionary: *der* Tisch". One tap applies the dictionary article (a choice is shown if there are several). If not applied, the AI article is kept.
 - `not_found` rows show a small grey "not in dictionary" label.
@@ -271,7 +280,7 @@ Saving happens before enrichment, so the words exist (and are practisable with t
 
 ### 6.6 Enrichment
 For each added word whose `words.enriched_at` is `null` (`server/src/words/enrich.ts`):
-1. **Dictionary first:** if `dictionary_entries` has plural (nouns) or verb forms, copy them to `words`, `forms_source = dictionary`; copy the pronunciation (`ipa`, `audio_file`, `audio_url`) too. Both come from the entries that describe the word: for a noun those with its own gender (*der Band* → *Bände* /bant/, *die Band* → *Bands* /bɛnt/) or, when none has it, those without a gender (plural-only nouns such as *Eltern*); for other words every entry found (§6.3, including the non-noun fallback: *nicht* as a particle gets the adverb's recording). The pronunciation is the one of the first such entry with a recording, otherwise of the first with IPA. The copy happens before the AI call, so a word keeps its dictionary facts even if the AI fails. The AI never writes a pronunciation: a word without one in the dictionary has none.
+1. **Dictionary first:** if `dictionary_entries` has plural (nouns) or verb forms, copy them to `words`, `forms_source = dictionary`; copy the pronunciation (`ipa`, `audio_file`, `audio_url`) too. Both come from the entries that describe the word: for a noun those with its own gender (*der Band* → *Bände* /bant/, *die Band* → *Bands* /bɛnt/) or, when none has it, those without a gender (plural-only nouns such as *Eltern*); for other words every entry found (§6.3, including the non-noun fallback: *nicht* as a particle gets the adverb's recording). The pronunciation is the one of the first such entry with a recording, otherwise of the first with IPA. The copy happens before the AI call, so a word keeps its dictionary facts even if the AI fails. The AI never writes a pronunciation: a word without one in the dictionary has none. A word typed by hand already has the facts of the entry the learner chose (§6.7); this step leaves a word whose `forms_source` is set as it is.
 2. **AI fills the gaps:** AI call 2 receives the words in batches of up to 30, three batches at a time. It always writes the example sentence and its translation, and writes plural / verb forms only for words where the dictionary had none (`forms_source = ai`). Each result is matched to its word by `ref`, and only used if its `lemma` is that word's lemma.
 3. Set `enriched_at`. Updates only touch rows where `enriched_at` is still `null`, so two runs never write the same word twice.
 
@@ -282,6 +291,24 @@ A word already enriched by a previous import (any user) needs no AI call — thi
 **Pronunciation backfill:** enriched words never pass through enrichment again, so words saved before pronunciation existed get it from `pnpm --filter server backfill:pronunciation` (`backfillPronunciation()` in `server/src/words/pronunciation.ts`): every German word with neither `ipa` nor `audio_url` gets the dictionary pronunciation, chosen as above. Run it after re-importing the dictionary (it refuses while the dictionary has no recordings); it prints how many words it updated and is safe to run again, since a word that has a pronunciation is never touched. Measured on the author's list before running it: 141 of 149 practisable words have a recording in the dictionary, 134 an IPA.
 
 **Measured (2026-10-11, Haiku 5.5 `medium`):** backfilling the 94 words saved before enrichment existed took 4 calls in 10 s for ≈0.5¢; 30 noun plurals and 16 verb forms came from the dictionary, 1 plural and 2 verb forms from the AI. A typical save (15–40 added words, one or two parallel batches) adds roughly 5–10 s. With Opus 5.5 an 11-word batch took 10 s, so a full 30-word batch would add more; if saves grow slow, switch to answering at once and enriching in the background.
+
+### 6.7 Typed words
+Instead of photographing pages, the learner can type German words (§10 screens 14–15): **one word**, or **a list** of up to 30, typed or pasted one per line. Either way each typed text is confirmed on its own, one at a time:
+1. **Look up** (`GET /dictionary/lookup`, §9.3). In order, the first that finds something: the dictionary entries whose lemma is the text, ignoring case (*see* → der See "lake", die See "sea"); the base words the text is a form of (*ging* → *gehen*, *Tische* → *Tisch*; §7, forms table); up to 5 similar words, as "Did you mean…?" (*Regenschrim*, *Rgenschirm* → *Regenschirm*). Every entry is offered on its own, so one word can appear twice with different meanings and plurals (*die Bank* "bench" → *Bänke*, *die Bank* "bank" → *Banken*).
+2. **Choose** one or more entries. An entry whose word (`lemma`, `pos`, article) is already in the learner's list, in any status, can't be chosen; it links to that word.
+3. **Translation** for each chosen entry, editable, at most 200 characters: one of the entry's glosses, shortened (the parts in parentheses dropped: "umbrella (used for protection against rain)" → "umbrella"); the AI's short translation (**Ask AI**, Call 3, §11.6); or the learner's own.
+4. **Not in the dictionary:** instead of an entry, the learner can enter the word themselves (base form, part of speech, article for a noun, translation), or let **Ask AI** fill all four from the typed text; the AI also corrects the spelling and gives the base form (*Regenschrim* → *der Regenschirm*). When the AI's word is in the dictionary, its entries are offered as in step 1 instead.
+5. **Add**, or in a list **Remove**: the text is dropped and nothing is saved for it. (Unlike Ignore on photo Review, nothing is remembered: the learner typed the word on purpose.)
+
+**Saving** finds or creates each `words` row by identity, as in §6.5:
+- A new row chosen from the dictionary gets that entry's plural, forms and pronunciation at once (`forms_source = dictionary` when it has forms) and `check_status = match`. One entered by hand or by the AI is checked like a candidate (§6.3) and gets `match`, `mismatch_kept` or `not_in_dictionary`. The `word_translations` row holds the chosen translation.
+- An existing row is reused unchanged; when the chosen translation differs from its stored one, it becomes the learner's `custom_translation`.
+- The `user_words` row is `learning`. A word already in the list is left as it is, so nothing is ever added twice.
+- **One word** (`POST /words`: the entries chosen for one typed text) has `import_id = null`; no import is created.
+- **A list** (`POST /imports/typed`) becomes one import, `source = typed`, `status = done`, without photos, holding every word it added (`import_id`): it is a past import (§9.2), and Done offers **Practice these now** and naming (§10 screen 3). When nothing is added (every word removed or already in the list), no import is created.
+- Then enrichment runs as for imported words (§6.6): the example sentence, and the forms the entry didn't have.
+
+The typed list, the decisions so far and the current word are kept in the tab (`sessionStorage`), so a reload continues at the same word; nothing reaches the server before the last word of a list is decided.
 
 ## 7. Wiktionary dictionary
 
@@ -297,6 +324,8 @@ A word already enriched by a previous import (any user) needs no AI call — thi
   - A test loads a 53-entry sample cut from the real file (`server/test/fixtures/kaikki-sample.jsonl`, made with `server/scripts/make-kaikki-sample.ts`), with the IPA and recordings of each entry.
 - **Check from the command line:** `pnpm --filter server dict:lookup <lemma> <pos> [article]` prints the entries and the check result.
 - **Re-running** the import replaces the table (truncate + insert in one transaction).
+- **Forms table:** the import also keeps what the form-of entries say (≈277k entries in the file consist only of them, e.g. *ging*: "first/third-person singular preterite of gehen") as `dictionary_forms` rows, form → base word and part of speech: *ging* → *gehen*, *Tische* → *Tisch*, *aufgestanden* → *aufstehen*, *schneller* → *schnell*. A form equal to its base word is left out. Both tables are replaced in the same transaction. Only typed words use it (§6.7); a database loaded before M10 needs the import run once more.
+- **Search for typed words** (`server/src/dictionary/search.ts`): **suggestions** are the entries whose lemma starts with the typed letters, ignoring case (an exact match first, then shorter lemmas, then alphabetical), topped up with similar words when there are fewer than 3; **similar** words are ranked by the trigram similarity of the lower-cased lemma (`pg_trgm`'s `similarity()`, at least 0.3), best first. A migration creates the `pg_trgm` extension (part of PostgreSQL, and a trusted extension, so the database owner may create it).
 - **Licence:** CC BY-SA. Home's footer shows "Grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons". Commercial use needs a licence review.
 - **Recordings:** the audio files live on Wikimedia Commons, each with its own free licence and author, shown on the file's page (a sample of ten German recordings: all CC BY-SA 2.5–4.0 or CC BY 2.0). The app stores only the file name and URL; the browser streams the MP3 from `upload.wikimedia.org` when the learner taps a speaker button (https audio plays on the plain-HTTP page). The recordings are credited together in Home's footer ("recordings from Wikimedia Commons", §10), not per word; `audio_file` still names each file, so its page with the licence and author can be found.
 - **Known limits:** long compound nouns are often missing (→ `not_found`, AI data used); glosses are English only; plurals belong to the entry, not the meaning (*der Stock* lists *Stöcke*, the plural for "stick", also for the "floor" meaning); plural-only nouns have no gender.
@@ -369,8 +398,13 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 | POST | `/imports/:id/photos` | Upload one JPEG (multipart field `photo`, at most 10 MB) → extract, merge, compare, check → `{ pageQuality, wordsFound, import }`. Only while the import is `collecting` |
 | GET | `/imports/:id` | Import with candidates; `existing` is recomputed on every read |
 | POST | `/imports/:id/review` | Move import to `reviewing` (no more photos) → import; 409 `import_closed` once it is done |
+| POST | `/imports/typed` | `{ words: [TypedWord] }` → a typed list saved as one import, then enrich, see §9.3 |
 | POST | `/imports/:id/save` | `{ decisions: [{ key, action: add \| skip, article? }] }` → save, then enrich → `{ added, skipped, detailsPending }`. Allowed once, from `collecting` or `reviewing` |
 | POST | `/words/enrich-pending` | Retry enrichment for the learner's `learning` / `learned` words with `enriched_at = null` → `{ enriched, pending }` |
+| GET | `/dictionary/suggest?q=` | Up to 8 entries for the letters typed so far → `{ suggestions }`, see §9.3 |
+| GET | `/dictionary/lookup?q=` | The entries for one typed word → `{ entries, forms, similar }`, see §9.3 |
+| POST | `/words/describe` | `{ text, entryId? }` → the AI's word (Call 3), see §9.3 |
+| POST | `/words` | `{ words: [TypedWord] }` → typed words saved without an import, then enrich, see §9.3 |
 | GET | `/words?status=&q=&importId=&sort=` | The learner's words → `{ words, counts }`, see below |
 | GET | `/words/:userWordId` | → `WordDetail`, see below |
 | PATCH | `/words/:userWordId` | `{ status?, customTranslation?, note? }` → `WordDetail`, see below |
@@ -391,13 +425,21 @@ A `WordView` is what a card shows (§8.2): `userWordId`, `lemma`, `pos`, `articl
 - **`DELETE /words/:userWordId`** — deletes the `user_words` row and its `card_results`. The shared `words` row and its translations stay, so a later import offers the word again as new, and adding it again reuses its details without an AI call. 404 `word_not_found`.
 
 ### 9.2 Past imports
-- **`GET /imports`** — the learner's **past imports**: `done` imports with at least one `learning` or `learned` word, newest first (`completed_at`, then id). Each is an `ImportSummary`: `id`, `name`, `completedAt`, and `wordCount`, its `learning` + `learned` words (what a session from it can draw on, at least 1). An import that added nothing to learn never gets an entry: one whose pages had no new words, one whose new words were all skipped, and one whose words were later all deleted or set to Ignored. The import row itself stays (it is `done`, and its skipped words keep their `import_id`); it is only left out of the list, and comes back if one of its words is moved back to Learning. Unfinished imports stay Home's banners (§10 screen 1).
+- **`GET /imports`** — the learner's **past imports**: `done` imports with at least one `learning` or `learned` word, newest first (`completed_at`, then id). Each is an `ImportSummary`: `id`, `name`, `source`, `completedAt`, and `wordCount`, its `learning` + `learned` words (what a session from it can draw on, at least 1). An import that added nothing to learn never gets an entry: one whose pages had no new words, one whose new words were all skipped, and one whose words were later all deleted or set to Ignored. The import row itself stays (it is `done`, and its skipped words keep their `import_id`); it is only left out of the list, and comes back if one of its words is moved back to Learning. Unfinished imports stay Home's banners (§10 screen 1).
 - **`PATCH /imports/:id`** — `{ name }`, trimmed, at most 100 characters (400 `invalid_request`); an empty or blank name, or `null`, clears it. Allowed in any status. Answers `{ id, name }`; 404 `import_not_found`.
+
+### 9.3 Typed words
+An `EntryView` is one dictionary entry as Confirm word shows it (§10 screen 15): `entryId`, `lemma`, `pos`, `article` (one of the entry's genders: an entry with several, *der/das Liter*, gives one view per gender; a noun without a gender has `null`), `plural` (its first), `forms`, `glosses` (up to 3), `ipa`, `audioUrl`, and `inMyWords`, the learner's `userWordId` when a word with this identity is in their list (any status), otherwise `null`.
+- **`GET /dictionary/suggest?q=`** — `q` trimmed, at most 50 characters; under 2 characters the list is empty. Up to 8 `EntryView`s (§7, search).
+- **`GET /dictionary/lookup?q=`** — `q` trimmed, 1–50 characters. `entries`: the entries whose lemma is `q`, ignoring case. `forms`: only when `entries` is empty, `[{ lemma, pos, entries }]` for each base word `q` is a form of. `similar`: only when both are empty, up to 5 entries by similarity. All three as `EntryView`s.
+- **`POST /words/describe`** — `{ text }` (trimmed, 1–50 characters) asks the AI which word the learner meant (Call 3, §11.6) → `{ lemma, pos, article, translation }`. With `entryId`, only a translation is asked for, in that entry's sense, and the answer keeps the entry's word. 404 `entry_not_found`; 422 `not_german` when the AI says the text isn't German; the AI errors of §12 (`ai_busy`, `ai_refused`, `ai_invalid_output`); 429 `daily_limit` beyond the Ask AI limit (§11.5).
+- **`POST /words`** and **`POST /imports/typed`** — `{ words: TypedWord[] }`; a `TypedWord` is `{ lemma, pos, article, translation, entryId? }`, with `entryId` when it was chosen from the dictionary (the server checks that the entry still has that lemma, part of speech and gender; otherwise the word counts as entered by hand). Texts are trimmed; the translation is 1–200 characters. Two words with the same identity count once (the first). `POST /words` takes 1–5 words (the entries chosen for one typed text), `POST /imports/typed` 1–100. Both save as in §6.7 and answer after enrichment: `POST /words` → `{ added: [{ userWordId, lemma, article }], alreadyInList, detailsPending }`; `POST /imports/typed` → `{ importId, added, alreadyInList, detailsPending }`, with `importId` `null` when nothing was added. `alreadyInList` counts the words that were in the list already.
 
 ## 10. Screens
 
 ```
-Home ─┬─► Import ──► Review ──► Done ─► (Practice these now)
+Home ─┬─► Import ─┬─► Review ──► Done ─► (Practice these now)
+      │           └─► Add words ──► Confirm word ──► (a list) Done
       ├─► Practice setup ──► Flashcards ──► Summary
       ├─► My words ──► Word detail ──► Edit word
       └─► Settings ──► Imports ──► Import ──► Rename import
@@ -415,17 +457,17 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
    - two tiles side by side: **My words** with the counts ("136 learning · 0 learned"); the whole tile opens the Learning tab of My words, and it is Home's only way there; and **New import** ("Add more words"), an outlined tile. While there are no words yet, New import is the main button instead (big and lime, a plus in the circle), with the hint "Photograph the pages you studied to collect their new words." below it, and the My words tile under that;
    - the credit in the footer: grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
-   - The title is the import's name, large ("New import" before the import exists, "Import" when it has no name). Before the first photo: the **Name (optional)** field and a large dashed drop zone, "Take or choose photos" over "Photograph the pages you studied", with a lime camera square. Then the photos as tiles, two per row: the thumbnail (dimmed while it is read), a small round remove button (a cross) where removing is allowed, and its state with an icon: a check and "13 words" in the accent, a spinner and *Preparing* / *Reading*, "Couldn't read much from this page" in warning colour, the error in red, or "Waiting…"; **Retry** and **Retake** are full-width buttons under it. **Add more photos** is the grid's last cell, dashed like the drop zone. The number of words found so far is a pill after **Review words**; the hint under it ("Wait until every photo is read") stays.
+   - The title is the import's name, large ("New import" before the import exists, "Import" when it has no name). Before the first photo: the **Name (optional)** field and a large dashed drop zone, "Take or choose photos" over "Photograph the pages you studied", with a lime camera square, and under it a quiet link **or type words ›**, which opens Add words (screen 14). Then the photos as tiles, two per row: the thumbnail (dimmed while it is read), a small round remove button (a cross) where removing is allowed, and its state with an icon: a check and "13 words" in the accent, a spinner and *Preparing* / *Reading*, "Couldn't read much from this page" in warning colour, the error in red, or "Waiting…"; **Retry** and **Retake** are full-width buttons under it. **Add more photos** is the grid's last cell, dashed like the drop zone. The number of words found so far is a pill after **Review words**; the hint under it ("Wait until every photo is read") stays.
    - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and can't be changed on this screen (it can on Done and in Settings). The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
    - A photo can be removed before it is sent or after it failed; once read, its words stay in the import (they can be skipped in review). **Retry** appears only for failures worth retrying with the same photo (AI busy, invalid output, network, an unexpected server error); otherwise the message says what to do (e.g. "photograph it in two parts").
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
-3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts an `import` session from this import, §8.1). With nothing set to Add the button reads **Skip all N words** (or **Finish** when there are no new words) and shows "Saving…".
+3. **Review** — §6.4. **Save N words** → "Adding details…" → **Done**: "17 words added" with **Practice these now** (starts an `import` session from this import, §8.1). With nothing set to Practice the button reads **Ignore all N words** (or **Finish** when there are no new words) and shows "Saving…".
    - Decisions are kept on the device (`localStorage`, per import) until saved, so a reload keeps them; another device starts from "all Add". Opening Review for an import that is still collecting starts the review.
-   - Under the large title (the import's name, else "Review words"): "**9** new words · **8** to add" with **Add all** and **Skip all** as pills at the right. "4 already in your words" is a quieter card that opens (its chevron turns) to list those headwords, articles in their gender colours. Every new word is a card, and the whole card is one Add/Skip toggle: the headword (article coloured) over "translation · part of speech", a "not in dictionary" pill under them when Wiktionary doesn't have the word, and the state at the right, a lime **Add** pill with a check or a grey **Skip** pill; a skipped card is dimmed and its headword struck through. An article mismatch is a warning-coloured strip across the card's bottom ("AI: der Sofa · Dictionary: das Sofa", a warning icon, one **Use das** button per dictionary article, filled in the warning colour); once applied the strip turns teal, "Dictionary article applied" with **Undo**. "Every word on these pages is already in your list." when there is nothing new.
-   - Done offers **Practice these now** (when words were added), **Import more pages** and **Home**. A reloaded Done screen no longer has the counts and just says "Import saved". On Home, **Practice** is the main button once there are words and **New import** the second (screen 1).
-   - Done has no back button; "Done" is a small grey label at the top, and the result is the big text: a lime circle with a check inside two thin rings, "8 words added" (or "Import saved") large, then "1 skipped; they won't be suggested again." and, with a small sparkle in teal, "Example sentences and forms are ready." (when they are), or the "N words without details yet" card with **Add details**. In the action bar, one above the other: **Practice these now** (the big lime button, with a play triangle), **Import more pages** and a quiet grey **Home**.
-   - **Nothing added:** when the save added no words, the big text is "No words added", with "Every word on these pages is already in your list." under it when the pages had no new words, or "N skipped; they won't be suggested again." when every new word was skipped. Such an import gets no entry among the past imports (§9.2), so Done offers neither **Practice these now** nor naming.
+   - Under the large title (the import's name, else "Review words"): "**9** new words · **8** to practise" with **Practice all** and **Ignore all** as pills at the right. "4 already in your words" is a quieter card that opens (its chevron turns) to list those headwords, articles in their gender colours. Every new word is a card, and the whole card is one Practice/Ignore toggle: the headword (article coloured) over "translation · part of speech", a "not in dictionary" pill under them when Wiktionary doesn't have the word, and the state at the right, a lime **Practice** pill with a check or a grey **Ignore** pill; an ignored card is dimmed and its headword struck through. An article mismatch is a warning-coloured strip across the card's bottom ("AI: der Sofa · Dictionary: das Sofa", a warning icon, one **Use das** button per dictionary article, filled in the warning colour); once applied the strip turns teal, "Dictionary article applied" with **Undo**. "Every word on these pages is already in your list." when there is nothing new.
+   - Done offers **Practice these now** (when words were added), **Import more pages** (**Type more words** after a typed list, `source = typed`, which opens Add words) and **Home**. A reloaded Done screen no longer has the counts and just says "Import saved". On Home, **Practice** is the main button once there are words and **New import** the second (screen 1).
+   - Done has no back button; "Done" is a small grey label at the top, and the result is the big text: a lime circle with a check inside two thin rings, "8 words added" (or "Import saved") large, then "1 ignored; they won't be suggested again." and, with a small sparkle in teal, "Example sentences and forms are ready." (when they are), or the "N words without details yet" card with **Add details**. In the action bar, one above the other: **Practice these now** (the big lime button, with a play triangle), **Import more pages** and a quiet grey **Home**.
+   - **Nothing added:** when the save added no words, the big text is "No words added", with "Every word on these pages is already in your list." under it when the pages had no new words, or "N ignored; they won't be suggested again." when every new word was ignored. Such an import gets no entry among the past imports (§9.2), so Done offers neither **Practice these now** nor naming.
    - **Naming:** when the import is among the past imports (`GET /imports`) and has no name, a card under the result offers one: the small uppercase label **Name this import** (as on Edit word), a text field with the placeholder "e.g. Lesson 4" (16 px, so iOS Safari doesn't zoom) and a **Save** pill beside it, enabled once something other than spaces is typed; Enter saves too. Once saved the card becomes one line with a check, "Saved as “Lesson 4”". Done reads the past imports to find this one and its name, so a reloaded Done screen offers it too; an import that already has a name, isn't listed, or a read that fails, shows no card. If saving fails, a toast says so and the typed name stays.
 4. **Practice setup** — three sources with counts, **Start**. The large title "Practice" with "What to practise" under it; each source a card with an icon (a camera for Import, a calendar for Last 7 days, a target for Not learned yet), its name and description, and its count at the right in two lines ("20" over "of 149 words"; "No words" alone). The chosen card has an accent edge and a lime icon square; a source without words is faded and can't be chosen. Real radio buttons underneath, so the keyboard and screen readers work as with any radio group. **Start**, with a play triangle, in the action bar.
    - The **Import** card has, in place of a description, a menu of the past imports (`GET /imports`): a native select (16 px or more, the phone's own picker), newest first, each by its label (import labels above). Every import in it has words to practise (§9.2). The menu starts on the most recent; choosing an import in it also chooses the Import card, and the count at the right is that import's. Without past imports the card is faded with "No words" and has no menu; the description "The words of one import" takes its place.
@@ -458,6 +500,15 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
 11. **Imports** (`/settings/imports`) — the round back button (to Settings), the large title "Imports", and the past imports (`GET /imports`), newest first, as rows on the page like My words' rows, a hairline between them, each with a chevron: the label (import labels above) in bold, and under it in grey the day when the import has a name, and its words ("13 Oct · 9 words", "54 words"). The whole row opens the import. Without any: "Your imports will appear here."
 12. **Import** (`/settings/imports/:id`) — the round back button (to Imports), the import's label as the large title, and one muted line under it: its words and the day it was added ("9 words · added 13 Oct"). Then a card of actions, for now one row: **Rename** with a chevron, which opens Rename import. Later actions on an import (deleting it, for example) join this card. The page finds the import among the past imports; one that isn't there (any more) says "This import is not in your list any more" with a link to Imports.
 13. **Rename import** (`/settings/imports/:id/rename`) — like Edit word (screen 9): **Cancel** at the left of the header, "Rename" as the title, **Save** at the right, lime and enabled only when the trimmed text differs from the name. One card: the small uppercase label **Name**, the field with the current name (the day as placeholder; 16 px) and the help text "Leave empty to show the date instead." Enter saves; an emptied field clears the name. **Save** stores it, shows a toast "Renamed" and returns to the import's page, which shows the new title. **Cancel**, like the browser's Back, drops the typed text. Neither adds a history entry, as on Edit word: opened from the import's page they go back to it; opened directly, the import's page replaces this screen. If saving fails, a toast says so and the typed name stays. An import that is no longer listed says so, as on its page.
+
+14. **Add words** (`/words/new`) — the round back button, the large title "Add words", and a segmented control **One word** / **A list**, like My words' tabs (the choice is in the URL, `?mode=list`).
+    - **One word:** a field "German word" (placeholder "e.g. Regenschirm"; 17 px; `lang="de"`; the phone's autocorrect stays on; no automatic capital, since the lookup ignores case). From 2 letters, 200 ms after typing stops, **suggestions** appear under it (`GET /dictionary/suggest`) as rows like My words': the headword (the article in its gender's colour) over "glosses · part of speech", with an "In your words" pill when the word is in the list. Tapping one opens Confirm word with that entry chosen; **Continue** in the action bar, or Enter, opens it for the typed text. After a word is added this screen comes back with an empty field and a line "✓ der Regenschirm added" that opens its Word detail.
+    - **A list:** a text box, "One word per line", with the number of words under it ("5 words"; blank lines and repeats, ignoring case, don't count). Beyond 30, **Continue** is disabled and the line says "At most 30 words at a time". **Continue** opens Confirm word at the first word.
+15. **Confirm word** (`/words/new/confirm`) — one typed text at a time (§6.7). The header has the round back button (to the previous word; from the first, to Add words) and, for a list, "**2** / 5" over a thin progress bar, as on Flashcards. Then:
+    - "You typed *regenschrim*" in grey, and the lookup's entries as cards, each a toggle like a Review card: the headword (article coloured), "pl. die Regenschirme" or the verb forms, the glosses and the part of speech; a chosen card has a lime edge and a check. "*ging* is a form of **gehen**" heads a base word's cards, "Did you mean…?" the similar words. When exactly one card comes from an exact match or a form, it starts chosen. A card already in the list is dimmed, with "In your words ›" linking to that word.
+    - A chosen card opens a **Translation** field inside it, filled with its first shortened gloss; the glosses as chips under the field fill it when tapped, and an **Ask AI** pill (a sparkle) asks Call 3 for a short translation, with a spinner while it runs.
+    - Last, a quieter card **Not in the dictionary?** opens the hand form: German word (the typed text), part of speech (a native select), article (der / die / das as pills; nouns only), translation, and **Ask AI**, which fills all four. When the lookup found nothing at all, it is open from the start, titled "Not in the dictionary".
+    - The action bar: **Add** (lime; "Add 2 words" when two cards are chosen; enabled when every chosen card, or the hand form, has a translation) and, in a list, **Remove** beside it. In a list both go on to the next word; after the last, the list is saved ("Adding details…") and Done opens (screen 3), or, when nothing was added, Add words with "No words added." One word is saved at once ("Adding details…") and Add words comes back (screen 14).
 
 ## 11. AI calls
 
@@ -528,6 +579,26 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 ### 11.5 Daily limit
 `DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage` and checked before each upload. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
 
+`DAILY_DESCRIBE_LIMIT` (default 200) Call 3 calls (**Ask AI**, §11.6) per user per day, counted the same way. Beyond it **Ask AI** answers "Daily AI limit reached"; the glosses and typing still work. It is a safety net, not a budget: pricing the AI features comes with accounts (plan, Later).
+
+### 11.6 Call 3 — Describe
+**Ask AI** on Confirm word (§6.7, §10 screen 15). Model `AI_MODEL_DESCRIBE`; the other settings as in §11.1.
+
+**Input:** `{ text, entry? }`: the typed text and, when a dictionary entry's translation is asked for, `entry: { lemma, pos, article, glosses }`.
+
+**Output schema:**
+```json
+{ "german": true, "lemma": "Regenschirm", "pos": "noun", "article": "der", "translation": "umbrella" }
+```
+
+**Prompt rules:**
+- With `entry`: translate that word in the sense its glosses describe; `lemma`, `pos` and `article` repeat the entry's.
+- Without: the German word the learner most likely meant, in base form as in Call 1 (infinitive, nominative singular, uninflected adjective), correcting misspellings (*Regenschrim* → *Regenschirm*) and inflected forms (*ging* → *gehen*); an article only for a noun.
+- `translation` is a short English equivalent (one to four words; verbs as "to go"), as in Call 1.
+- `german: false` when the text isn't a German word (English, nonsense); the other fields are then ignored.
+
+Recorded fixtures: an entry's translation, a misspelt noun, an inflected verb, an English word.
+
 ## 12. Errors
 
 ### Import
@@ -565,6 +636,16 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | Saving a change or deleting fails | Toast; typed texts stay, a status change is undone on screen |
 | A recording can't be played | Toast "Couldn't play the recording" |
 
+### Adding words
+| Problem | Behaviour |
+|---|---|
+| Suggestions can't be loaded | None appear; **Continue** still works |
+| The lookup fails | Inline message with **Try again** |
+| Ask AI fails (busy, refused, invalid output, limit, not German) | Toast with the reason; the fields keep their text |
+| Saving fails | Toast; the typed words and decisions stay in the tab, and **Add** can be tried again |
+| A chosen word is already in the list (added meanwhile) | Not added twice; counted in `alreadyInList` |
+| The dictionary isn't loaded | Every word is "Not in the dictionary"; the hand form and Ask AI still work |
+
 ### Error codes
 | HTTP | `code` | When |
 |---|---|---|
@@ -572,10 +653,11 @@ Error kinds differ: Sonnet's mistakes are mostly extra words the learner can ski
 | 400 | `invalid_image` | The upload is not a JPEG |
 | 400 | `unknown_candidate`, `invalid_article` | Save decisions don't fit the import (§6.5) |
 | 400 | `no_words` | Practice source without words |
-| 404 | `import_not_found`, `session_not_found`, `word_not_found`, `not_found` | Unknown id, or one of another learner; `not_found`: no such route |
+| 404 | `import_not_found`, `session_not_found`, `word_not_found`, `entry_not_found`, `not_found` | Unknown id, or one of another learner; `not_found`: no such route |
 | 409 | `import_closed` | Photo for an import that is no longer collecting; review or save of an import that is done |
 | 413 | `file_too_large` | Photo over 10 MB |
-| 422 | `ai_refused`, `ai_invalid_output`, `page_too_long` | The photo failed (§12 Import) |
+| 422 | `ai_refused`, `ai_invalid_output`, `page_too_long` | The photo failed (§12 Import), or Ask AI did (§12 Adding words) |
+| 422 | `not_german` | Ask AI: the typed text isn't a German word (§11.6) |
 | 429 | `daily_limit` | §11.5 |
 | 503 | `ai_busy` | Claude rate-limited, overloaded or unreachable after the SDK's retries |
 | 500 | `internal` | Anything unexpected; the message includes the request id |
@@ -587,9 +669,9 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's and Rename import's history steps, import labels and finding an import among the past imports, My words' day headings | Vitest in `core/`, `server/` and `web/` | Free |
-| Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, the migration that turns `last_import` sessions into `import` ones, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
-| Dictionary import | Mapping from kaikki JSONL to `dictionary_entries`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's and Rename import's history steps, import labels and finding an import among the past imports, My words' day headings, a typed list's lines, shortened glosses, Confirm word's steps | Vitest in `core/`, `server/` and `web/` | Free |
+| Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, the migration that turns `last_import` sessions into `import` ones, dictionary search (suggestions, lookup, forms, similar words), typed words (one word, a list as an import, facts from the chosen entry, a custom translation on a reused word), Call 3 and its limit, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
+| Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` and `dictionary_forms`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`) and a 3-word enrich batch through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
 | AI quality (optional, not built yet) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models; needs the hand-checked pages first | ~$2–3 per run on Opus |
 | Manual | Layout, gestures, photo flow on the real device | iPhone on the local network | — |
@@ -600,10 +682,10 @@ Fixtures are created by running a few real photos through Claude once and saving
 
 - `docker compose up -d` starts PostgreSQL (dev and test databases).
 - `pnpm dev` migrates the dev database, then starts the server (127.0.0.1:3000) and Vite (all interfaces, port 5173, `strictPort`). Vite proxies `/api` to the server, so the browser needs only one address.
-- The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`. A database with words saved before pronunciation existed then needs `pnpm --filter server backfill:pronunciation` once (§6.6).
+- The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`. A database with words saved before pronunciation existed then needs `pnpm --filter server backfill:pronunciation` once (§6.6). One loaded before M10 needs the import run once more, for the forms table (§7).
 - Checks: `pnpm test` (never calls Claude), `pnpm typecheck`, `pnpm check` (Biome; `pnpm format` fixes formatting). `ai:try` and `pnpm test:live` shrink photos with macOS `sips`.
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Words", without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
-- Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
+- Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `DAILY_DESCRIBE_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
 - No login: anyone on the home network can open the app. Acceptable for the prototype.
 - The server starts without `ANTHROPIC_API_KEY`; only the AI calls fail until it is set. The AI writes translations in the single user's `learner_language`, read at startup.
 
@@ -612,7 +694,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Adding a word by hand (M10); importing pages of a PDF (M11)
+- Adding words by hand (M10; already written into the sections above, not built yet); importing pages of a PDF (M11)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M12)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M13)
 - Practice modes German → English, articles, plurals, verb forms (M14)
