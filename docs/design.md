@@ -1,7 +1,7 @@
 # Language App — Prototype Design
 
 **Date:** 2026-10-11, last updated 2026-10-17
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand); kept in sync with the code
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand); kept in sync with the code. **M11 (import from PDF) is specified but not built yet:** §6.8 and §10 screen 16 are new, and what §4, §5, §6.1, §9, §10 screen 2, §11.5, §12 and §13 say about PDF pages is still to be built
 
 ## 1. Purpose
 
@@ -79,7 +79,7 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
   - `words/` — enrichment (`enrich.ts`), pronunciation from the dictionary and its backfill (`pronunciation.ts`), the learner's word list: list, detail, edit, delete (`service.ts`), and the query every word view is built on (`views.ts`).
   - `practice/` — session word selection and result recording.
   - `routes/stats.ts` — Home's counters; `http/errors.ts` — error responses (§12); `config.ts` — `.env` validation.
-- **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`, `playAudio()`), so a phone app only needs to replace those.
+- **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`, `playAudio()`, and for PDFs `openPdf()` / `renderPage()` and the remembered book's storage), so a phone app only needs to replace those.
 
 ### Technology
 
@@ -88,7 +88,7 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Language | TypeScript everywhere |
 | Repo | One repo, pnpm workspaces: `core/`, `server/`, `web/` |
 | Runtime | Node.js 24 or newer (developed on 26) |
-| Web | React + Vite, React Router, CSS Modules, `@use-gesture/react` for swipes |
+| Web | React + Vite, React Router, CSS Modules, `@use-gesture/react` for swipes, pdf.js (`pdfjs-dist`) to render PDF pages |
 | Server | Fastify, `@fastify/multipart` for photo upload |
 | Database | PostgreSQL 17 in Docker, Drizzle ORM + drizzle-kit migrations |
 | Validation | Zod (shared in `core/`) |
@@ -169,7 +169,7 @@ Deleting a `user_words` row (§9.1) deletes its `card_results` (`ON DELETE CASCA
 | `name` | Optional, e.g. "Lesson 4"; typed before the first photo, given on the Done screen or changed later in Settings (§10). Without one, screens show the import's date (§10, import labels) |
 | `status` | `collecting` (photos being added) / `reviewing` / `done` |
 | `photo_count` | |
-| `source` | `photos` (the default) or `typed`: a list of words typed by hand (§6.7) |
+| `source` | `photos` (the default), `pdf`: pages of a PDF rendered to images (§6.8), or `typed`: a list of words typed by hand (§6.7) |
 | `candidates` | JSON list of merged extraction results (see §6.3), so a reload never loses the review |
 | `created_at`, `completed_at` | |
 
@@ -229,6 +229,7 @@ One row per API attempt: a retry after invalid output and a failed call each get
 ### 6.1 Overview
 ```
 1. Learner picks 1..n photos  → each shrunk in the browser to JPEG, longest side 1600px
+   (or up to 10 pages of a PDF, each rendered to such a JPEG, §6.8)
 2. Each photo sent separately → AI call 1 (extract) → words + page quality
 3. Server merges into the import's candidate list, removing duplicates
 4. Server compares candidates with the learner's user_words (any status)
@@ -309,6 +310,14 @@ Instead of photographing pages, the learner can type German words (§10 screens 
 - Then enrichment runs as for imported words (§6.6): the example sentence, and the forms the entry didn't have.
 
 The typed list, the decisions so far and the current word are kept in the tab (`sessionStorage`), so a reload continues at the same word; nothing reaches the server before the last word of a list is decided.
+
+### 6.8 PDF pages
+Instead of photographing pages, the learner can import pages of a book they have as a PDF (§10 screen 16). The pages are turned into images **on the phone** and then go through the photo flow unchanged (§6.1–§6.6): each page is one upload, one extract call and one count towards the daily limit (§11.5), with the same per-page states, Retry, merge, Review, save and enrichment.
+- **Rendering:** pdf.js (`pdfjs-dist`, `web/src/device/pdf.ts`: `openPdf(file)`, `renderPage(doc, pageNumber)`) draws one page at a time on a canvas, so its longest side is 1600 px, and turns it into a JPEG at quality 0.85, like a shrunk photo (§6.2); the canvas is released before the next page. pdf.js runs in a web worker, which plain HTTP allows (only service workers need a secure context). Sending the PDF itself to Claude was rejected: Claude bills each PDF page as text *and* as an image, the whole book would have to be uploaded, and a cleanly rendered page already reads better than a photo.
+- **Pages:** a range of **at most 10** pages per import, From–To, inside the document. The numbers are the ones printed in the book when the PDF carries page labels (pdf.js `getPageLabels`), otherwise the PDF's own page numbers; thumbnails of the chosen pages show which pages they are.
+- **The book is remembered** on the phone: the last PDF chosen is kept in the browser's storage (IndexedDB, `web/src/device/bookStore.ts`) with its name and the last range imported, so the next PDF import opens on it and suggests the pages after that range (after 42–45: 46–49). One book at a time; **Choose another PDF** replaces it. Nothing about it reaches the server, and it stays on that phone only (clearing Safari's data removes it). If the browser refuses to store it (storage full, private browsing), the import still works, without remembering.
+- **No file-size limit:** the PDF never leaves the phone; Safari reads it into memory, which handles a typical textbook (the author's is under 50 MB).
+- **Name:** without a typed name, the import is named after the pages, "Pages 42–45" (one page: "Page 42"); it can be renamed as usual (Done, Settings). The import is created with `source = pdf`.
 
 ## 7. Wiktionary dictionary
 
@@ -393,7 +402,7 @@ All routes under `/api`, JSON unless noted. Request and response shapes are Zod 
 | GET | `/health` | `{ status: "ok" }` |
 | GET | `/stats` | Home counters (learning, learned), `detailsPending` (the learner's non-ignored words without details) and unfinished imports |
 | GET | `/imports` | Past imports → `{ imports }`, see §9.2 |
-| POST | `/imports` | Create import `{ name? }` (trimmed, at most 100 characters) → 201 + import |
+| POST | `/imports` | Create import `{ name?, source? }` (name trimmed, at most 100 characters; `source` `photos` (default) or `pdf`, §6.8) → 201 + import |
 | PATCH | `/imports/:id` | Rename `{ name }` → `{ id, name }`, see §9.2 |
 | POST | `/imports/:id/photos` | Upload one JPEG (multipart field `photo`, at most 10 MB) → extract, merge, compare, check → `{ pageQuality, wordsFound, import }`. Only while the import is `collecting` |
 | GET | `/imports/:id` | Import with candidates; `existing` is recomputed on every read |
@@ -439,6 +448,7 @@ An `EntryView` is one dictionary entry as Confirm word shows it (§10 screen 15)
 
 ```
 Home ─┬─► Import ─┬─► Review ──► Done ─► (Practice these now)
+      │           ├─► PDF pages ──► (pages read like photos) ──► Review
       │           └─► Add words ──► Confirm word ──► (a list) Done
       ├─► Practice setup ──► Flashcards ──► Summary
       ├─► My words ──► Word detail ──► Edit word
@@ -457,8 +467,9 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
    - two tiles side by side: **My words** with the counts ("136 learning · 0 learned"); the whole tile opens the Learning tab of My words, and it is Home's only way there; and **New import** ("Add more words"), an outlined tile. While there are no words yet, New import is the main button instead (big and lime, a plus in the circle), with the hint "Photograph the pages you studied to collect their new words." below it, and the My words tile under that;
    - the credit in the footer: grammar data from Wiktionary (CC BY-SA), recordings from Wikimedia Commons.
 2. **Import** — add photos (thumbnails, remove), optional name, per-photo state (preparing / reading / done with word count / failed + Retry / poor quality + Retake), **Review words** when at least one photo is done.
-   - The title is the import's name, large ("New import" before the import exists, "Import" when it has no name). Before the first photo: the **Name (optional)** field and a large dashed drop zone, "Take or choose photos" over "Photograph the pages you studied", with a lime camera square, and under it a quiet link **or type words ›**, which opens Add words (screen 14). Then the photos as tiles, two per row: the thumbnail (dimmed while it is read), a small round remove button (a cross) where removing is allowed, and its state with an icon: a check and "13 words" in the accent, a spinner and *Preparing* / *Reading*, "Couldn't read much from this page" in warning colour, the error in red, or "Waiting…"; **Retry** and **Retake** are full-width buttons under it. **Add more photos** is the grid's last cell, dashed like the drop zone. The number of words found so far is a pill after **Review words**; the hint under it ("Wait until every photo is read") stays.
+   - The title is the import's name, large ("New import" before the import exists, "Import" when it has no name). Before the first photo: the **Name (optional)** field and a large dashed drop zone, "Take or choose photos" over "Photograph the pages you studied", with a lime camera square, and under it two quiet links, **or choose PDF pages ›**, which opens PDF pages (screen 16), and **or type words ›**, which opens Add words (screen 14). Then the photos as tiles, two per row: the thumbnail (dimmed while it is read), a small round remove button (a cross) where removing is allowed, and its state with an icon: a check and "13 words" in the accent, a spinner and *Preparing* / *Reading*, "Couldn't read much from this page" in warning colour, the error in red, or "Waiting…"; **Retry** and **Retake** are full-width buttons under it. **Add more photos** is the grid's last cell, dashed like the drop zone. The number of words found so far is a pill after **Review words**; the hint under it ("Wait until every photo is read") stays.
    - The import is created when the first photo is sent, so leaving the screen early leaves nothing behind; the name is typed before that and can't be changed on this screen (it can on Done and in Settings). The URL moves from `/imports/new` to `/imports/:id` without losing the photos in memory.
+   - **PDF pages** arrive here from screen 16 as tiles like photos, labelled with their page ("p. 42"); *Preparing* is the page being rendered. They have no **Retake** (a rendered page can't be photographed again); **Retry** renders and sends the page again. The title is the import's name ("Pages 42–45").
    - Photos are shrunk one at a time (phone memory) and sent at most two at a time. "Uploading" and "reading" are shown as one state, *Reading*: `fetch` reports no upload progress, and a shrunk photo is only ≈0.5 MB.
    - A photo can be removed before it is sent or after it failed; once read, its words stay in the import (they can be skipped in review). **Retry** appears only for failures worth retrying with the same photo (AI busy, invalid output, network, an unexpected server error); otherwise the message says what to do (e.g. "photograph it in two parts").
    - **Review words** is enabled only when nothing is still being prepared or read, because starting review closes the import to photos. Photos read in an earlier visit count (“2 photos read earlier; their words are kept”).
@@ -510,6 +521,13 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
     - A chosen card opens a **Translation** field inside it (the small uppercase label, the field sunk into the card), filled with its first shortened gloss; the glosses, shortened, as chips under the field fill it when tapped (the one in the field is marked), and an **Ask AI** pill (a sparkle) asks Call 3 for a short translation, with a spinner while it runs.
     - Last, a quieter card **Not in the dictionary?** (a chevron that turns) opens the hand form: German word (the typed text), part of speech (a native select, "noun" already chosen for a capitalised text, "Choose…" otherwise), article (der / die / das as pills in their gender colours, optional, for plural-only nouns; nouns only), translation, and **Ask AI** ("Fills in all four"), which fills all four from the German word field. When the AI's word is in the dictionary, its cards appear first under "The AI suggests **der Regenschirm**" with a sparkle (and aren't repeated below): only the entries with the AI's part of speech and, for a noun, its article (for *ging* → *gehen* the verb, not *das Gehen*), the first not in the list chosen with the AI's translation, and the hand form closes. When no entry has them, the AI's word fills the hand form, as for a word the dictionary doesn't have. When the lookup found nothing at all, the form is open from the start, titled "Not in the dictionary". The hand form counts as one more word only when it is complete (German word, part of speech and translation; the article is optional) and open: an open but empty or half-filled form isn't counted, doesn't change Add's label and never blocks **Add**; closing it leaves it out. A complete form counts toward the 5 words: next to 4 chosen cards no fifth card can be chosen, and completed next to 5, **Add** waits until a card is unchosen.
     - The action bar: **Add** (lime; "Add 2 words" when two would be saved, the chosen cards plus a complete hand form; enabled when at least one word, and at most 5, would be saved and every chosen card has a translation; disabled when nothing would be saved) and, in a list, **Remove** to its left (a third of the width, as tall as Add). In a list both go on to the next word; after the last, the list is saved ("Adding details…") and Done opens (screen 3), or, when nothing was added (also when every word was removed: then nothing is sent), Add words with "No words added." One word is saved at once ("Adding details…") and Add words comes back (screen 14). A lookup that fails shows its message with **Try again**.
+
+16. **PDF pages** (`/imports/new/pdf`) — the round back button (to New import), the large title "PDF pages", then:
+    - **The book:** when one is remembered, a card with its file name and page count ("Menschen A1.pdf · 180 pages") and a quiet **Choose another PDF**; otherwise a dashed drop zone like Import's, "Choose a PDF" over "From Files or iCloud", with a lime document square (`<input type="file" accept="application/pdf">`). While the file opens: a spinner and "Opening…".
+    - **Pages:** two number fields side by side, **From** and **To** (`inputmode="numeric"`, 16 px or more), filled with the pages after the last import from this book, or 1–1 for a new book; under them "4 pages" or the reason Continue is off ("At most 10 pages at a time", "The book has 180 pages", "From must not be after To"). The numbers are the book's own (page labels) when the PDF has them.
+    - **Preview:** small thumbnails of the chosen pages in a row that scrolls sideways, each with its number, drawn after the fields stop changing, so the learner sees they picked the right pages.
+    - **Name (optional)**, its placeholder the automatic name ("Pages 42–45").
+    - **Import pages** in the action bar (the big lime button; "Import 4 pages") opens the Import screen (screen 2) with the pages as tiles; from there it is the photo flow.
 
 ## 11. AI calls
 
@@ -578,7 +596,7 @@ On the vocabulary-list page all models matched Opus closely (Sonnet 53, Haiku 50
 Error kinds differ: Sonnet's mistakes are mostly extra words the learner can skip, while Haiku's split separable verbs produce a wrong lemma. The author's development `.env` uses Haiku 5.5 at `medium`; the code defaults and `.env.example` stay Opus 5.5 at `low`.
 
 ### 11.5 Daily limit
-`DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage` and checked before each upload. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily photo limit reached".
+`DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage` and checked before each upload. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily page limit reached" (a PDF page counts like a photo, §6.8).
 
 `DAILY_DESCRIBE_LIMIT` (default 200) Call 3 calls (**Ask AI**, §11.6) per user per day, counted the same way. Beyond it **Ask AI** answers "Daily AI limit reached"; the glosses and typing still work. It is a safety net, not a budget: pricing the AI features comes with accounts (plan, Later).
 
@@ -619,6 +637,11 @@ Recorded fixtures: an entry's translation (*die Bank*, "bank (financial institut
 | Learner leaves during review | Import stays `reviewing`; Home shows a banner to finish it |
 | Same word saved twice concurrently | Unique constraints + upsert; no duplicates |
 | Daily limit reached | Upload refused with a clear message |
+| A chosen file isn't a PDF, or pdf.js can't open it | On PDF pages: "Couldn't open this PDF"; the remembered book is not replaced |
+| The PDF is password-protected | "This PDF is password-protected"; nothing is remembered |
+| The remembered book can't be read any more (storage cleared or broken) | It is forgotten; PDF pages asks for a PDF again |
+| A page fails to render | That tile fails with **Retry** (renders again); the other pages continue |
+| The browser can't store the book | The import works; the book just isn't remembered |
 | Naming or renaming an import fails (Done, Settings) | Toast; the typed name stays |
 
 ### Practice
@@ -672,7 +695,7 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's and Rename import's history steps, import labels and finding an import among the past imports, My words' day headings, a typed list's lines, shortened glosses, Confirm word's steps | Vitest in `core/`, `server/` and `web/` | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's and Rename import's history steps, import labels and finding an import among the past imports, My words' day headings, a typed list's lines, shortened glosses, Confirm word's steps, PDF page ranges and labels, the automatic name, the page suggested next | Vitest in `core/`, `server/` and `web/` | Free |
 | Server | Import flow (extract → merge → compare → dictionary → save → enrich), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, the migration that turns `last_import` sessions into `import` ones, dictionary search (suggestions, lookup, forms, similar words), typed words (one word, a list as an import, facts from the chosen entry, a custom translation on a reused word), Call 3 and its limit, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` and `dictionary_forms`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`), a 3-word enrich batch and two Ask AI calls (a misspelt noun, an English word) through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, the corrected word, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
@@ -697,7 +720,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Importing pages of a PDF (M11)
+- Importing pages of a PDF (M11; already written into the sections above, not built yet)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M12)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M13)
 - Practice modes German → English, articles, plurals, verb forms (M14)

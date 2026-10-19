@@ -269,7 +269,21 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 
 #### M11: Import from PDF
 - The learner picks a PDF and a page range (e.g. 42–45) each time, so a whole book can stay one file. The chosen pages go through the photo flow: extract → merge → compare → dictionary check → review → save → enrichment.
-- **Open:** render the pages to images in the browser (pdf.js) and reuse the photo upload unchanged, or send the pages to Claude as PDF documents (uses a digital PDF's text layer); limits on file size and page count; the daily limit counts a page like a photo.
+- **Decided (the user, 2026-10-19):**
+  - **Pages become images in the browser** (pdf.js) and go through the photo upload unchanged: each page is shrunk like a photo and sent as one JPEG. Cheaper per page than sending PDF pages to Claude (which bills each page as text *and* image), only the chosen pages leave the phone, and the extraction, merge, Retry, daily limit and Review code stay as they are. A digital page rendered sharply reads better than a phone photo.
+  - **At most 10 pages** per import.
+  - **No file-size limit:** the user's book PDF is under 50 MB; Safari loads it into the phone's memory, so a much bigger file is checked on the phone first.
+  - **The daily limit counts a page like a photo** (one AI call each); the message says "Daily page limit reached".
+  - **The book is remembered on the phone:** the PDF is kept in the browser's storage (IndexedDB, under 50 MB), so the next import starts at "Book.pdf · pages 42–45" with **Choose another PDF**. It stays on that phone only; clearing Safari's data removes it.
+  - **Automatic name:** without a typed name the import is called "Pages 42–45"; it can be renamed as usual (Done, Settings).
+- The behaviour is in `docs/design.md` §6.8 and §10 screens 2 and 16 (plus §4, §5 `imports.source = pdf`, §9 `POST /imports { source }`, §11.5, §12 Import).
+- **Check first:** the pdf.js version must run on the user's iOS Safari (recent `pdfjs-dist` releases use new JavaScript features; its `legacy` build is the fallback) and its worker must load from Vite over plain HTTP. Try rendering a page of the real book on the iPhone before building the screens.
+- **Schema change:** none beyond accepting `pdf` as an `imports.source` value (a text column; no migration unless a check constraint exists).
+- **No AI change:** pages go through Call 1 like photos; no new fixtures needed (an extra recorded fixture from a rendered PDF page is welcome but optional).
+- **Tests first:**
+  - web: a page range's validation (inside the book, From ≤ To, at most 10), the page labels used when present, the automatic name ("Pages 42–45", "Page 42"), the range suggested after the last import (46–49 after 42–45, clamped to the book's end), the photo-state reducer with PDF tiles (no Retake; Retry renders again), the book store with a fake IndexedDB (remember, replace, forget a broken entry, work without storage);
+  - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
+
 
 #### M12: Themes and own groups
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
