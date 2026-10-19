@@ -121,10 +121,22 @@ export function beginStep(step: Step, found: LookupResponse): Step {
   };
 }
 
-/** How many words Add would save: the chosen cards, and the hand form when open. */
-const wordCount = (step: Step) => Object.keys(step.chosen).length + (step.hand.open ? 1 : 0);
+const handComplete = ({ lemma, pos, translation }: HandForm) =>
+  Boolean(lemma.trim() && pos && translation.trim());
 
-/** Chooses a card or unchooses it. A word in the list can't be chosen; at most 5 words. */
+/** Whether the hand form is a word Add saves: open and complete (the article is optional). */
+const handCounts = (hand: HandForm) => hand.open && handComplete(hand);
+
+/**
+ * How many words Add would save: the chosen cards, and the hand form when it is complete. An
+ * empty or half-filled form isn't a word.
+ */
+const wordCount = (step: Step) => Object.keys(step.chosen).length + (handCounts(step.hand) ? 1 : 0);
+
+/**
+ * Chooses a card or unchooses it. A word in the list can't be chosen; at most 5 words, a complete
+ * hand form among them.
+ */
 export function toggleCard(step: Step, view: EntryView): Step {
   const key = viewKey(view);
   if (key in step.chosen) {
@@ -158,32 +170,39 @@ export const fillHand = (step: Step, word: DescribeResponse): Step => ({
 });
 
 /**
- * Ask AI on the hand form, for a word the dictionary has: its entries are offered instead, the
- * one matching the AI's word chosen with the AI's translation, and the hand form closes.
+ * Ask AI on the hand form, with `entries` the dictionary's for the AI's lemma (ignoring case):
+ * only those of the AI's word (its part of speech and, for a noun, its article) are offered, the
+ * first not in the list chosen with the AI's translation (room allowing), and the hand form
+ * closes. When none is the AI's word (*gehen* the verb, not *das Gehen*), the AI's word fills the
+ * hand form instead.
  */
 export function setAi(step: Step, word: DescribeResponse, entries: EntryView[]): Step {
-  const match = entries.find(
-    (e) => e.pos === word.pos && e.article === word.article && !e.inMyWords,
+  const matching = entries.filter(
+    (e) => e.pos === word.pos && (word.pos !== "noun" || e.article === word.article),
   );
+  if (matching.length === 0) return fillHand(step, word);
+  const closed = { ...step, hand: { ...step.hand, open: false } };
+  const match = matching.find((e) => !e.inMyWords);
+  const key = match && viewKey(match);
+  const choose = key !== undefined && (key in step.chosen || wordCount(closed) < TYPED_WORDS_MAX);
   return {
-    ...step,
-    ai: { word, entries },
-    hand: { ...step.hand, open: false },
-    chosen: match ? { ...step.chosen, [viewKey(match)]: word.translation } : step.chosen,
+    ...closed,
+    ai: { word, entries: matching },
+    chosen: choose ? { ...step.chosen, [key]: word.translation } : step.chosen,
   };
 }
 
-const handComplete = ({ lemma, pos, translation }: HandForm) =>
-  Boolean(lemma.trim() && pos && translation.trim());
-
-/** Add is possible when something is chosen and every chosen card, and an open hand form, is filled. */
+/**
+ * Add is possible when it would save something, at most 5 words, and every chosen card has a
+ * translation. An open hand form that isn't complete is left out; it never blocks Add.
+ */
 export function canAdd(step: Step): boolean {
-  if (wordCount(step) === 0) return false;
-  if (Object.values(step.chosen).some((translation) => !translation.trim())) return false;
-  return !step.hand.open || handComplete(step.hand);
+  const count = wordCount(step);
+  if (count === 0 || count > TYPED_WORDS_MAX) return false;
+  return Object.values(step.chosen).every((translation) => translation.trim());
 }
 
-/** "Add", or "Add 2 words" when two are chosen. */
+/** "Add", or "Add 2 words" when two would be saved. */
 export function addLabel(step: Step): string {
   const count = wordCount(step);
   return count > 1 ? `Add ${count} words` : "Add";
@@ -208,7 +227,7 @@ export function wordsOf(step: Step, views: EntryView[]): TypedWord[] {
   });
   const { hand } = step;
   const typed =
-    hand.open && hand.pos && handComplete(hand)
+    handCounts(hand) && hand.pos
       ? [
           {
             lemma: hand.lemma.trim(),

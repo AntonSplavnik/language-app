@@ -213,22 +213,71 @@ describe("Confirm word's steps (§6.7, §10 screen 15)", () => {
     expect(canAdd(step)).toBe(false);
     step = updateHand(step, { translation: "children's library" });
     expect(canAdd(step)).toBe(true);
+    expect(addLabel(step)).toBe("Add");
     expect(wordsOf(step, [])).toEqual([
       { lemma: "Kinderbibliothek", pos: "noun", article: "die", translation: "children's library" },
     ]);
+    // The article is optional (plural-only nouns).
+    expect(wordsOf(updateHand(step, { article: null }), [])[0]?.article).toBeNull();
     // An article belongs to a noun only.
     step = updateHand(step, { pos: "adjective" });
     expect(wordsOf(step, [])[0]?.article).toBeNull();
     // Closed, it adds nothing.
     expect(wordsOf(toggleHand(step), [])).toEqual([]);
+    expect(canAdd(toggleHand(step))).toBe(false);
   });
 
-  it("an open hand form must be complete before Add, also next to chosen cards", () => {
-    let step = toggleCard(stepOf(startFlow("one", ["See"])), lake);
+  it("an empty open hand form isn't a word: the label stays and Add stays possible", () => {
+    let step = toggleCard(stepOf(startFlow("one", ["regen"])), umbrella);
     step = toggleHand(step);
-    expect(canAdd(step)).toBe(false);
-    step = toggleHand(step);
+    expect(addLabel(step)).toBe("Add");
     expect(canAdd(step)).toBe(true);
+    expect(wordsOf(step, [umbrella]).map((w) => w.lemma)).toEqual(["Regenschirm"]);
+    step = toggleCard(step, lake);
+    expect(addLabel(step)).toBe("Add 2 words");
+    expect(canAdd(step)).toBe(true);
+  });
+
+  it("a half-filled hand form isn't a word either, and never blocks Add", () => {
+    let step = toggleHand(toggleCard(stepOf(startFlow("one", ["regen"])), umbrella));
+    step = updateHand(step, { lemma: "Regen", pos: "noun", article: "der" });
+    expect(addLabel(step)).toBe("Add");
+    expect(canAdd(step)).toBe(true);
+    expect(wordsOf(step, [umbrella])).toHaveLength(1);
+    // Alone, it saves nothing, so Add is disabled.
+    expect(canAdd(toggleCard(step, umbrella))).toBe(false);
+  });
+
+  it("a complete hand form counts as one more word and is sent after the cards", () => {
+    let step = toggleHand(toggleCard(stepOf(startFlow("one", ["regen"])), umbrella));
+    step = updateHand(step, { lemma: "Regen", pos: "noun", article: "der", translation: "rain" });
+    expect(addLabel(step)).toBe("Add 2 words");
+    expect(canAdd(step)).toBe(true);
+    expect(wordsOf(step, [umbrella])).toEqual([
+      { lemma: "Regenschirm", pos: "noun", article: "der", translation: "umbrella", entryId: 3 },
+      { lemma: "Regen", pos: "noun", article: "der", translation: "rain" },
+    ]);
+    // A chosen card without a translation still blocks Add.
+    expect(canAdd(setTranslation(step, umbrella, " "))).toBe(false);
+  });
+
+  it("at most 5 words, a complete hand form among them", () => {
+    const many = Array.from({ length: 5 }, (_, i) => view(`Wort${i}`, { entryId: 50 + i }));
+    const [first, ...others] = many as [EntryView, ...EntryView[]];
+    let step = toggleHand(stepOf(startFlow("one", ["Wort"])));
+    // An empty form leaves room for 5 cards.
+    for (const each of many) step = toggleCard(step, each);
+    expect(Object.keys(step.chosen)).toHaveLength(5);
+    expect(canAdd(step)).toBe(true);
+    // Completed next to 5 cards, it would be a sixth: Add waits until a card is unchosen.
+    step = updateHand(step, { lemma: "Wort", pos: "noun", translation: "word" });
+    expect(addLabel(step)).toBe("Add 6 words");
+    expect(canAdd(step)).toBe(false);
+    step = toggleCard(step, first);
+    expect(canAdd(step)).toBe(true);
+    // With a complete form and 4 cards, no fifth card can be chosen.
+    expect(toggleCard(step, first)).toBe(step);
+    expect(wordsOf(step, others)).toHaveLength(5);
   });
 
   it("Ask AI on the hand form fills all four fields", () => {
@@ -263,6 +312,44 @@ describe("Confirm word's steps (§6.7, §10 screen 15)", () => {
       ["ai", [3]],
       ["similar", [1]],
     ]);
+  });
+
+  it("Ask AI keeps only the entries of the AI's word: same part of speech, and article for a noun", () => {
+    const gerund = view("Gehen", { entryId: 5, article: "das", glosses: ["gerund of gehen"] });
+    let step = toggleHand(stepOf(startFlow("one", ["ging"])));
+    step = setAi(step, { lemma: "gehen", pos: "verb", article: null, translation: "to go" }, [
+      gehen,
+      gerund,
+    ]);
+    expect(step.ai?.entries).toEqual([gehen]);
+    expect(step.chosen).toEqual({ [viewKey(gehen)]: "to go" });
+    expect(step.hand.open).toBe(false);
+    // die See is the AI's word, der See isn't; both entries of die Bank are, the first chosen.
+    const seaStep = setAi(
+      stepOf(startFlow("one", ["Mer"])),
+      { lemma: "See", pos: "noun", article: "die", translation: "sea" },
+      [lake, sea],
+    );
+    expect(seaStep.ai?.entries).toEqual([sea]);
+    const bench = view("Bank", { entryId: 6, article: "die", glosses: ["bench"] });
+    const bank = view("Bank", { entryId: 7, article: "die", glosses: ["bank"] });
+    const bankStep = setAi(
+      stepOf(startFlow("one", ["Bnak"])),
+      { lemma: "Bank", pos: "noun", article: "die", translation: "bank" },
+      [bench, bank],
+    );
+    expect(bankStep.ai?.entries).toEqual([bench, bank]);
+    expect(bankStep.chosen).toEqual({ [viewKey(bench)]: "bank" });
+  });
+
+  it("Ask AI's word matching no entry fills the hand form instead", () => {
+    const word = { lemma: "Gehen", pos: "noun", article: "der", translation: "walk" } as const;
+    let step = toggleHand(stepOf(startFlow("one", ["gehen"])));
+    step = setAi(step, word, [gehen]);
+    expect(step.ai).toBeNull();
+    expect(step.chosen).toEqual({});
+    expect(step.hand).toEqual({ open: true, ...word });
+    expect(setAi(stepOf(startFlow("one", ["x"])), word, []).hand).toEqual({ open: true, ...word });
   });
 
   it("the sections: exact entries, then each base word, then similar words", () => {

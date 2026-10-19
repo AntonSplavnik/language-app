@@ -33,7 +33,6 @@ import {
   type Decision,
   decide,
   type Flow,
-  fillHand,
   type HandForm,
   isLast,
   listWords,
@@ -226,9 +225,10 @@ function Confirm({
       const word = await api.describeWord({
         text: (step.hand.lemma.trim() || text).slice(0, TYPED_TEXT_MAX),
       });
-      // When the AI's word is in the dictionary, its entries are offered instead.
+      // When the AI's word is in the dictionary, its entries are offered instead (setAi keeps
+      // those of the AI's part of speech and article, or fills the hand form when none is).
       const entries = (await api.lookup(word.lemma).catch(() => null))?.entries ?? [];
-      change((s) => (entries.length > 0 ? setAi(s, word, entries) : fillHand(s, word)));
+      change((s) => setAi(s, word, entries));
     } catch (error) {
       toast.show(errorMessage(error));
     } finally {
