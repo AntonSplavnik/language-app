@@ -17,6 +17,7 @@ import {
   toggleHand,
   updateHand,
   viewKey,
+  withoutNotice,
   wordsOf,
 } from "../src/state/addWords";
 import { shortGloss, shortGlosses } from "../src/words/glosses";
@@ -395,5 +396,17 @@ describe("Confirm word's steps (§6.7, §10 screen 15)", () => {
     flow = decide(flow, { kind: "remove" });
     flow = decide(flow, { kind: "remove" });
     expect(listWords(flow)).toEqual([]);
+  });
+});
+
+describe("the line after a save (§10 screen 14)", () => {
+  it("is taken out of the tab, which keeps the drafts and a list in progress", () => {
+    const flow = startFlow("list", ["See", "gehen"]);
+    const state = {
+      draft: { one: "", list: "See\ngehen" },
+      flow,
+      notice: { kind: "added" as const, words: [] },
+    };
+    expect(withoutNotice(state)).toEqual({ draft: state.draft, flow, notice: null });
   });
 });

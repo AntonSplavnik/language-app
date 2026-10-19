@@ -44,7 +44,10 @@ export type Step = {
 
 export type Flow = { mode: Mode; texts: string[]; index: number; steps: Step[] };
 
-/** The line Add words shows after a save. */
+/**
+ * The line Add words shows right after a save. Confirm word leaves it in the tab; Add words takes
+ * it out as it opens (`withoutNotice`), so it is shown once.
+ */
 export type Notice = { kind: "added"; words: AddedWord[] } | { kind: "already" } | { kind: "none" };
 
 /** Everything Add words and Confirm word keep in the tab. */
@@ -62,6 +65,9 @@ export const loadState = (): AddWordsState => ({
   ...readJson<AddWordsState>(STORAGE_KEY, "session"),
 });
 export const saveState = (state: AddWordsState) => writeJson(STORAGE_KEY, state, "session");
+
+/** The state without the line after a save; the drafts and a list in progress stay. */
+export const withoutNotice = (state: AddWordsState): AddWordsState => ({ ...state, notice: null });
 
 /** A card: an entry in one of its genders (der/das Liter are two cards). */
 export const viewKey = (view: Pick<EntryView, "entryId" | "article">) =>

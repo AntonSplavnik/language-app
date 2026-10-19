@@ -6,7 +6,7 @@ import { Headword } from "../components/Headword";
 import { CheckIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { SegmentedTabs } from "../components/SegmentedTabs";
-import { type Flow, type Mode, type Notice, startFlow } from "../state/addWords";
+import { type Flow, type Mode, type Notice, startFlow, withoutNotice } from "../state/addWords";
 import { useAddWords } from "../state/useAddWords";
 import ui from "../styles/ui.module.css";
 import { shortGlosses } from "../words/glosses";
@@ -27,10 +27,17 @@ export function AddWordsScreen() {
   const mode: Mode = params.get("mode") === "list" ? "list" : "one";
   const navigate = useNavigate();
   const [state, update] = useAddWords();
-  const { draft, notice } = state;
+  const { draft } = state;
+
+  // The line after a save is shown only right after it: taken out of the tab as the screen opens
+  // (so leaving and coming back, or a reload, shows none), and hidden on typing or switching tabs.
+  const [shown, setShown] = useState(() => state.notice && { notice: state.notice, mode });
+  useEffect(() => update(withoutNotice), [update]);
+  if (shown && shown.mode !== mode) setShown(null);
+  const notice = shown?.notice;
 
   const confirm = (flow: Flow) => {
-    update((current) => ({ ...current, flow, notice: null }));
+    update((current) => ({ ...current, flow }));
     // Confirm word goes back here when it's done, so the history keeps one Add words.
     navigate("/words/new/confirm", { state: { fromAddWords: true } });
   };
@@ -69,7 +76,10 @@ export function AddWordsScreen() {
       {mode === "one" ? (
         <OneWord
           text={draft.one}
-          onText={(one) => update((current) => ({ ...current, draft: { ...current.draft, one } }))}
+          onText={(one) => {
+            setShown(null);
+            update((current) => ({ ...current, draft: { ...current.draft, one } }));
+          }}
           onSubmit={next}
           onPick={(view) => confirm(startFlow("one", [view.lemma], view))}
         />
@@ -78,9 +88,10 @@ export function AddWordsScreen() {
           text={draft.list}
           count={list.words.length}
           tooMany={list.tooMany}
-          onText={(text) =>
-            update((current) => ({ ...current, draft: { ...current.draft, list: text } }))
-          }
+          onText={(text) => {
+            setShown(null);
+            update((current) => ({ ...current, draft: { ...current.draft, list: text } }));
+          }}
         />
       )}
     </Page>
