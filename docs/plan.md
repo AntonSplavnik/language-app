@@ -277,7 +277,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - **The book is remembered on the phone:** the PDF is kept in the browser's storage (IndexedDB, under 50 MB), so the next import starts at "Book.pdf · pages 42–45" with **Choose another PDF**. It stays on that phone only; clearing Safari's data removes it.
   - **Automatic name:** without a typed name the import is called "Pages 42–45"; it can be renamed as usual (Done, Settings).
 - The behaviour is in `docs/design.md` §6.8 and §10 screens 2 and 16 (plus §4, §5 `imports.source = pdf`, §9 `POST /imports { source }`, §11.5, §12 Import).
-- **Check first:** the pdf.js version must run on the user's iOS Safari (recent `pdfjs-dist` releases use new JavaScript features; its `legacy` build is the fallback) and its worker must load from Vite over plain HTTP. Try rendering a page of the real book on the iPhone before building the screens.
+- **Check first:** the pdf.js version must run on the user's iOS Safari (the user's iPhone runs **iOS 18.7.2**, 2026-10-19) (recent `pdfjs-dist` releases use new JavaScript features; its `legacy` build is the fallback) and its worker must load from Vite over plain HTTP. Try rendering a page of the real book on the iPhone before building the screens.
 - **Schema change:** none beyond accepting `pdf` as an `imports.source` value (a text column; no migration unless a check constraint exists).
 - **No AI change:** pages go through Call 1 like photos; no new fixtures needed (an extra recorded fixture from a rendered PDF page is welcome but optional).
 - **Tests first:**
