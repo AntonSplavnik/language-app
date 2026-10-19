@@ -237,7 +237,7 @@ Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, �
 - No AI change.
 
 #### M10: Add a word by hand
-**Status (2026-10-17):** built and committed (9a86d7f); tests, typecheck, lint and `pnpm test:live` pass, and the demo ran on a copy of the database. **Not yet tested by the user on the iPhone**: the check list is in the commit's hand-off (keyboard and suggestions, one word, *See* / *ging* / a typo / Ask AI, a list with Remove, a reload mid-list, Review's Practice / Ignore). Fixes from that check go in a follow-up commit.
+**Status (2026-10-19):** built (9a86d7f) and tested by the user on the iPhone. Fixes from that check: the hand form counts only when complete and Ask AI shows only the matching entry (9c25d78); the "added" line on Add words shows only right after a save (b82ff6a).
 
 **Known rough edge (2026-10-19, left for later):** ≈6,000 dictionary entries are only spelling variants (*das Groß*: "alternative spelling of Gros"); they show up as suggestions and cards with that gloss as their translation. Fix: have the loader treat alt-of senses like form-of ones (a pointer "*Groß* is another spelling of **Gros**"), then reload the dictionary once.
 
