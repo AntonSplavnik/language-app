@@ -1,0 +1,157 @@
+/* PDF pages (§10 screen 16): the book, From and To, the preview, the name. */
+
+/* The remembered book: its name and page count, after a document icon in a well. */
+.book {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  margin-top: 4px;
+}
+
+.bookIcon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+/* A plain block, not a flex column: the clamped lines below must be ordinary blocks for the
+   two-line clamp to hold in every browser. */
+.bookText {
+  min-width: 0;
+}
+
+/* File names are long ("schritte_plus_neu_2_a12_kurs_und_…"): at most two lines, then an
+   ellipsis. */
+.bookName,
+.bookPages {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.bookName {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.bookPages {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Choose another PDF", quiet, under the card. */
+.another {
+  align-self: center;
+  margin-top: -8px;
+  font-size: 15px;
+}
+
+.another:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* "Couldn't open this PDF", under the book or the drop zone. */
+.error {
+  margin: -6px 0 0;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.range {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fields input {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "4 pages", or why the pages can't be imported. */
+.note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.note.invalid {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Only when the PDF has no page labels. */
+.hint {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* The chosen pages, small, in a row that scrolls sideways to the screen's edges. */
+.preview {
+  list-style: none;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 2px var(--gutter) 4px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.preview::-webkit-scrollbar {
+  display: none;
+}
+
+.thumb {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.thumb img,
+.blank {
+  display: block;
+  height: 132px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.thumb img {
+  width: auto;
+  max-width: 200px;
+}
+
+/* Until the page is drawn (shimmering), or when it can't be: the shape of an A4 page. */
+.blank {
+  width: 94px;
+  background-color: var(--surface-muted);
+}
+
+.thumbLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -144,6 +144,14 @@ export const CameraIcon = (props: IconProps) => (
   </Stroke>
 );
 
+/** A PDF: PDF pages' drop zone and its book card. */
+export const DocumentIcon = (props: IconProps) => (
+  <Stroke weight={1.8} {...props}>
+    <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+    <path d="M14 3v5h5M9 13h6M9 17h4" />
+  </Stroke>
+);
+
 /** The Last 7 days source. */
 export const CalendarIcon = (props: IconProps) => (
   <Stroke weight={1.8} {...props}>

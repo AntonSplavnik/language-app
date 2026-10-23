@@ -6,11 +6,25 @@
  * Device-specific: a phone app replaces this file.
  */
 export function pickPhotos(): Promise<File[]> {
+  return pickFiles("image/*", true);
+}
+
+/**
+ * Opens the system file picker for one PDF (§10 screen 16): on iPhone, Files with iCloud Drive.
+ * Resolves with null when the learner cancels.
+ *
+ * Device-specific: a phone app replaces this file.
+ */
+export async function pickPdf(): Promise<File | null> {
+  return (await pickFiles("application/pdf", false))[0] ?? null;
+}
+
+function pickFiles(accept: string, multiple: boolean): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
-    input.multiple = true;
+    input.accept = accept;
+    input.multiple = multiple;
     input.style.display = "none";
 
     const finish = (files: File[]) => {

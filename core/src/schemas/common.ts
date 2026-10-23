@@ -45,8 +45,11 @@ export type FormsSource = z.infer<typeof FormsSource>;
 export const ImportStatus = z.enum(["collecting", "reviewing", "done"]);
 export type ImportStatus = z.infer<typeof ImportStatus>;
 
-/** How an import's words came in: photographed pages, or a list typed by hand (§5, §6.7). */
-export const ImportSource = z.enum(["photos", "typed"]);
+/**
+ * How an import's words came in: photographed pages, pages of a PDF rendered to images (§6.8), or
+ * a list typed by hand (§5, §6.7).
+ */
+export const ImportSource = z.enum(["photos", "pdf", "typed"]);
 export type ImportSource = z.infer<typeof ImportSource>;
 
 /** `ai_usage.call_type`: the three Claude calls (§11). */

@@ -1,10 +1,16 @@
 // The photos of one import while they are prepared and read (§6.2, §10 Import). Photos live only
-// in the browser's memory; the server keeps the words, not the images.
+// in the browser's memory; the server keeps the words, not the images. Pages of a PDF are tiles
+// too (§6.8): rendered instead of shrunk, then read like photos.
+
+import type { PdfPage } from "../imports/pdfPages";
 
 export type PhotoStatus =
-  /** Picked, waiting to be shrunk. */
+  /** Picked, waiting to be shrunk (a PDF page: rendered). */
   | "queued"
-  /** Being shrunk to a 1600 px JPEG. One photo at a time, to spare the phone's memory. */
+  /**
+   * Being shrunk to a 1600 px JPEG (a PDF page: rendered to one). One at a time, to spare the
+   * phone's memory.
+   */
   | "preparing"
   /** Shrunk, waiting to be sent. */
   | "ready"
@@ -18,7 +24,10 @@ export type PhotoStatus =
 export type Photo = {
   /** Local id, never sent to the server. */
   id: string;
-  file: Blob;
+  /** The picked photo; null for a PDF page. */
+  file: Blob | null;
+  /** The PDF page this tile shows; null for a photo. */
+  page: PdfPage | null;
   jpeg: Blob | null;
   previewUrl: string | null;
   status: PhotoStatus;
@@ -28,8 +37,12 @@ export type Photo = {
 
 export type PhotosState = { photos: Photo[] };
 
+/** A picked photo, or a page of a PDF. */
+export type NewPhoto = { id: string; file: Blob } | { id: string; page: PdfPage };
+
 export type PhotoAction =
-  | { type: "added"; photos: Array<{ id: string; file: Blob }> }
+  /** Ids already in the import are left alone, so the same pages can't arrive twice. */
+  | { type: "added"; photos: NewPhoto[] }
   | { type: "preparing"; id: string }
   | { type: "prepared"; id: string; jpeg: Blob; previewUrl: string }
   | { type: "reading"; id: string }
@@ -53,27 +66,35 @@ export const initialPhotos: PhotosState = { photos: [] };
 export const canRemove = (photo: Photo) =>
   photo.status === "queued" || photo.status === "ready" || photo.status === "failed";
 
+/** A poor photo can be taken again; a rendered PDF page can't (§10 Import). */
+export const canRetake = (photo: Photo) => photo.status === "poor" && photo.page === null;
+
 export function photosReducer(state: PhotosState, action: PhotoAction): PhotosState {
   const update = (id: string, change: (photo: Photo) => Photo) => ({
     photos: state.photos.map((p) => (p.id === id ? change(p) : p)),
   });
 
   switch (action.type) {
-    case "added":
+    case "added": {
+      const known = new Set(state.photos.map((p) => p.id));
       return {
         photos: [
           ...state.photos,
-          ...action.photos.map(
-            ({ id, file }): Photo => ({
-              id,
-              file,
-              jpeg: null,
-              previewUrl: null,
-              status: "queued",
-            }),
-          ),
+          ...action.photos
+            .filter((photo) => !known.has(photo.id))
+            .map(
+              (photo): Photo => ({
+                id: photo.id,
+                file: "file" in photo ? photo.file : null,
+                page: "page" in photo ? photo.page : null,
+                jpeg: null,
+                previewUrl: null,
+                status: "queued",
+              }),
+            ),
         ],
       };
+    }
     case "preparing":
       return update(action.id, (p) => ({ ...p, status: "preparing" }));
     case "prepared":
@@ -98,15 +119,18 @@ export function photosReducer(state: PhotosState, action: PhotoAction): PhotosSt
         error: { message: action.message, retryable: action.retryable },
       }));
     case "retry":
-      return update(action.id, (p) =>
-        p.status === "failed" ? { ...p, status: p.jpeg ? "ready" : "queued", error: undefined } : p,
-      );
+      // A photo is sent again as it was shrunk; a PDF page is rendered again (§10 Import).
+      return update(action.id, (p) => {
+        if (p.status !== "failed") return p;
+        if (p.page) return { ...p, status: "queued", jpeg: null, error: undefined };
+        return { ...p, status: p.jpeg ? "ready" : "queued", error: undefined };
+      });
     case "removed":
       return { photos: state.photos.filter((p) => p.id !== action.id || !canRemove(p)) };
   }
 }
 
-/** The next photo to shrink, if none is being shrunk. */
+/** The next photo to shrink or page to render, if none is being prepared. */
 export function nextToPrepare(state: PhotosState): Photo | undefined {
   if (state.photos.some((p) => p.status === "preparing")) return undefined;
   return state.photos.find((p) => p.status === "queued");

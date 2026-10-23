@@ -85,6 +85,7 @@ describe("import endpoints", () => {
   const importView = {
     id: 3,
     name: "Lesson 4",
+    source: "photos",
     status: "collecting",
     photoCount: 0,
     candidates: [],
@@ -109,6 +110,16 @@ describe("import endpoints", () => {
     expect(calls[0]?.init?.method).toBe("POST");
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ name: "Lesson 4" });
     expect(new Headers(calls[0]?.init?.headers).get("content-type")).toBe("application/json");
+  });
+
+  it("createImport sends where the pages come from (§6.8)", async () => {
+    const pdf = { ...importView, name: "Pages 42–45", source: "pdf" };
+    const { calls, api } = recording(pdf);
+    expect(await api.createImport({ name: "Pages 42–45", source: "pdf" })).toEqual(pdf);
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      name: "Pages 42–45",
+      source: "pdf",
+    });
   });
 
   it("uploadPhoto sends one JPEG as multipart form data", async () => {

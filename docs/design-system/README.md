@@ -73,14 +73,15 @@ A visual version with live previews of every component in both themes is the **G
 
 ### Import
 
-- [DropZone](components/DropZone.md): The first step of an import, before any photo: one big target for the camera or the photo library.
-- [PhotoTile](components/PhotoTile.md): A photo in an import, in a 2-column grid (gap 12) of cards (`radius-tile`, padding 8 8 12).
+- [DropZone](components/DropZone.md): The first step of an import, before anything is chosen: one big target (`DropZone`) for the camera or the photo library, or for a PDF from Files.
+- [PhotoTile](components/PhotoTile.md): A photo or a PDF page in an import, in a 2-column grid (gap 12) of cards (`radius-tile`, padding 8 8 12).
+- [PdfPages](components/PdfPages.md): The parts of PDF pages: the book card, From and To, the preview of the chosen pages, the name.
 
 ## Brand book
 
 German Words is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 
@@ -120,7 +121,7 @@ Use the named styles (`display-hero` … `badge`) and nothing between them. Inpu
 - **Radii grow with importance:** 12 → 14 → 16 → 18 → 20 → 22 → 24 (cards) → 28 (the one hero block per screen) → 32 (the flashcard); pills are fully round. In code only `--radius` (14), `--radius-card` (24) and `--radius-hero` (28) are variables; the others are written literally in the module that uses them, with the values listed under Radius.
 - **Spacing:** a 20 px `gutter`; 16 px between blocks on a screen, 12–14 px between cards in a group, 8 px between Review cards, 10 px between footer buttons. Card padding is 18–22 px; hero cards 22–24 px.
 - **Flat by default.** Cards separate by `border`, not shadow. Only two things cast a shadow: the flashcard (`shadow-card`) and toasts (`shadow`).
-- **No gradients**, no coloured left borders, no decorative imagery. The one shimmer is the photo placeholder while a photo loads.
+- **No gradients**, no coloured left borders, no decorative imagery. The one shimmer (`ui.shimmer`) is the placeholder of an image still being made: a photo being shrunk, a PDF page being rendered or drawn as a thumbnail.
 - **Layout:** one column, max 600 px wide (Home 560 px), a sticky blurred header (`bg` at 88%) and, on screens with a main action, a sticky blurred footer (`bg` at 92%, `border` on top). Touch targets are 44 px or more; the main footer button is 60 px.
 
 ## States and motion

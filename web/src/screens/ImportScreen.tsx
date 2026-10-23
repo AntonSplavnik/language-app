@@ -1,14 +1,19 @@
 import { ApiClientError, IMPORT_NAME_MAX, type ImportView } from "@language-app/core";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../api";
+import { DropZone } from "../components/DropZone";
 import { CameraIcon, CheckIcon, ChevronRightIcon, CloseIcon, PlusIcon } from "../components/icons";
 import { Page } from "../components/Page";
+import { bookStore } from "../device/bookStore";
+import { PdfError, renderPage } from "../device/pdf";
 import { pickPhotos } from "../device/pickPhotos";
 import { shrinkImage } from "../device/shrinkImage";
+import { handedOver } from "../imports/pdfImport";
 import { errorMessage, useToast } from "../lib/toast";
 import {
   canRemove,
+  canRetake,
   canReview,
   initialPhotos,
   isBusy,
@@ -26,12 +31,18 @@ const RETRYABLE = new Set(["ai_busy", "ai_invalid_output", "network", "internal"
 
 /**
  * Add photos (§10 Import). `/imports/new` until the first photo is sent, then `/imports/:id`; the
- * route stays the same, so the photos in memory survive the URL change.
+ * route stays the same, so the photos in memory survive the URL change. Pages of a PDF arrive from
+ * PDF pages (screen 16) in the navigation's state, as tiles that are rendered instead of shrunk.
  */
 export function ImportScreen() {
   const { id: idParam } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const location = useLocation();
+  // Only in memory: after a reload a PDF import resumes like any other (its pages read so far).
+  const [pdf] = useState(() =>
+    handedOver((location.state as { pdfImport?: unknown } | null)?.pdfImport),
+  );
 
   const [importId, setImportId] = useState<number | null>(
     idParam && idParam !== "new" ? Number(idParam) : null,
@@ -40,6 +51,16 @@ export function ImportScreen() {
   const [name, setName] = useState("");
   const [state, dispatch] = useReducer(photosReducer, initialPhotos);
   const [startingReview, setStartingReview] = useState(false);
+  const isPdf = pdf !== null || view?.source === "pdf";
+
+  // The pages from PDF pages become tiles; their ids make adding them twice a no-op.
+  useEffect(() => {
+    if (!pdf || importId !== null) return;
+    dispatch({
+      type: "added",
+      photos: pdf.pages.map((page) => ({ id: `pdf-${pdf.id}-${page.number}`, page })),
+    });
+  }, [pdf, importId]);
 
   // Resuming an import: closed ones go to review or Home.
   useEffect(() => {
@@ -59,11 +80,21 @@ export function ImportScreen() {
   const creating = useRef<Promise<number> | null>(null);
   const ensureImport = useCallback((): Promise<number> => {
     if (importId !== null) return Promise.resolve(importId);
-    creating.current ??= api.createImport({ name: name.trim() || undefined }).then(
+    const body = pdf
+      ? { name: pdf.name, source: "pdf" as const }
+      : { name: name.trim() || undefined };
+    creating.current ??= api.createImport(body).then(
       (created) => {
         setImportId(created.id);
         setView(created);
         navigate(`/imports/${created.id}`, { replace: true });
+        if (pdf) {
+          // The next PDF import suggests the pages after these (§6.8).
+          const first = pdf.pages[0]?.number ?? 1;
+          const range = { from: first, to: pdf.pages.at(-1)?.number ?? first };
+          pdf.book.lastRange = range;
+          void bookStore.setLastRange(pdf.book, range);
+        }
         return created.id;
       },
       (error) => {
@@ -72,20 +103,36 @@ export function ImportScreen() {
       },
     );
     return creating.current;
-  }, [importId, name, navigate]);
+  }, [importId, name, navigate, pdf]);
 
-  // Shrink one photo at a time.
+  // Shrink one photo, or render one PDF page, at a time.
   useEffect(() => {
     const next = nextToPrepare(state);
     if (!next) return;
     dispatch({ type: "preparing", id: next.id });
-    shrinkImage(next.file).then(
-      (jpeg) =>
-        dispatch({ type: "prepared", id: next.id, jpeg, previewUrl: URL.createObjectURL(jpeg) }),
+    const prepared = next.page
+      ? pdf
+        ? renderPage(pdf.book.doc, next.page.number)
+        : Promise.reject(new PdfError("render"))
+      : next.file
+        ? shrinkImage(next.file)
+        : Promise.reject(new Error("Couldn't open this image"));
+    prepared.then(
+      (jpeg) => {
+        // A page rendered again replaces its earlier image.
+        if (next.previewUrl) URL.revokeObjectURL(next.previewUrl);
+        dispatch({ type: "prepared", id: next.id, jpeg, previewUrl: URL.createObjectURL(jpeg) });
+      },
       (error) =>
-        dispatch({ type: "failed", id: next.id, message: errorMessage(error), retryable: false }),
+        dispatch({
+          type: "failed",
+          id: next.id,
+          message: errorMessage(error),
+          // A page can be rendered again; a photo the browser can't open can't.
+          retryable: next.page !== null,
+        }),
     );
-  }, [state]);
+  }, [state, pdf]);
 
   // Send up to two photos at a time.
   useEffect(() => {
@@ -159,11 +206,12 @@ export function ImportScreen() {
     }
   };
 
-  const nothingYet = state.photos.length === 0 && serverPhotoCount === 0;
+  const nothingYet = state.photos.length === 0 && serverPhotoCount === 0 && !pdf;
+  const unit = isPdf ? "page" : "photo";
 
   return (
     <Page
-      largeTitle={view?.name ?? (importId === null ? "New import" : "Import")}
+      largeTitle={view?.name ?? pdf?.name ?? (importId === null ? "New import" : "Import")}
       back="/"
       footer={
         <>
@@ -179,10 +227,10 @@ export function ImportScreen() {
               <span className={styles.count}>{view.candidates.length}</span>
             )}
           </button>
-          {!reviewReady && (
+          {!reviewReady && (isBusy(state) || !isPdf) && (
             <p className={ui.hint}>
               {isBusy(state)
-                ? "Wait until every photo is read"
+                ? `Wait until every ${unit} is read`
                 : "Add a photo of the pages you studied"}
             </p>
           )}
@@ -193,16 +241,16 @@ export function ImportScreen() {
         <p className={styles.note}>
           <CheckIcon size={16} />
           <span>
-            {readEarlier === 1 ? "1 photo" : `${readEarlier} photos`} read earlier; their words are
-            kept.
+            {readEarlier === 1 ? `1 ${unit}` : `${readEarlier} ${unit}s`} read earlier; their words
+            are kept.
           </span>
         </p>
       )}
 
-      {importId === null && (
-        <label className={styles.name}>
-          <span className={styles.nameLabel}>
-            Name <span className={styles.optional}>(optional)</span>
+      {importId === null && !pdf && (
+        <label className={`${ui.field} ${styles.name}`}>
+          <span className={ui.fieldLabel}>
+            Name <span className={ui.optional}>(optional)</span>
           </span>
           <input
             className={ui.input}
@@ -217,20 +265,23 @@ export function ImportScreen() {
 
       {nothingYet ? (
         <>
-          <button type="button" className={styles.drop} onClick={addPhotos}>
-            <span className={styles.dropIcon}>
-              <CameraIcon size={32} />
-            </span>
-            <span className={styles.dropText}>
-              <span className={styles.dropTitle}>Take or choose photos</span>
-              <span className={styles.dropHint}>Photograph the pages you studied</span>
-            </span>
-          </button>
-          {/* Words typed by hand instead (§6.7). */}
-          <Link to="/words/new" className={`${ui.button} ${ui.quiet} ${styles.typeWords}`}>
-            or type words
-            <ChevronRightIcon size={16} />
-          </Link>
+          <DropZone
+            icon={<CameraIcon size={32} />}
+            title="Take or choose photos"
+            hint="Photograph the pages you studied"
+            onClick={addPhotos}
+          />
+          {/* Pages of a PDF (§6.8) or words typed by hand (§6.7) instead. */}
+          <nav className={styles.others} aria-label="Other ways to add words">
+            <Link to="/imports/new/pdf" className={`${ui.button} ${ui.quiet} ${styles.other}`}>
+              or choose PDF pages
+              <ChevronRightIcon size={16} />
+            </Link>
+            <Link to="/words/new" className={`${ui.button} ${ui.quiet} ${styles.other}`}>
+              or type words
+              <ChevronRightIcon size={16} />
+            </Link>
+          </nav>
         </>
       ) : (
         <ul className={styles.grid}>
@@ -243,14 +294,17 @@ export function ImportScreen() {
               onRetake={addPhotos}
             />
           ))}
-          <li className={styles.addCell}>
-            <button type="button" className={styles.add} onClick={addPhotos}>
-              <span className={styles.addIcon}>
-                <PlusIcon size={22} weight={2.2} />
-              </span>
-              Add more photos
-            </button>
-          </li>
+          {/* A PDF import is the pages chosen; more pages are another import. */}
+          {!isPdf && (
+            <li className={styles.addCell}>
+              <button type="button" className={styles.add} onClick={addPhotos}>
+                <span className={styles.addIcon}>
+                  <PlusIcon size={22} weight={2.2} />
+                </span>
+                Add more photos
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </Page>
@@ -274,14 +328,15 @@ function PhotoTile({
         {photo.previewUrl ? (
           <img src={photo.previewUrl} alt="" />
         ) : (
-          <span className={styles.placeholder} />
+          <span className={`${styles.placeholder} ${ui.shimmer}`} />
         )}
+        {photo.page && <span className={styles.pageLabel}>p. {photo.page.label}</span>}
         {canRemove(photo) && (
           <button
             type="button"
             className={styles.remove}
             onClick={onRemove}
-            aria-label="Remove photo"
+            aria-label={photo.page ? `Remove page ${photo.page.label}` : "Remove photo"}
           >
             <CloseIcon size={14} weight={2.6} />
           </button>
@@ -296,7 +351,7 @@ function PhotoTile({
             Retry
           </button>
         )}
-        {photo.status === "poor" && (
+        {canRetake(photo) && (
           <button type="button" className={styles.again} onClick={onRetake}>
             Retake
           </button>

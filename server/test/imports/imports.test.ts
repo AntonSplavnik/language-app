@@ -1,6 +1,7 @@
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import {
   type ExtractedWord,
+  ImportListResponse,
   ImportView,
   PhotoUploadResponse,
   SaveResponse,
@@ -10,7 +11,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createClaudeAi } from "../../src/ai/claude";
 import { dbUsageSink } from "../../src/ai/usage";
-import { aiUsage, userWords, words, wordTranslations } from "../../src/db/schema";
+import { aiUsage, imports, userWords, words, wordTranslations } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
 import { SINGLE_USER_ID } from "../../src/user";
 import { apiError, loadAiFixture, replayTransport, withStopReason, withText } from "../helpers/ai";
@@ -117,6 +118,59 @@ describe("POST /api/imports", () => {
       completedAt: null,
     });
     expect((await s.createImport()).name).toBeNull();
+  });
+
+  it("stores where the pages come from: photos by default, or a PDF (§6.8)", async () => {
+    const s = setup();
+    const photos = await s.createImport();
+    expect(photos.source).toBe("photos");
+
+    const res = await s.app.inject({
+      method: "POST",
+      url: "/api/imports",
+      payload: { name: "Pages 42–45", source: "pdf" },
+    });
+    expect(res.statusCode).toBe(201);
+    const pdf = ImportView.parse(res.json());
+    expect(pdf).toMatchObject({ name: "Pages 42–45", source: "pdf", status: "collecting" });
+    expect(
+      first(await db.select({ source: imports.source }).from(imports).where(eq(imports.id, pdf.id)))
+        .source,
+    ).toBe("pdf");
+    expect((await s.getImport(pdf.id)).source).toBe("pdf");
+
+    // Saved with a word to learn, it is a past import that says it came from a PDF.
+    await db
+      .update(imports)
+      .set({ status: "done", completedAt: new Date() })
+      .where(eq(imports.id, pdf.id));
+    const word = first(
+      await db
+        .insert(words)
+        .values({
+          language: "de",
+          lemma: "Tisch",
+          pos: "noun",
+          article: "der",
+          checkStatus: "match",
+        })
+        .returning({ id: words.id }),
+    );
+    await db
+      .insert(userWords)
+      .values({ userId: SINGLE_USER_ID, wordId: word.id, status: "learning", importId: pdf.id });
+    const listed = ImportListResponse.parse(
+      (await s.app.inject({ method: "GET", url: "/api/imports" })).json(),
+    ).imports;
+    expect(listed).toEqual([expect.objectContaining({ id: pdf.id, source: "pdf", wordCount: 1 })]);
+  });
+
+  it.each([["scanner"], ["typed"], [""], [3]])("rejects the source %j", async (source) => {
+    // A typed list has its own route (§9.3); POST /imports takes photos or PDF pages only.
+    const s = setup();
+    const res = await s.app.inject({ method: "POST", url: "/api/imports", payload: { source } });
+    expect(res.statusCode).toBe(400);
+    expect(errorCode(res)).toBe("invalid_request");
   });
 });
 
@@ -229,7 +283,7 @@ describe("POST /api/imports/:id/photos (§6.1–6.3)", () => {
     expect(view.candidates.map((c) => c.lemma).sort()).toEqual(["Obst", "Tisch"]);
   });
 
-  it("refuses uploads once the daily photo limit is reached, without calling the AI", async () => {
+  it("refuses uploads once the daily page limit is reached, without calling the AI", async () => {
     const s = setup([page(PAGE_ONE)], 2);
     const created = await s.createImport();
     await db.insert(aiUsage).values([
@@ -240,7 +294,7 @@ describe("POST /api/imports/:id/photos (§6.1–6.3)", () => {
     const res = await s.upload(created.id);
     expect(res.statusCode).toBe(429);
     expect(res.json()).toEqual({
-      error: { code: "daily_limit", message: "Daily photo limit reached" },
+      error: { code: "daily_limit", message: "Daily page limit reached" },
     });
     expect(s.aiRequests).toHaveLength(0);
   });

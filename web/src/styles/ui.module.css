@@ -155,6 +155,26 @@
   color: var(--muted);
 }
 
+/* A field on the page with its label above it (Import's name, PDF pages' From, To and name): a
+   <label> holding a .fieldLabel and the .input. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* "(optional)" after a field's label. */
+.optional {
+  font-weight: 500;
+  color: var(--muted);
+}
+
 /* A text field on the page (Import's name). 16px or more, or iOS Safari zooms the page when the
    field gets focus. */
 .input {
@@ -237,6 +257,31 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* The placeholder of an image still being made (a photo being shrunk, a PDF page being drawn):
+   the one shimmer in the app. */
+.shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--surface-muted) 30%,
+    var(--surface) 50%,
+    var(--surface-muted) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
   }
 }
 

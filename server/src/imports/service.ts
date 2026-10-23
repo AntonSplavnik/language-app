@@ -1,6 +1,7 @@
 import type {
   Candidate,
   CheckStatus,
+  CreateImportRequest,
   ImportView,
   PhotoUploadResponse,
   SaveDecision,
@@ -57,10 +58,15 @@ export async function findOrCreateWordRow(
 }
 type ImportRow = typeof imports.$inferSelect;
 
-export async function createImport(db: Db, userId: number, name?: string): Promise<ImportView> {
+/** A new `collecting` import, of photos or of PDF pages (§6.8). */
+export async function createImport(
+  db: Db,
+  userId: number,
+  { name, source = "photos" }: CreateImportRequest,
+): Promise<ImportView> {
   const [row] = await db
     .insert(imports)
-    .values({ userId, name: name || null })
+    .values({ userId, name: name || null, source })
     .returning();
   if (!row) throw new Error("insert returned no row");
   return toView(db, userId, row);
@@ -92,7 +98,8 @@ export async function addPhoto(
   const row = await findImport(db, userId, id);
   if (row.status !== "collecting") throw importClosed();
   if ((await countCallsToday(db, userId, "extract")) >= dailyPhotoLimit) {
-    throw new HttpError(429, "daily_limit", "Daily photo limit reached");
+    // A PDF page counts like a photo (§11.5).
+    throw new HttpError(429, "daily_limit", "Daily page limit reached");
   }
 
   // The slow AI call runs outside any transaction; the merge below locks the import row so that
@@ -339,6 +346,7 @@ async function toView(db: Executor, userId: number, row: ImportRow): Promise<Imp
   return {
     id: row.id,
     name: row.name,
+    source: row.source,
     status: row.status,
     photoCount: row.photoCount,
     candidates: row.candidates.map((c) => ({

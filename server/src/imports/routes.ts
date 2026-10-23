@@ -36,9 +36,9 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
   );
 
   app.post("/api/imports", async (request, reply) => {
-    const { name } = CreateImportRequest.parse(request.body ?? {});
+    const body = CreateImportRequest.parse(request.body ?? {});
     reply.code(201);
-    return createImport(db, userId, name);
+    return createImport(db, userId, body);
   });
 
   app.get("/api/imports/:id", async (request) => {

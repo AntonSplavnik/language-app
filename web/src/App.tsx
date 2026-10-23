@@ -9,6 +9,7 @@ import { ImportScreen } from "./screens/ImportScreen";
 import { MyWordsScreen } from "./screens/MyWordsScreen";
 import { PastImportScreen } from "./screens/PastImportScreen";
 import { PastImportsScreen } from "./screens/PastImportsScreen";
+import { PdfPagesScreen } from "./screens/PdfPagesScreen";
 import { PracticeSetupScreen } from "./screens/PracticeSetupScreen";
 import { RenameImportScreen } from "./screens/RenameImportScreen";
 import { ReviewScreen } from "./screens/ReviewScreen";
@@ -23,6 +24,8 @@ export function App() {
       <Route path="/" element={<Home />} />
       {/* "new" until the first photo creates the import; the same route keeps the photos in memory. */}
       <Route path="/imports/:id" element={<ImportScreen />} />
+      {/* Pages of a PDF, handed to the Import screen in memory (§6.8). */}
+      <Route path="/imports/new/pdf" element={<PdfPagesScreen />} />
       <Route path="/imports/:id/review" element={<ReviewScreen />} />
       <Route path="/imports/:id/done" element={<DoneScreen />} />
       <Route path="/practice" element={<PracticeSetupScreen />} />

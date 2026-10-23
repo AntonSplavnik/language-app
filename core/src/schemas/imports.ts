@@ -21,9 +21,11 @@ export type Candidate = z.infer<typeof Candidate>;
 /** Longest import name, e.g. "Lesson 4" (§5), counted after trimming. */
 export const IMPORT_NAME_MAX = 100;
 
-/** `POST /api/imports` */
+/** `POST /api/imports`. A typed list has its own route (`/imports/typed`), so not `typed`. */
 export const CreateImportRequest = z.object({
   name: z.string().trim().max(IMPORT_NAME_MAX).optional(),
+  /** `photos` when left out; `pdf` for pages of a PDF (§6.8). */
+  source: ImportSource.extract(["photos", "pdf"]).optional(),
 });
 export type CreateImportRequest = z.infer<typeof CreateImportRequest>;
 
@@ -31,6 +33,7 @@ export type CreateImportRequest = z.infer<typeof CreateImportRequest>;
 export const ImportView = z.object({
   id: z.number().int(),
   name: z.string().nullable(),
+  source: ImportSource,
   status: ImportStatus,
   photoCount: z.number().int().nonnegative(),
   candidates: z.array(Candidate),
@@ -80,7 +83,7 @@ export type SaveResponse = z.infer<typeof SaveResponse>;
 export const ImportSummary = z.object({
   id: z.number().int(),
   name: z.string().nullable(),
-  /** Photographed pages, or a list typed by hand (Done then offers Type more words). */
+  /** Photographed pages, PDF pages, or a list typed by hand (Done then offers Type more words). */
   source: ImportSource,
   completedAt: z.iso.datetime(),
   /** Its `learning` + `learned` words: what a session from it can draw on (at least 1). */

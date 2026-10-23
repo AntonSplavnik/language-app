@@ -1,0 +1,56 @@
+/* Before the first photo or PDF: one big target for the camera, the photo library or Files. */
+.drop {
+  appearance: none;
+  min-height: 220px;
+  padding: 28px;
+  margin-top: 4px;
+  border-radius: var(--radius-hero);
+  border: 1.5px dashed var(--track-strong);
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drop:active {
+  background: var(--surface);
+}
+
+.drop:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hint {
+  font-size: 14px;
+  color: var(--muted);
+}

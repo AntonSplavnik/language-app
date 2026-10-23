@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canRetake,
   canReview,
   initialPhotos,
   isBusy,
@@ -133,5 +134,57 @@ describe("photo queue (§6.2, §10 Import)", () => {
     expect(isBusy(failedOnly)).toBe(false);
     expect(canReview(failedOnly, 0)).toBe(false);
     expect(canReview(failedOnly, 1)).toBe(true);
+  });
+});
+
+describe("PDF pages as tiles (§6.8, §10 Import)", () => {
+  const pagesAdded = (...numbers: number[]): PhotoAction => ({
+    type: "added",
+    photos: numbers.map((n) => ({ id: `p${n}`, page: { number: n, label: String(n + 38) } })),
+  });
+
+  it("are queued like photos and rendered one at a time", () => {
+    const state = run(pagesAdded(4, 5));
+    expect(status(state)).toEqual(["p4:queued", "p5:queued"]);
+    expect(state.photos[0]).toMatchObject({ file: null, page: { number: 4, label: "42" } });
+    expect(nextToPrepare(state)?.id).toBe("p4");
+    expect(nextToPrepare(photosReducer(state, { type: "preparing", id: "p4" }))).toBeUndefined();
+  });
+
+  it("are added once, however often the same pages arrive", () => {
+    const state = run(pagesAdded(4, 5), pagesAdded(4, 5));
+    expect(status(state)).toEqual(["p4:queued", "p5:queued"]);
+  });
+
+  it("render again on Retry, also when the page had been rendered", () => {
+    const failed = run(
+      pagesAdded(4),
+      prepared("p4"),
+      { type: "reading", id: "p4" },
+      { type: "failed", id: "p4", message: "AI is busy, try again", retryable: true },
+    );
+    const retried = photosReducer(failed, { type: "retry", id: "p4" });
+    expect(retried.photos[0]).toMatchObject({ status: "queued", jpeg: null, error: undefined });
+    expect(nextToPrepare(retried)?.id).toBe("p4");
+  });
+
+  it("have no Retake: a rendered page can't be photographed again", () => {
+    const read = (id: string): PhotoAction => ({
+      type: "read",
+      id,
+      pageQuality: "poor",
+      wordsFound: 2,
+    });
+    const state = run(
+      added("a"),
+      pagesAdded(4),
+      prepared("a"),
+      prepared("p4"),
+      { type: "reading", id: "a" },
+      { type: "reading", id: "p4" },
+      read("a"),
+      read("p4"),
+    );
+    expect(state.photos.map(canRetake)).toEqual([true, false]);
   });
 });

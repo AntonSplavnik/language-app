@@ -164,6 +164,10 @@ describe("Done (§10 screen 3)", () => {
     expect(moreWords("photos")).toEqual({ to: "/imports/new", label: "Import more pages" });
   });
 
+  it("after PDF pages, more pages come from the PDF, starting after these", () => {
+    expect(moreWords("pdf")).toEqual({ to: "/imports/new/pdf", label: "Import more pages" });
+  });
+
   it("knows the source from the save, else from the past imports, else photos", () => {
     const imports = [
       summary(5, local(2026, 9, 13), null, 3, "typed"),

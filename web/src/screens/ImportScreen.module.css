@@ -1,4 +1,5 @@
-/* Import (§10): an optional name and a drop zone, then the photos as tiles with their state. */
+/* Import (§10): an optional name and a drop zone (DropZone), then the photos as tiles with their
+   state. PDF pages are tiles too, labelled with their page. */
 
 /* "2 photos read earlier; their words are kept.", under the title. */
 .note {
@@ -15,88 +16,29 @@
 }
 
 .name {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   margin-top: 8px;
 }
 
-.nameLabel {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.optional {
-  font-weight: 500;
-  color: var(--muted);
-}
-
-/* Before the first photo: one big target for the camera or the photo library. */
-.drop {
-  appearance: none;
-  min-height: 220px;
-  padding: 28px;
-  margin-top: 4px;
-  border-radius: 28px;
-  border: 1.5px dashed var(--track-strong);
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.drop:active {
-  background: var(--surface);
-}
-
-.drop:focus-visible,
 .add:focus-visible {
   outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
 
-.dropIcon {
-  width: 72px;
-  height: 72px;
-  border-radius: 24px;
-  display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.dropText {
+/* "or choose PDF pages" and "or type words", quiet links under the drop zone (§10 screen 2). */
+.others {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dropTitle {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.dropHint {
-  font-size: 14px;
-  color: var(--muted);
-}
-
-/* "or type words", a quiet link under the drop zone (§10 screen 2). */
-.typeWords {
-  align-self: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 8px;
   margin-top: -6px;
+}
+
+.other {
+  gap: 4px;
   font-size: 15px;
 }
 
-.typeWords:focus-visible {
+.other:focus-visible {
   outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
@@ -141,23 +83,25 @@
   background: rgb(14 14 17 / 0.55);
 }
 
+/* With ui.shimmer, while the photo is shrunk or the page rendered. */
 .placeholder {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    110deg,
-    var(--surface-muted) 30%,
-    var(--surface) 50%,
-    var(--surface-muted) 70%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.2s linear infinite;
 }
 
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
+/* A PDF page's number, "p. 42", on its thumbnail; dark like the remove button. */
+.pageLabel {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  left: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgb(14 14 17 / 0.75);
+  color: #f4f3f7;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* On the photo itself, so dark and light-on-dark in both schemes. */

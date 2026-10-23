@@ -11,3 +11,7 @@ catalog:
   vitest: 5.0.3
   zod: 4.6.5
   "@types/node": 26.6.5
+
+# pdfjs-dist's optional native canvas is for Node; the app renders PDFs in the browser.
+ignoredOptionalDependencies:
+  - "@napi-rs/canvas"

@@ -45,8 +45,17 @@ export function doneSource(result: DoneState | null, past: PastImports, id: numb
   return "photos";
 }
 
-/** Done's way to add more: Import more pages, or Type more words after a typed list. */
-export const moreWords = (source: ImportSource): { to: string; label: string } =>
-  source === "typed"
-    ? { to: "/words/new?mode=list", label: "Type more words" }
-    : { to: "/imports/new", label: "Import more pages" };
+/**
+ * Done's way to add more: Import more pages (after PDF pages, from the PDF again, which suggests
+ * the pages after these), or Type more words after a typed list.
+ */
+export function moreWords(source: ImportSource): { to: string; label: string } {
+  switch (source) {
+    case "typed":
+      return { to: "/words/new?mode=list", label: "Type more words" };
+    case "pdf":
+      return { to: "/imports/new/pdf", label: "Import more pages" };
+    case "photos":
+      return { to: "/imports/new", label: "Import more pages" };
+  }
+}
