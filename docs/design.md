@@ -510,7 +510,7 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
    - **Save** stores the changes, shows "Saved" and returns to Word detail, which loads the word again. **Cancel**, like the browser's Back, drops the typed texts without asking. Neither adds a history entry: opened from Word detail, they go back to it; opened directly (a typed URL), the detail replaces the edit screen. Either way the detail's Back still goes to the list it was opened from.
    - **Delete word** (soft red, with a bin icon), at the bottom of the screen, asks in place, not with a browser dialog, in a red-tinted card with a bin icon, the question in bold over the rest, and **Keep** / **Delete** side by side: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, set its status to Ignored instead." After deleting, a toast "“der Tisch” deleted" and the list; Back must not lead to the deleted word. When the history is list → detail → edit, the app goes back two entries, to that list; otherwise the list replaces the edit screen.
    - A word that no longer exists says "This word is not in your list any more", as on Word detail.
-10. **Settings** (`/settings`) — a menu: the round back button, the large title "Settings", then one card with a row per section: its name, a short status at the right in grey and a chevron; the whole row opens the section. Other sections (such as the daily goal, plan M16) will join this card. For now one row:
+10. **Settings** (`/settings`) — a menu: the round back button, the large title "Settings", then one card with a row per section: its name, a short status at the right in grey and a chevron; the whole row opens the section. Other sections (such as the daily goal, plan M17) will join this card. For now one row:
     - **Imports**, with the number of past imports at the right ("5"; nothing while there are none), opens Imports.
 11. **Imports** (`/settings/imports`) — the round back button (to Settings), the large title "Imports", and the past imports (`GET /imports`), newest first, as rows on the page like My words' rows, a hairline between them, each with a chevron: the label (import labels above) in bold, and under it in grey the day when the import has a name, and its words ("13 Oct · 9 words", "54 words"). The whole row opens the import. Without any: "Your imports will appear here."
 12. **Import** (`/settings/imports/:id`) — the round back button (to Imports), the import's label as the large title, and one muted line under it: its words and the day it was added ("9 words · added 13 Oct"). Then a card of actions, for now one row: **Rename** with a chevron, which opens Rename import. Later actions on an import (deleting it, for example) join this card. The page finds the import among the past imports; one that isn't there (any more) says "This import is not in your list any more" with a link to Imports.
@@ -725,15 +725,16 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M12)
-- Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M13)
-- Practice modes German → English, articles, plurals, verb forms (M14)
-- Spaced repetition (M15); progress over time: daily goal, streak, history (M16)
-- Basics: the alphabet (M17), numbers (M19) and time (M20), each an explanation and its own practice; text-to-speech (M18)
-- After M20: CI/CD and deployment with a login, backups, gamification
+- Deployment: the web app and API on Vercel, the database on Supabase, with a login or a password (M12)
+- Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
+- Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
+- Practice modes German → English, articles, plurals, verb forms (M15)
+- Spaced repetition (M16); progress over time: daily goal, streak, history (M17)
+- Basics: the alphabet (M18), numbers (M20) and time (M21), each an explanation and its own practice; text-to-speech (M19)
+- After M21: accounts (unless M12 builds them), gamification
 
 **Not planned yet:**
-- **Grammar:** fixed topic list per level, tagging imports with topics, grammar exercises. Basics (M17) builds the topic structure they can reuse.
+- **Grammar:** fixed topic list per level, tagging imports with topics, grammar exercises. Basics (M18) builds the topic structure they can reuse.
 - **Levels:** learner picks A1.1 … B1+, placement test checks it.
 - **Practice modes:** fill-in-the-blank, listening to words and sentences, speaking, mixed; "practise missed words again".
 - **My words at scale:** paging, sorting by progress, undo for delete.
@@ -742,10 +743,10 @@ Recorded here so decisions already made are not lost.
 - **Example sentences from Tatoeba** as a second source.
 - **Starter word lists** (e.g. Goethe A1–B1) as an optional import into a learner's list.
 - **Korean** as learner language (new `word_translations` rows; Korean UI text).
-- **Accounts** and multi-user (a login comes with the first deployment, see Planned); review of shared `words` rows with `mismatch_kept` before reusing them for other users.
+- **Accounts** and multi-user (M12 settles whether the first deployment has them or one password, see Planned); review of shared `words` rows with `mismatch_kept` before reusing them for other users.
 - **Phone app** in React Native reusing `server/` and `core/`.
 - **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
-- **Text-to-speech (listening; planned for numbers and time in M18, research kept here):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
+- **Text-to-speech (listening; planned for numbers and time in M19, research kept here):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
 - **Speech (speaking):** the learner says the German word or sentence and the app checks whether word form, grammar and word order are right; pronunciation is out of scope. Speech-to-text turns the answer into text, then Claude checks it like a typed answer, ignoring what speech cannot carry (capitals, punctuation, spelling-only pairs such as *das/dass*). Transcriber: **ElevenLabs Scribe v2** (`scribe_v2`, `language_code=de`, verbatim, $0.22 per audio hour), which kept the most learner mistakes in a test (§16). Every transcriber silently fixes some mistakes, mostly endings that sound close to the right form (*sprecht* → "spricht", *arbeite* → "arbeiten"), so:
   - the answer screen shows "I heard: …" before the verdict;
   - when the transcript equals the expected answer but a word's confidence (`exp(logprob)`) is below about 0.95, the app asks the learner to say it again instead of marking it correct (threshold from a small sample; recheck on more recordings);

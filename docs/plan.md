@@ -196,24 +196,25 @@ Verified environment:
 
 ### Context
 
-The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
+The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. On 2026-10-23 deployment was added as M12, right after M11, and the milestones after it were renumbered (themes M12 → M13 … time M20 → M21). Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
 
-Milestones that change a prompt or an AI call (M10, M11, M12) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
+Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
 
 | # | Milestone | Demo |
 |---|---|---|
 | M9 | Past imports, date added | In Practice, pick an old import and practise only its words; filter My words to it; name an import on Done and rename it in Settings |
 | M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words; type three words as a list, confirm them one by one, practise them as an import |
 | M11 | Import from PDF | Pages 42–45 of a book PDF → review → save |
-| M12 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
-| M13 | Filters and practice builder | Practise "verbs from Weather"; filter My words to *die* nouns |
-| M14 | Card modes | An article session and a German → English session |
-| M15 | Spaced repetition | Home shows the words due today; a "Due today" session |
-| M16 | Progress over time | Daily goal, streak and history after a few days of practice |
-| M17 | Basics and the alphabet | The alphabet page with sounds; a letter card session |
-| M18 | Text-to-speech | A generated recording plays on the iPhone |
-| M19 | Numbers | The explanation, then a listen-and-type session |
-| M20 | Time | The explanation, then a typed session that accepts both "Viertel vor vier" and "fünfzehn Uhr fünfundvierzig" |
+| M12 | Deployment (Vercel + Supabase) | Away from home Wi-Fi, the iPhone opens the app's https address, gets in (login or password), imports a photo and practises its words |
+| M13 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
+| M14 | Filters and practice builder | Practise "verbs from Weather"; filter My words to *die* nouns |
+| M15 | Card modes | An article session and a German → English session |
+| M16 | Spaced repetition | Home shows the words due today; a "Due today" session |
+| M17 | Progress over time | Daily goal, streak and history after a few days of practice |
+| M18 | Basics and the alphabet | The alphabet page with sounds; a letter card session |
+| M19 | Text-to-speech | A generated recording plays on the iPhone |
+| M20 | Numbers | The explanation, then a listen-and-type session |
+| M21 | Time | The explanation, then a typed session that accepts both "Viertel vor vier" and "fünfzehn Uhr fünfundvierzig" |
 
 ### Phase 1: words
 
@@ -222,7 +223,7 @@ Settled with the user on 2026-10-15; the behaviour is in `docs/design.md` §5, �
 - **Past imports are reached where they are used** (no Imports screen on Home or in My words):
   - **Practice setup:** the `last_import` source becomes `import`, a card with a menu of the past imports (newest first, so the latest is the default and starting still takes two taps). Up to 20 words, shuffled, as before.
   - **My words:** a view menu under the search: All words · A–Z, All words · Newest first (grouped by day), or one import.
-  - **Settings** (new, a gear on Home) → **Imports** → one import → **Rename** (a sheet like Edit word). Settings is a menu, so later settings (M16's daily goal) join it, and later actions on an import join the import's page. Changed from rename-in-place during the user's check on 2026-10-16.
+  - **Settings** (new, a gear on Home) → **Imports** → one import → **Rename** (a sheet like Edit word). Settings is a menu, so later settings (M17's daily goal) join it, and later actions on an import join the import's page. Changed from rename-in-place during the user's check on 2026-10-16.
   - **Done:** "Name this import" when the import has no name.
 - An unnamed import is shown by its date, with the time when several share a day.
 - An import that adds nothing to learn (no new words on the pages, or every new word skipped) gets no entry anywhere, and Done says why ("Every word on these pages is already in your list."). The same goes for an import whose words were later all deleted or set to Ignored.
@@ -290,8 +291,25 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - web: a page range's validation (inside the book, From ≤ To, at most 10), the page labels used when present, the automatic name ("Pages 42–45", "Page 42"), the range suggested after the last import (46–49 after 42–45, clamped to the book's end), the photo-state reducer with PDF tiles (no Retake; Retry renders again), the book store with a fake IndexedDB (remember, replace, forget a broken entry, work without storage);
   - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
 
+#### M12: Deployment (Vercel + Supabase)
+- **Decided (the user, 2026-10-23):** the app is deployed on **Vercel** (the web app as static files, the API as a Vercel Function) with the database on **Supabase** (PostgreSQL), right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
+- **Checked on the Mac (2026-10-23), nothing deployed yet:**
+  - **Limits:** an extract takes 13–40 s and a save adds 5–10 s, well inside Vercel's 300 s per request (on the free Hobby plan too); a shrunk photo or PDF page is ≈0.5 MB against Vercel's 4.5 MB request limit; the dev database is 88 MB, 80 MB of it the dictionary, against Supabase's free 500 MB (a third-party figure; confirm on Supabase's pricing page); `pg_trgm` is available on Supabase. The server keeps nothing between requests (no background work, files or in-memory state), so it suits short-lived functions.
+  - **Packing `core/`:** `core/` exports TypeScript (`./src/index.ts`), so the deploy has to convert it too. `vite build` does this for the web app unchanged. For the server, esbuild's "leave every package out" setting (`--packages=external`) left `import … from "@language-app/core"` in the output, which would crash on the first request; leaving out only the real libraries (`--external:` for fastify, @fastify/multipart, pg, drizzle-orm, zod and @anthropic-ai/sdk) packed `core/` in, and that file answered `/api/health` and `/api/imports` against the dev database.
+- **Changes known so far:**
+  - **Server entry:** a Vercel handler around `buildApp()` next to `server/src/main.ts`, which keeps listening on 127.0.0.1 for `pnpm dev`. Configuration from Vercel's environment variables (there is no `.env` there).
+  - **Web:** `vite build`; `/api` is on the same domain, so no proxy and no CORS.
+  - **Database:** the app connects through Supabase's connection pooler (transaction mode, port 6543) with a small pool; migrations and `import:wiktionary` run from the Mac against the direct connection (the 1 GB dictionary file stays on the Mac). The functions run in the Supabase project's region, since every request makes several queries.
+  - **HTTPS:** the deployed app is a secure context, so the browser APIs that CLAUDE.md rules out (microphone, `crypto.randomUUID()`…) work there; the rule stays as long as iPhone checks run over the LAN.
+- **Check first:** before the design section, deploy today's app once to a Vercel preview with a throwaway Supabase project: does Vercel's own packer include `core/` (if not, the deploy runs the esbuild step above and Vercel runs its output), and what does the handler need?
+- **Open** (every question here is answered with the user before implementation starts):
+  - **Keeping strangers out:** without a login, anyone who finds the URL can read and change the word list and spend the Anthropic key (the daily limits cap photos and Ask AI at ≈$5 a day on Opus 5.5). Real accounts now (e.g. Supabase Auth; accounts, §15), or one password checked by the server until accounts come with AI for subscribers.
+  - **The word list:** whether the real list (words, imports, practice history, `ai_usage`) moves from the dev database to Supabase (`pg_dump` → restore, tried on a copy first), and what the dev database holds afterwards.
+  - **Backups:** what Supabase's plan includes, or a scheduled `pg_dump` kept off the server; either way a restore tried once.
+  - **Deploys:** Vercel deploying every push to `main` from GitHub, after the checks (test, typecheck, lint, with a PostgreSQL service) pass in GitHub Actions; or deploys by hand after the local checks.
+  - **Plans and region:** Vercel's Hobby plan is for non-commercial use only (Pro once the AI is paid for); a free Supabase project pauses after a week without use; which region both run in.
 
-#### M12: Themes and own groups
+#### M13: Themes and own groups
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
 - The words already in the list get themes once, from a backfill run (a small AI call, like the pronunciation backfill).
 - **Own groups:** the learner creates, renames, deletes and fills them by hand (e.g. "Lesson 4", "Hard ones"); the AI never uses them. A word can be in several themes and groups.
@@ -300,54 +318,52 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 
 ### Phase 2: practice
 
-#### M13: Filters and practice builder
+#### M14: Filters and practice builder
 - One set of filters, freely combined, used by both My words and Practice: theme, own group, part of speech, gender (der / die / das), plural-only nouns (*die Eltern*), import, date added; My words keeps its status tabs.
 - **Practice setup:** the three current sources stay as presets, so a session still starts in two taps (§1); a custom choice builds a session from any combination of filters and shows how many words match while it changes.
 - M9 built the import choice as single menus (My words' view menu, Practice's Import card); this milestone turns them into the combinable filters.
 - **Open:** plural-only nouns need a flag (their dictionary entries have no gender, §6.3); choosing the session size (now 20); saving a custom combination.
 
-#### M14: Card modes
+#### M15: Card modes
 - **English → German** (today's card); **German → English** (the German word with its IPA and speaker button on the front, the translation on the back); **articles** (*Tisch* → der / die / das, answered by tapping one of three buttons and graded by the app); **plurals** (*der Tisch* → *die Tische*); **verb forms** (*gehen* → *ging · ist gegangen*).
 - A mode only takes the words it fits: articles and plurals need nouns with an article or a plural, verb forms need verbs with forms. The mode is chosen in Practice setup next to the words.
-- **Open:** progress per mode or shared (is a word learned once it is known English → German, or separately per mode?), to be settled before M15; how an app-graded mode fits the swipe flow.
+- **Open:** progress per mode or shared (is a word learned once it is known English → German, or separately per mode?), to be settled before M16; how an app-graded mode fits the swipe flow.
 
-#### M15: Spaced repetition
+#### M16: Spaced repetition
 - The app schedules each word for the day it is due, from its answers. Practice gets a **Due today** preset; Home shows how many are due.
-- **Open:** the algorithm (FSRS, as in current Anki, or the simpler SM-2); per word or per word and mode (follows from M14); whether it replaces "3 right in a row → learned" (§8.5); seeding the schedule from the answers recorded since M7; how the self-graded swipes map to the algorithm's grades.
+- **Open:** the algorithm (FSRS, as in current Anki, or the simpler SM-2); per word or per word and mode (follows from M15); whether it replaces "3 right in a row → learned" (§8.5); seeding the schedule from the answers recorded since M7; how the self-graded swipes map to the algorithm's grades.
 
-#### M16: Progress over time
+#### M17: Progress over time
 - A daily goal, a streak of days on which it was met, and a history (cards answered and words learned per day and week). The base for gamification (Later).
 - **Open:** what the goal counts (cards answered, due words cleared, minutes); whose midnight counts (the phone's time zone, not the server's); whether Basics practice counts.
 
 ### Phase 3: basics
 
-#### M17: Basics and the alphabet
+#### M18: Basics and the alphabet
 - **Basics** is a new section reached from Home: topics that are the same for every learner, each with an explanation page and a practice of its own. Topics are never mixed in one session. The structure is built once, so the grammar topics of §15 can reuse it later.
 - **Alphabet:** a reference page with every letter, Ä Ö Ü ß and the combinations ch, sch, ei, ie, eu / äu, sp / st, each with its transcription (IPA) and a recording. Letter practice as two-sided flip cards like the word cards, or as one-sided cards shown one by one (letter, transcription and sound on one face). Self-graded, no microphone.
-- **Open:** where the content lives (written once and checked by hand: data in `core/`, or the database); where the recordings come from (Commons recordings of the letter names, example words with dictionary recordings such as *ich* and *Buch* for ch, or text-to-speech from M18); whether letter answers are recorded as progress.
+- **Open:** where the content lives (written once and checked by hand: data in `core/`, or the database); where the recordings come from (Commons recordings of the letter names, example words with dictionary recordings such as *ich* and *Buch* for ch, or text-to-speech from M19); whether letter answers are recorded as progress.
 
-#### M18: Text-to-speech
+#### M19: Text-to-speech
 - German audio generated once per text, stored, and played like the Wiktionary recordings. Numbers and time need it: no recordings exist for "siebenundzwanzig" or "Viertel vor vier". Example sentences and words without a recording can use it too.
 - §15 has the research: Azure Neural TTS first (its free tier covers this; a slower version through SSML), Google Chirp 3 HD or ElevenLabs as alternatives.
-- **Open:** where the audio files are stored (server disk now, object storage once deployed; the choice must not block deployment); generated on demand or in advance.
+- **Open:** where the audio files are stored (object storage such as Supabase Storage, since the deployed server has no disk of its own, M12); generated on demand or in advance.
 
-#### M19: Numbers
+#### M20: Numbers
 - An explanation page (how German numbers are built: einundzwanzig, hundert, tausend…), then practice in three separate modes: flip cards (27 → siebenundzwanzig), typed answers (see 27, type the German; the app checks it) and listening (hear the number, type the digits).
 - The numbers are generated by the app (a pure number → words function in `core/`), not imported.
 - **Open:** the ranges (to 20, to 100, to 1000, years such as neunzehnhundertneunundneunzig, ordinals); how strict the typed check is (ß / ss, umlauts typed as ae / oe / ue, spaces, capitals).
 
-#### M20: Time
+#### M21: Time
 - The same structure as Numbers, as a separate topic: an explanation (official 24-hour time, "fünfzehn Uhr fünfundvierzig"; everyday time, "Viertel vor vier", "halb vier", vor / nach), then practice in which the prompt is words, sound or digits and the learner answers.
 - A time has several right answers; a typed answer is accepted when it matches any of them (generated in `core/`).
 - **Open:** regional forms (*viertel vier*, *dreiviertel vier*) accepted or not; which minutes are asked (five-minute steps first).
 
 ### Later
 
-In this order, after M20:
-- **CI/CD and deployment:** the checks (test, typecheck, lint, with a PostgreSQL service) on every push, then an automatic deploy when they pass. Until then the checks run locally before every commit, as CLAUDE.md requires. HTTPS on the deployed app also makes the browser APIs that CLAUDE.md rules out available (microphone, `crypto.randomUUID()`…).
-- **Login:** a deployed app is on the internet, and without a login anyone could use it and run up the Claude bill. Needed with the first deploy (accounts, §15).
-- **Backups:** the host's automatic database backups or a scheduled `pg_dump` kept off the server, and a restore that has been tried. Until deployment the dev database holds practice data only.
-- **Gamification:** points for practice and something to spend them on; builds on M16.
+In this order, after M21:
+- **Accounts** (unless M12 builds them): a login per learner (§15), needed at the latest for AI for subscribers.
+- **Gamification:** points for practice and something to spend them on; builds on M17.
 - **AI for subscribers** (the user, 2026-10-16): the AI features become paid, for subscribers only (which ones exactly, e.g. whether photo import and enrichment too, is open); comes with the login. Price them from real `ai_usage` numbers per learner. The model decides most of it: 50 Ask AI calls a day for 30 days cost ≈ 15¢ on Haiku 5.5 but ≈ $15 on Opus 5.5, and a photo page ≈ 0.2–0.4¢ vs 5–8¢ (§11.4).
 - **Someday:** export of the word list (CSV, Anki), and the items of §15 not chosen yet.
 
