@@ -775,6 +775,38 @@ Recorded here so decisions already made are not lost.
 
   Prices (2026-10-15): Scribe v2 $0.22 per audio hour direct, $0.11 on OpenRouter; Universal-3.5 Pro $0.21 (+$0.05 with a prompt) direct, $0.30 on OpenRouter. The whole test cost about $0.05. OpenAI's `whisper-1` and `gpt-4o-transcribe` shut down on 2027-02-26; `gpt-transcribe` was not tested. The recordings and transcripts are in `data/stt-test/work/` (not in git). The reading script, the answer key and the method, enough to rebuild the test, are in `docs/speech-to-text-test/`.
 
+- **Better Auth for M12 (2026-10-25,** 1.7.13 read in its docs and source, and tried in a throwaway test: Fastify 5, Drizzle 0.45 with `casing: "snake_case"`, an in-memory Postgres, bundled with esbuild):
+  - **Mounting:** a Fastify catch-all `/api/auth/*` route that turns the request into a Fetch `Request` for `auth.handler` (Better Auth's Fastify page). `auth.api.getSession({ headers: fromNodeHeaders(request.headers) })` from `better-auth/node` reads the session in our own routes.
+  - **Cookie refresh:** a session extended inside our own routes would drop the refreshed cookie, so the web app calls `GET /api/auth/get-session` on start.
+  - **Our `users` table as its user model:** `user.modelName: "users"`. Field names are Drizzle property names, and with snake_case casing no `fields` mapping is needed.
+  - **Required columns:** Better Auth checks the schema at startup, and **every auth request fails** while a NOT NULL column it never writes is undeclared. So `learnerLanguage` and `targetLanguage` must be `additionalFields` with defaults (`en`, `de`, `input: false`), and so must `aiEnabled` (`false`, `input: false`; a client sending `true` is silently ignored).
+  - **Model names:** `authSessions`, `authAccounts`, `authVerifications` and the rate-limit model get explicit names. Never use `usePlural`, which would pick our practice `sessions`.
+  - **Ids:** `advanced.database.generateId: "serial"` is global (all its tables use identity ids). It works with our `generatedAlwaysAsIdentity()` columns, but **ids always come back as strings** (`"2"`, `session.userId` too); the credential account's `accountId` is the user id as text.
+  - **Invite check:** `user.validateUserInfo({ user, source })`. It runs before any user is created, by email or OAuth; return `{ error: "not_invited" }` unless `source.action === "sign-in"`. Keep `autoSignIn: true`: with it off, or with `requireEmailVerification`, a refused sign-up returns a fake success.
+  - **Username plugin:** `POST /sign-in/username`, and `POST /sign-up/email` with `username` (optional there, so required in our Zod schema). Defaults: 3–30 characters, `/^[a-zA-Z0-9_.]+$/`, stored lower-case with `displayUsername` as typed. Errors: `USERNAME_IS_ALREADY_TAKEN` (400), `INVALID_USERNAME_OR_PASSWORD` (401), `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` (422). `disabledPaths: ["/is-username-available"]`.
+  - **Google without the client library:**
+    - `POST /api/auth/sign-in/social` with `{ provider: "google", callbackURL, errorCallbackURL }` answers 200 `{ url }`, and the web app sets `location.href`. Errors come back as `errorCallbackURL?error=<code>`.
+    - **Linking:** implicit linking to an existing account needs the local `emailVerified` to be true, otherwise `account_not_linked`. Explicit linking while signed in is `POST /link-social` and doesn't need it.
+  - **Scripts:** `user:claim` and `user:set-password` go through `(await auth.$context).internalAdapter`: `updateUser`, `linkAccount({ providerId: "credential", accountId: String(id), password: await ctx.password.hash(pw) })`, `updatePassword`. `internalAdapter.createUser` outside an endpoint throws once `validateUserInfo` is set; `auth.api.signUpEmail({ body })` works headless.
+  - **Passwords:** scrypt through `node:crypto`, ≈70 ms per hash on the Mac. `/request-password-reset` answers `RESET_PASSWORD_DISABLED` without an email sender.
+  - **Deleting a user:** `user.deleteUser.enabled`. It needs a correct password, or a session younger than `session.freshAge` (default 1 day). It isn't transactional, hence our cascades.
+  - **Secure cookies:**
+    - Whether cookies are `Secure` (with the `__Secure-` prefix) is decided once at startup: `useSecureCookies`, else the `baseURL` protocol, else `NODE_ENV === "production"`.
+    - So dev must never run with `NODE_ENV=production` or an https `baseURL`. Over the LAN's plain HTTP, cookies are set fine.
+    - Several dev origins: `baseURL: { allowedHosts: [...], protocol: "auto", fallback }`; production a static https `baseURL`. Every POST must come from a trusted origin (403 `INVALID_ORIGIN`).
+  - **Rate limiting** is on only when `NODE_ENV` is production by default, so set it explicitly: `storage: "database"`, `customRules` per path. The client IP comes from `x-forwarded-for` only for a single address, so set `advanced.ipAddress.ipAddressHeaders` to Vercel's client-IP header (to confirm).
+  - **Bundling:** esbuild `--platform=node --format=esm` bundles it cleanly (`node` picks `node:crypto` scrypt instead of a slow JavaScript one); the optional `@opentelemetry/api` import falls back harmlessly. Keep `better-auth` and `@better-auth/*` on one exact version. 1.7.x churned (a column came and went, `requireLocalEmailVerified` is deprecated), and 1.8 is in beta.
+- **Google sign-in rules (2026-10-25,** Google's OAuth pages):
+  - **Return addresses** must be https, except `localhost`. A raw IP is refused, and the host's top-level domain must be on the public suffix list: `.local` isn't, `vercel.app` is. No wildcards, so each Vercel address is registered on its own.
+  - **No warning screen for basic data:** asking only for `openid email profile`, any Google account can sign in without a warning or a 7-day expiry, even while the project is in "Testing", and no verification is needed. So the invite check is what keeps strangers out.
+  - **The Home Screen app:** Apple only says that out-of-scope links open in an in-app Safari view. Whether the return from Google lands back in the app with its cookie is undocumented, so it is tried on the iPhone (M12.4).
+- **Other M12 facts (2026-10-25):**
+  - **`pg_dump` version:** `ubuntu-latest` runners have PostgreSQL 16, and `pg_dump` refuses newer servers, so install `postgresql-client-17` (PGDG) or run it in the `postgres:17` image.
+  - **Neon backup role:** roles made in Neon's console get `neon_superuser`, so the read-only `backup` role is created in SQL with per-schema grants.
+  - **R2** asks for a payment method through its "R2 subscription" checkout; PayPal is accepted.
+  - **Vercel Instant Rollback** on Hobby reaches only the previous deployment.
+  - **Used-up Anthropic credit** answers either 400 `invalid_request_error`, "Your credit balance is too low…", or 402 `billing_error`. Reports differ, so both are handled.
+
 ## 17. Accounts (M12, designed 2026-10-25, not built yet)
 
 Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). When a step is built, its parts move into the sections above (§2, §4, §5, §9, §10, §12–§14) and this section keeps only what isn't built yet.
