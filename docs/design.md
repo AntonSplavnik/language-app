@@ -775,6 +775,7 @@ Recorded here so decisions already made are not lost.
 
   Prices (2026-10-15): Scribe v2 $0.22 per audio hour direct, $0.11 on OpenRouter; Universal-3.5 Pro $0.21 (+$0.05 with a prompt) direct, $0.30 on OpenRouter. The whole test cost about $0.05. OpenAI's `whisper-1` and `gpt-4o-transcribe` shut down on 2027-02-26; `gpt-transcribe` was not tested. The recordings and transcripts are in `data/stt-test/work/` (not in git). The reading script, the answer key and the method, enough to rebuild the test, are in `docs/speech-to-text-test/`.
 
+- **M12's working examples and commands** (the Better Auth probe's configuration and results, the deploy probe's build script and handler, the Vercel CLI, GitHub Actions, R2, `age`, Neon's backup role) are in `docs/m12-research.md`.
 - **Better Auth for M12 (2026-10-25,** 1.7.13 read in its docs and source, and tried in a throwaway test: Fastify 5, Drizzle 0.45 with `casing: "snake_case"`, an in-memory Postgres, bundled with esbuild):
   - **Mounting:** a Fastify catch-all `/api/auth/*` route that turns the request into a Fetch `Request` for `auth.handler` (Better Auth's Fastify page). `auth.api.getSession({ headers: fromNodeHeaders(request.headers) })` from `better-auth/node` reads the session in our own routes.
   - **Cookie refresh:** a session extended inside our own routes would drop the refreshed cookie, so the web app calls `GET /api/auth/get-session` on start.
