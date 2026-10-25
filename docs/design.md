@@ -45,7 +45,7 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Grading | Learner self-grades by swipe; time to flip and time to answer are recorded |
 | Learned rule | 3 "knew it" in a row → `learned` |
 | Platform | Web app (React), structured so a React Native app can reuse server and core later |
-| AI model | Claude Opus 5.5 at `low` effort, configurable per call |
+| AI model | Claude Haiku 5.5 at `medium` effort everywhere (Opus 5.5 at `low` until 2026-10-25), configurable per call |
 
 ## 4. Architecture
 
@@ -537,8 +537,8 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
 
 ### 11.1 Common settings
 - **SDK:** `@anthropic-ai/sdk`, beta client (`client.beta.messages.create`, needed for `fallbacks`). Structured outputs: the Zod schemas from `core/` are converted to JSON Schema with the SDK's `betaZodOutputFormat` and sent as `output_config.format`; responses are parsed by our own code, not `messages.parse()`. The SDK turns enum values into schema descriptions rather than hard constraints, so every response is validated again with Zod before use. `thinking` is never sent (Opus 5.5 always thinks adaptively; disabling it is a 400).
-- **Model:** `claude-opus-5-5` by default, configured separately per call (`AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`).
-- **Effort:** `low` (`AI_EFFORT`). Opus 5.5 defaults to `medium`, so it is set explicitly.
+- **Model:** `claude-haiku-5-5` by default, on the Mac and in production (the user, 2026-10-25: about 20 times cheaper per page than Opus 5.5, §11.4), configured separately per call (`AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`).
+- **Effort:** `medium` (`AI_EFFORT`), set explicitly on every call.
 - **Refusal fallback:** server-side fallback enabled (`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta) for models that support it (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5). Haiku 5.5 has no server-side fallback and must not be sent the parameter, so a Haiku refusal is final. `stop_reason` is checked before reading content.
 - **`max_tokens`:** 16000.
 - **Retries:** SDK default (2) for 429 / 5xx / connection errors.
@@ -597,7 +597,7 @@ Rough estimate per typical page (~80 words found, ~15 kept) on Opus 5.5: ~8 cent
 
 On the vocabulary-list page all models matched Opus closely (Sonnet 53, Haiku 50 vs 52 words), and no noun article differed from Opus on any page. Enrichment of the 11-word batch gave identical plurals and verb forms on all three models (Opus 10 s / 2.7¢, Sonnet `low` 6 s / 1.3¢, Haiku `medium` 5 s / 0.07¢).
 
-Error kinds differ: Sonnet's mistakes are mostly extra words the learner can skip, while Haiku's split separable verbs produce a wrong lemma. The author's development `.env` uses Haiku 5.5 at `medium`; the code defaults and `.env.example` stay Opus 5.5 at `low`.
+Error kinds differ: Sonnet's mistakes are mostly extra words the learner can skip, while Haiku's split separable verbs produce a wrong lemma. Since 2026-10-25, Haiku 5.5 at `medium` is the default everywhere (the code, `.env.example`, production); Opus 5.5 stays a setting for comparisons.
 
 ### 11.5 Daily limit
 `DAILY_PHOTO_LIMIT` (default 50) extract calls per user per day, counted from `ai_usage` and checked before each upload. Every extract attempt counts, including failed ones and the retry after invalid output; the day starts at the server's local midnight. Beyond it, photo upload returns an error: "Daily page limit reached" (a PDF page counts like a photo, §6.8).
@@ -725,13 +725,13 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Deployment: the web app and API on Vercel, the database on Supabase, with a login or a password (M12)
+- Accounts (email or username + password, Google; invite-only; AI switched on per account) and deployment on Vercel + Neon with nightly backups (M12, designed in §17 and §18)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
 - Practice modes German → English, articles, plurals, verb forms (M15)
 - Spaced repetition (M16); progress over time: daily goal, streak, history (M17)
 - Basics: the alphabet (M18), numbers (M20) and time (M21), each an explanation and its own practice; text-to-speech (M19)
-- After M21: accounts (unless M12 builds them), gamification
+- After M21: gamification; opening sign-up to everyone (the email service with its own domain, for verification and password reset, and a privacy page; then `SIGNUP_MODE=open`); push notifications built on practice behaviour (Home Screen app, HTTPS, a service worker, the learner's consent)
 
 **Not planned yet:**
 - **Grammar:** fixed topic list per level, tagging imports with topics, grammar exercises. Basics (M18) builds the topic structure they can reuse.
@@ -774,3 +774,220 @@ Recorded here so decisions already made are not lost.
   - **Single words:** short answers without a sentence were the weakest case for every model (*das Löffel* → "Das Rüffel").
 
   Prices (2026-10-15): Scribe v2 $0.22 per audio hour direct, $0.11 on OpenRouter; Universal-3.5 Pro $0.21 (+$0.05 with a prompt) direct, $0.30 on OpenRouter. The whole test cost about $0.05. OpenAI's `whisper-1` and `gpt-4o-transcribe` shut down on 2027-02-26; `gpt-transcribe` was not tested. The recordings and transcripts are in `data/stt-test/work/` (not in git). The reading script, the answer key and the method, enough to rebuild the test, are in `docs/speech-to-text-test/`.
+
+## 17. Accounts (M12, designed 2026-10-25, not built yet)
+
+Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). When a step is built, its parts move into the sections above (§2, §4, §5, §9, §10, §12–§14) and this section keeps only what isn't built yet.
+
+### 17.1 Overview
+- Every learner has an account; without one, only Sign in and Create account work. An account signs in with its **email or username and a password**, or with **Google** (M12.3).
+- **Sign-up is invite-only** for now: an account can only be created for an email on the invite list (§17.4). Open sign-up comes once the email service (verification, password reset) and a privacy page exist (§15).
+- **AI is switched on per account** (`ai_enabled`, §17.5): off for new accounts, on for the developer's own. Later a subscription turns it on (plan, Later: AI for subscribers).
+- An account holds everything the learner does: words, imports, practice history, AI usage. Later features (statistics, push notifications built on practice behaviour) hang off the same user id.
+- **Library: Better Auth**, running inside our Fastify server, with its tables in our database and its migrations in our drizzle-kit flow. An exact 1.7.x version, at least 1.7.7 (security fixes) and at least two weeks old when installed; `better-auth` and `@better-auth/drizzle-adapter` always on the same version. Plugin: `username`. The web app uses no Better Auth client library: `core/`'s API client calls its endpoints like any other, with Zod schemas for them.
+
+### 17.2 Data model
+- **`users`** (existing) is Better Auth's user model (`modelName: "users"`) and gains:
+  - `email` (unique, stored lower-case; null only on user 1 until it is claimed, §17.6);
+  - `email_verified` (default false; true after a Google sign-up and on the claimed developer account);
+  - `username` (unique, lower-case) and `display_username` (as typed);
+  - `image` (Google's picture address, unused for now), `updated_at`;
+  - `ai_enabled` (default false; no client can set it).
+  
+  `name` stays: Better Auth fills it with the username, or Google's name. `learner_language` and `target_language` become Better Auth "additional fields" that default to `en` and `de` and that no client can set.
+- **Better Auth's tables**, prefixed so they aren't confused with practice `sessions`:
+  - `auth_sessions`: one per sign-in (token, expiry, IP, user agent, `user_id`);
+  - `auth_accounts`: one per way to sign in (`credential` with the password hash, or `google` with Google's account id);
+  - `auth_verifications`: unused until the email service;
+  - `auth_rate_limits`: the sign-in attempt counters.
+- **Ids:** Better Auth runs with database-generated integer ids (`advanced.database.generateId: "serial"`), so `users.id` and every `user_id` stay integers. Its endpoints return ids as strings: the server converts them where it reads them, and `core/`'s schemas for Better Auth's answers take strings.
+- **`invites`**: `email` (unique, lower-case), `created_at`, `used_at`, `user_id` (the account it became).
+- **Deleting a user deletes their data in one statement:** `imports`, `user_words`, `sessions` and `ai_usage` reference `users` with `ON DELETE CASCADE`, and `card_results` already cascade from sessions and user words. The shared `words` and `word_translations` rows stay, since they hold no personal data.
+
+### 17.3 Signing up, signing in, sessions
+- **Sign up** (`POST /api/auth/sign-up/email`) takes an email, a username and a password, and signs the learner in straight away:
+  - username: 3–30 letters, digits, `.` and `_`, unique ignoring case (stored lower-case, shown as typed);
+  - password: 8–128 characters;
+  - email: unique.
+- **Sign in:** one field takes the email or the username. With an `@` it goes to `POST /api/auth/sign-in/email`, otherwise to `POST /api/auth/sign-in/username`. A wrong password and an unknown name get the same answer.
+- **Sign out** (`POST /api/auth/sign-out`) ends this sign-in only.
+- **Sessions** are rows in `auth_sessions`, found through a cookie:
+  - The cookie is HttpOnly and `SameSite=Lax`. In production it is also `Secure`, with the `__Secure-` prefix; on the Mac it isn't, so signing in works over the LAN's plain HTTP.
+  - A session lasts 60 days and is extended by each day's use.
+  - The web app calls `GET /api/auth/get-session` when it starts. That keeps the cookie fresh and tells it who is signed in, including `aiEnabled`.
+  - Safari and the Home Screen app keep separate cookies, so each signs in once.
+- **Every API route needs a session,** except `/api/health` and `/api/auth/*`:
+  - A Fastify hook reads the session (`auth.api.getSession`) and hands the route the learner: `id`, `learnerLanguage`, `aiEnabled`. Without a session the answer is 401 `unauthorized`.
+  - `SINGLE_USER_ID` goes. The routes already keep everything per `user_id`, so another learner's ids answer 404 as before (§9).
+  - The AI calls take the learner's language per call, instead of reading it once at startup.
+- **Protection:**
+  - **Trusted origins only:** Better Auth accepts sign-in, sign-up and any POST that carries the cookie only from trusted origins. In production that's its address; on the Mac it's `localhost`, the LAN IP and `.local` names on the dev port.
+  - **Rate limits** on sign-in and sign-up: 5 attempts a minute per IP on each path, then 429. The counts are stored in the database, so every function instance sees them.
+  - **No username lookup:** `/is-username-available` is switched off. The form doesn't need it, and it would reveal usernames.
+- **Errors:** Better Auth's endpoints answer with their own body, `{ code, message }`: `USERNAME_IS_ALREADY_TAKEN`, `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, `INVALID_EMAIL_OR_PASSWORD`, `INVALID_USERNAME_OR_PASSWORD`, `not_invited`… `core/` turns them into `ApiClientError`s like ours, and the screens show their own wording (§17.8).
+- **No password reset by email yet.** A forgotten password is reset by the owner with `user:set-password` (§17.6), and Sign in has no "Forgot password" link until the email service exists.
+
+### 17.4 Invite list
+- **`SIGNUP_MODE`** (`.env`, Vercel) is `invite` (the default) or `open`.
+- **In `invite` mode** an account is only created for an email on the invite list, by password sign-up or by a first Google sign-in:
+  - Better Auth's `user.validateUserInfo` hook checks the list before any user is created and answers `not_invited`: 403 for sign-up, and Google comes back to Sign in with `?error=not_invited`.
+  - When the account is created, the invite is marked used and linked to it.
+  - After that the list doesn't matter: the account signs in normally, and removing its invite doesn't remove it.
+- **`open`** skips the check. It is switched on only once the email service and a privacy page exist (§15).
+- **Editing the list:** scripts on the Mac (§17.6); nothing in the app shows it.
+
+### 17.5 The AI switch
+- **The AI features:** photo and PDF import (Call 1), enrichment (Call 2: example sentences, and forms the dictionary lacks), and Ask AI (Call 3).
+- **Without AI** (`ai_enabled = false`):
+  - **The server refuses** the AI routes with 403 `ai_not_enabled`: `POST /imports` with `source` `photos` or `pdf`, `POST /imports/:id/photos`, `POST /words/describe` and `POST /words/enrich-pending`.
+  - **Typed words** (`POST /words`, `POST /imports/typed`) are saved as now but not enriched:
+    - they keep the dictionary's facts;
+    - a word whose shared `words` row already has an example sentence, written for someone else, shows it;
+    - `detailsPending` counts only for AI accounts, so no "N words without details" banner nags.
+  - **The screens leave AI out:**
+    - New import goes straight to Add words, with no photo drop zone and no PDF pages, and a one-line note: "Importing photos and PDF pages uses AI, which isn't included in your account."
+    - Confirm word has no **Ask AI**.
+    - Done and Home show no **Add details**.
+- **With AI:** as today, within each account's daily limits (§11.5).
+- **The daily limits' day** is counted in `APP_TIME_ZONE` (default `Europe/Berlin`), not the server's zone, since Vercel runs in UTC.
+- **The switch** is set with `user:ai` (§17.6).
+- **When the Anthropic credit runs out,** the API answers 400 "Your credit balance is too low…" or 402 `billing_error`; both are handled:
+  - the call isn't retried, and the route answers 503 `ai_unavailable`, "AI is unavailable right now";
+  - a photo shows **Retry**, and Ask AI shows a toast;
+  - the attempt is recorded in `ai_usage` like other failures.
+
+### 17.6 Scripts
+All take `DATABASE_URL` (for Neon: the direct connection, run from the Mac) and print what they changed.
+- **`invite:add <email>`, `invite:list`, `invite:remove <email>`.**
+- **`user:claim <email> <username>`** turns the existing user 1 into the developer account. User 1 is the prototype's single learner, who owns the word list on the Mac. The script gives it the email and username, a password typed at a prompt, `email_verified`, and AI on. It runs once on the Mac's database and once on Neon's fresh one, so the developer account is user 1 in both.
+- **`user:set-password <email|username>`** sets a new password typed at a prompt, and ends the account's sessions.
+- **`user:ai <email|username> on|off`.**
+
+### 17.7 Deleting an account
+- Settings → Account → **Delete account** (`POST /api/auth/delete-user`).
+  - An account with a password confirms with it.
+  - A Google-only account needs a sign-in from within the last day (Better Auth's "fresh" session); otherwise it is asked to sign in with Google again.
+- **What goes:** the `users` row, and with it (§17.2) the sign-ins, the sign-in methods, the imports, the words in the list, the practice sessions and answers, and the AI usage. The account's invite is removed too.
+- **What stays:** the shared word facts.
+- **Afterwards:** the learner lands on Sign in with "Your account was deleted."
+- **Backups** keep a deleted account for at most 30 days (§18.6).
+
+### 17.8 Screens
+Numbered on from §10:
+
+17. **Sign in** (`/signin`)
+    - **Layout:** no back button, and the large title "Sign in". One card with **Email or username** (`autocomplete="username"`, no automatic capital) and **Password** (`autocomplete="current-password"`), both 16 px or more. **Sign in** in the action bar (lime).
+    - **Under the card:** **Continue with Google** (M12.3; an outlined button with Google's mark) and the quiet link **Create an account ›**.
+    - **Errors,** in red under the card:
+      - "Wrong email, username or password"
+      - "Too many attempts. Try again in a minute."
+      - "This app is invite-only. Ask for an invite first." (after Google)
+      - "That Google account isn't connected to an account here. Sign in with your password, then connect Google in Settings."
+    - **Signed out:** opening any page signed out leads here, with that page kept in `?next=`; signing in returns to it.
+18. **Create account** (`/signup`)
+    - **Layout:** the round back button (to Sign in), the large title "Create account", and a line "Invite only: use the email your invite was sent to." One card with **Email** (`type="email"`), **Username** ("3–30 letters, digits, . or _") and **Password** ("At least 8 characters", `autocomplete="new-password"`). **Create account** in the action bar.
+    - **Errors:** under their field ("This username is taken", "An account with this email exists. Sign in instead."); "This app is invite-only…" under the card.
+    - **Continue with Google** as on Sign in.
+19. **Account** (`/settings/account`)
+    - **Header:** the round back button (to Settings) and the large title "Account".
+    - **Cards:**
+      - the username (as typed), large, with the email under it;
+      - **Sign-in methods:** Password, and Google with "Connected" or a **Connect** button (M12.3);
+      - **AI features:** "Included: photo and PDF import, Ask AI, example sentences", or "Not included in your account".
+    - **Sign out:** a secondary button.
+    - **Delete account,** at the bottom: soft red with a bin, asking in place like Delete word: "Delete your account and all its words, imports and practice history? This can't be undone." It has a password field for an account with a password, and **Keep** / **Delete**.
+
+**Settings** gets **Account** as its first row, with the username at the right.
+
+### 17.9 Errors (to join §12)
+| HTTP | `code` | When |
+|---|---|---|
+| 401 | `unauthorized` | An API route without a valid session ("Sign in to continue"); the web app goes to Sign in |
+| 403 | `ai_not_enabled` | An AI route for an account without AI |
+| 403 | `not_invited` | Sign-up, or a first Google sign-in, with an email not on the invite list (`SIGNUP_MODE=invite`) |
+| 429 | Better Auth's | Too many sign-in or sign-up attempts |
+| 503 | `ai_unavailable` | The Anthropic credit has run out |
+
+## 18. Deployment (M12, designed 2026-10-25, not built yet)
+
+### 18.1 Where it runs
+| | Development (the Mac) | Production |
+|---|---|---|
+| Web | Vite, `http://<Mac IP>:5173` on the LAN | Static files on Vercel (Hobby), `https://<name>.vercel.app`; the name is chosen before M12.4 |
+| API | Fastify on 127.0.0.1:3000 (`tsx watch`) | One Vercel Function in Frankfurt (`fra1`), Node 24 |
+| Database | PostgreSQL 17 in Docker: the prototype's word list, with user 1 claimed as the developer account | Neon Free in Frankfurt (`aws-eu-central-1`), PostgreSQL 17, autoscaling capped at 1 CU; starts empty except for the dictionary |
+| AI | The same Anthropic key as production | |
+| Sign-in | Cookies without `Secure`; Google only in the Mac's own browser on `localhost` (the iPhone over the LAN signs in with a password) | `Secure` cookies; Google on the production address |
+
+- **Production starts fresh:** the Mac's word list stays on the Mac (the user, 2026-10-24).
+- **A secure context:** the deployed app runs on HTTPS, so the browser APIs CLAUDE.md rules out work there. The rule stays for the LAN.
+
+### 18.2 Build
+As in the check (`docs/plan.md`, M12):
+- **`pnpm build:vercel`** runs `vite build`, then `server/scripts/build-vercel.ts`:
+  - It bundles `server/src/vercel.ts` with esbuild: ESM for Node 24, everything inside, `pg-native` left out, and a `createRequire` banner.
+  - It writes Vercel's Build Output API folder: `.vercel/output/static` (the web build), `functions/api.func` (`runtime: nodejs24.x`, `maxDuration: 300`, `regions: ["fra1"]`), and the routes: `/api/*` to the function, then the files, then `index.html`.
+- **`vercel.json`:** the install and build commands, `framework: null`, and `git.deploymentEnabled: false`, because deploys come only from GitHub Actions (§18.4). `engines.node` becomes `24.x`.
+- **The handler** (`server/src/vercel.ts`, next to `main.ts`) does what `main.ts` does, minus `listen()`, once per function instance: configuration from the environment, the database pool, Better Auth, the AI client, `buildApp`, `await app.ready()`. Each request then goes to Fastify (`app.server.emit("request", req, res)`).
+- **Database pool:** Neon's pooled connection, `max: 3`, a 5 s idle timeout, and `attachDatabasePool` from `@vercel/functions`, so idle connections are closed before an instance is frozen.
+- **Request ids:** Fastify takes Vercel's `x-vercel-id` as the request id, since its own counter restarts in every instance. That way "Something went wrong (request …)" finds its log line. Vercel keeps runtime logs for one hour on Hobby.
+
+### 18.3 Configuration
+- **Vercel's production variables:**
+  - `DATABASE_URL`: Neon, pooled;
+  - `BETTER_AUTH_SECRET`: 32 random bytes, not the Mac's;
+  - `BETTER_AUTH_URL`: the production address;
+  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
+  - `ANTHROPIC_API_KEY`; `AI_MODEL_EXTRACT` / `_ENRICH` / `_DESCRIBE` and `AI_EFFORT` only if they differ from the defaults (Haiku 5.5, `medium`);
+  - `DAILY_PHOTO_LIMIT`, `DAILY_DESCRIBE_LIMIT`, `APP_TIME_ZONE`, `SIGNUP_MODE`.
+
+  Secrets are stored as "sensitive" variables, which can't be read back.
+- **The Mac's `.env`** gains `BETTER_AUTH_SECRET`, `APP_TIME_ZONE` and `SIGNUP_MODE`, and from M12.3 the Google pair (one Google client with both return addresses: `http://localhost:5173` for the Mac's own browser, and production from M12.4).
+- **GitHub Actions** (§18.4, §18.6):
+  - secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner), `NEON_BACKUP_URL` (direct, read-only role), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`;
+  - a plain variable: `AGE_RECIPIENT`, the backups' public key.
+- **Deployment protection:** Vercel's own login stays off for production. The app's sign-in protects it, and Vercel's would also lock out the iPhone. There are no preview deployments.
+
+### 18.4 Deploys (GitHub Actions)
+- **Checks:** `.github/workflows/ci.yml` runs on every push to `main` and on pull requests: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm check`, and `pnpm test` against a `postgres:17` service. `pnpm test:live` stays manual, since it costs money.
+- **Deploy:** on `main` only, and only when the checks pass, a deploy job runs, one at a time:
+  1. `pnpm db:migrate` against Neon (`NEON_MIGRATE_URL`);
+  2. `vercel pull --environment=production`, `vercel build --prod` and `vercel deploy --prebuilt --prod`, with the token.
+- **Migrations only add** (new tables, nullable or defaulted columns, new indexes). Neon is migrated a moment before the new code goes live, so for that moment the old code runs against the new schema. Removing a column takes two deploys.
+- **Rollback:**
+  - Vercel's Instant Rollback on Hobby goes back to the previous deployment only.
+  - The schema isn't rolled back.
+  - After a rollback, Vercel holds later deploys until the rollback is undone or `vercel promote` is run.
+- **Failure emails:** a failed check or deploy emails the user who created the workflow.
+- **The dictionary** is loaded into Neon once from the Mac (`import:wiktionary` on the direct connection, ≈30 s), and again only when the loader changes.
+
+### 18.5 Neon
+- **Starting state:** the project from the check is reused:
+  - renamed, with its password reset, so the old connection strings stop working;
+  - the schema rebuilt by the migrations, and the dictionary loaded again.
+- **Roles:**
+  - `neondb_owner` for the app (pooled connection) and the migrations (direct);
+  - a read-only `backup` role for the backups, created in SQL: `SELECT` on the tables and sequences of `public` and `drizzle`, plus default privileges for future tables.
+- **History:** Neon Free keeps 6 hours, so any moment in the last 6 hours can be restored from the console.
+
+### 18.6 Backups
+- **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`timezone: Europe/Berlin`):
+  1. installs the PostgreSQL 17 client and `age`;
+  2. runs `pg_dump` (custom format) on the direct connection as `backup`, leaving out the dictionary tables' data (`--exclude-table-data`; their schema stays);
+  3. encrypts the file to the user's `age` public key;
+  4. uploads it to the Cloudflare R2 bucket as `YYYY-MM-DD.dump.age`, with the AWS CLI and R2's endpoint, using a token limited to that bucket with object read & write only.
+- **30 days:** an R2 lifecycle rule deletes files after 30 days, so there are about 30 backups. R2's free tier is 10 GB-month, and a backup is a few MB.
+- **The private `age` key** is kept only by the user, in a password manager. GitHub and R2 hold only encrypted files.
+- **Restore** (`pnpm --filter server backup:restore <file.age> <DATABASE_URL>`):
+  - It decrypts the file with the private key, restores it into an empty database with `pg_restore`, then loads the dictionary with `import:wiktionary`.
+  - It is tried once (M12.5) into a fresh local database, comparing the row count of every table with Neon.
+- **Failures:** a failed run emails the user.
+- **Later:** once there are other people's data or payments, an independent copy or Neon's paid 7-day history is considered (§15).
+
+### 18.7 HTTPS on the LAN (with push notifications, §15)
+- **What it gives:** a secure context on the iPhone over the LAN, with **mkcert**:
+  - a local certificate authority on the Mac;
+  - its root certificate installed on the iPhone and trusted under Settings → General → About → Certificate Trust Settings;
+  - a certificate for `<Mac name>.local`, the LAN IP and `localhost`;
+  - Vite's `server.https` set to use it, with the `.local` name added to `allowedHosts`.
+- **Not for Google:** Google sign-in still wouldn't work there, since Google accepts only `localhost` or a public domain as a return address. M12 doesn't need it, so it comes with the first feature that needs a secure context on the phone during development: push notifications (or the microphone).

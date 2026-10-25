@@ -61,7 +61,7 @@ pnpm db:migrate          # create the tables in the dev database
 The `.env` values that matter:
 
 - `ANTHROPIC_API_KEY`: needed for imports. The server starts without it; only the AI calls fail.
-- `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`: the Claude model for each AI call, and one effort level for all three. Defaults: `claude-opus-5-5` at `low`. See [AI models and cost](#ai-models-and-cost).
+- `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`: the Claude model for each AI call, and one effort level for all three. Defaults: `claude-haiku-5-5` at `medium`. See [AI models and cost](#ai-models-and-cost).
 - `DAILY_PHOTO_LIMIT`: photo reads per day (default 50). `DAILY_DESCRIBE_LIMIT`: **Ask AI** calls per day when adding words by hand (default 200), a safety net rather than a budget.
 - `SERVER_PORT` (default 3000) and `WEB_PORT` (default 5173). Vite will not start if its port is taken, so change `WEB_PORT` if 5173 is in use.
 - `DATABASE_URL` and `TEST_DATABASE_URL` already match `docker-compose.yml`.
@@ -109,14 +109,14 @@ The Mac has to keep running `pnpm dev`. There is no login, so anyone on your net
 
 There are three Claude calls: **extract** reads one photo, **enrich** writes example sentences and missing forms for up to 30 words at a time, and **describe** is **Ask AI** when adding a word by hand (the word you meant, or a short translation of a dictionary entry; ≈0.01¢ a call on Haiku 5.5, ≈0.5¢ on Opus 5.5).
 
-- **Default** (code and `.env.example`): Claude Opus 5.5 at effort `low`.
-- **Cheaper, for development:** Claude Haiku 5.5 at effort `medium`. It splits some separable verbs, which gives a wrong lemma (*kreuzen* for *ankreuzen*), and misses a few long compounds.
+- **Default** (code, `.env.example` and production, since 2026-10-25): Claude Haiku 5.5 at effort `medium`, about 20 times cheaper per page than Opus. It splits some separable verbs, which gives a wrong lemma (*kreuzen* for *ankreuzen*), and misses a few long compounds.
+- **For comparison:** Claude Opus 5.5 at effort `low`, the default until 2026-10-25.
 
 ```sh
-AI_MODEL_EXTRACT=claude-haiku-5-5
-AI_MODEL_ENRICH=claude-haiku-5-5
-AI_MODEL_DESCRIBE=claude-haiku-5-5
-AI_EFFORT=medium
+AI_MODEL_EXTRACT=claude-opus-5-5
+AI_MODEL_ENRICH=claude-opus-5-5
+AI_MODEL_DESCRIBE=claude-opus-5-5
+AI_EFFORT=low
 ```
 
 Measured on 2026-10-11 on the densest test page (an exercise page), photo shrunk to 1600 px:
@@ -137,7 +137,7 @@ The server tests and scripts need the Docker database running.
 
 ```sh
 pnpm test          # all unit and server tests; never calls Claude
-pnpm test:live     # real Claude calls (~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5)
+pnpm test:live     # real Claude calls (~1¢ per run on Haiku 5.5, the default; ~15¢ on Opus 5.5)
 pnpm typecheck     # TypeScript in core, server and web
 pnpm check         # Biome lint and format check
 pnpm format        # fix formatting with Biome

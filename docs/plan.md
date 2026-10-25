@@ -205,7 +205,7 @@ Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-a
 | M9 | Past imports, date added | In Practice, pick an old import and practise only its words; filter My words to it; name an import on Done and rename it in Settings |
 | M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words; type three words as a list, confirm them one by one, practise them as an import |
 | M11 | Import from PDF | Pages 42–45 of a book PDF → review → save |
-| M12 | Deployment (Vercel + Supabase) | Away from home Wi-Fi, the iPhone opens the app's https address, gets in (login or password), imports a photo and practises its words |
+| M12 | Accounts and deployment (Vercel + Neon) | Away from home Wi-Fi, the iPhone opens the app's https address, signs in, imports a photo and practises its words |
 | M13 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
 | M14 | Filters and practice builder | Practise "verbs from Weather"; filter My words to *die* nouns |
 | M15 | Card modes | An article session and a German → English session |
@@ -291,23 +291,99 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - web: a page range's validation (inside the book, From ≤ To, at most 10), the page labels used when present, the automatic name ("Pages 42–45", "Page 42"), the range suggested after the last import (46–49 after 42–45, clamped to the book's end), the photo-state reducer with PDF tiles (no Retake; Retry renders again), the book store with a fake IndexedDB (remember, replace, forget a broken entry, work without storage);
   - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
 
-#### M12: Deployment (Vercel + Supabase)
-- **Decided (the user, 2026-10-23):** the app is deployed on **Vercel** (the web app as static files, the API as a Vercel Function) with the database on **Supabase** (PostgreSQL), right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
-- **Checked on the Mac (2026-10-23), nothing deployed yet:**
-  - **Limits:** an extract takes 13–40 s and a save adds 5–10 s, well inside Vercel's 300 s per request (on the free Hobby plan too); a shrunk photo or PDF page is ≈0.5 MB against Vercel's 4.5 MB request limit; the dev database is 88 MB, 80 MB of it the dictionary, against Supabase's free 500 MB (a third-party figure; confirm on Supabase's pricing page); `pg_trgm` is available on Supabase. The server keeps nothing between requests (no background work, files or in-memory state), so it suits short-lived functions.
-  - **Packing `core/`:** `core/` exports TypeScript (`./src/index.ts`), so the deploy has to convert it too. `vite build` does this for the web app unchanged. For the server, esbuild's "leave every package out" setting (`--packages=external`) left `import … from "@language-app/core"` in the output, which would crash on the first request; leaving out only the real libraries (`--external:` for fastify, @fastify/multipart, pg, drizzle-orm, zod and @anthropic-ai/sdk) packed `core/` in, and that file answered `/api/health` and `/api/imports` against the dev database.
-- **Changes known so far:**
-  - **Server entry:** a Vercel handler around `buildApp()` next to `server/src/main.ts`, which keeps listening on 127.0.0.1 for `pnpm dev`. Configuration from Vercel's environment variables (there is no `.env` there).
-  - **Web:** `vite build`; `/api` is on the same domain, so no proxy and no CORS.
-  - **Database:** the app connects through Supabase's connection pooler (transaction mode, port 6543) with a small pool; migrations and `import:wiktionary` run from the Mac against the direct connection (the 1 GB dictionary file stays on the Mac). The functions run in the Supabase project's region, since every request makes several queries.
-  - **HTTPS:** the deployed app is a secure context, so the browser APIs that CLAUDE.md rules out (microphone, `crypto.randomUUID()`…) work there; the rule stays as long as iPhone checks run over the LAN.
-- **Check first:** before the design section, deploy today's app once to a Vercel preview with a throwaway Supabase project: does Vercel's own packer include `core/` (if not, the deploy runs the esbuild step above and Vercel runs its output), and what does the handler need?
-- **Open** (every question here is answered with the user before implementation starts):
-  - **Keeping strangers out:** without a login, anyone who finds the URL can read and change the word list and spend the Anthropic key (the daily limits cap photos and Ask AI at ≈$5 a day on Opus 5.5). Real accounts now (e.g. Supabase Auth; accounts, §15), or one password checked by the server until accounts come with AI for subscribers.
-  - **The word list:** whether the real list (words, imports, practice history, `ai_usage`) moves from the dev database to Supabase (`pg_dump` → restore, tried on a copy first), and what the dev database holds afterwards.
-  - **Backups:** what Supabase's plan includes, or a scheduled `pg_dump` kept off the server; either way a restore tried once.
-  - **Deploys:** Vercel deploying every push to `main` from GitHub, after the checks (test, typecheck, lint, with a PostgreSQL service) pass in GitHub Actions; or deploys by hand after the local checks.
-  - **Plans and region:** Vercel's Hobby plan is for non-commercial use only (Pro once the AI is paid for); a free Supabase project pauses after a week without use; which region both run in.
+#### M12: Accounts and deployment (Vercel + Neon)
+- **Decided (the user, 2026-10-23; database changed 2026-10-24):** the app is deployed on **Vercel** (Hobby; the web app as static files, the API as one Vercel Function) with the database on **Neon** (Free, PostgreSQL 17), both in Frankfurt, right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
+- **Compared on 2026-10-24** (the providers' own pages; Supabase was the first choice):
+  - **Neon over Supabase:** Neon Free never pauses (Supabase Free pauses after 7 days of low activity), has 1 GB per project (Supabase 500 MB) and can restore any moment of the last 6 hours plus one manual snapshot (Supabase Free has no backups). A 7-day restore on Neon's pay-as-you-go Launch plan comes to ≈$1–2 a month for this app (worked out from its prices), against $25 for Supabase Pro. The cost: Neon's compute sleeps after 5 minutes without queries (not switchable on Free), so the first request after a break is slower (measured below).
+  - **Not Netlify:** on its Free and Personal plans functions run in Ohio (Frankfurt only on Pro, $20 a month), so every query would cross the Atlantic; a function stops after 60 s (an extract takes up to 40 s); no Fastify adapter. It does allow commercial use on Free.
+  - **Not Coolify on a Hetzner server:** ≈€24 a month (CPX22, €19.99 + VAT, the cheapest server that meets Coolify's minimum and can be ordered) plus a domain for HTTPS, and the server's upkeep; Coolify has had 21 critical security advisories since 2025, one in October 2026.
+  - **Not a home server** (a Raspberry Pi 4/5 reached through Tailscale): free on hardware the user owns and private to their devices, but only up while the home's power and internet are, backups still have to leave the house, and paying subscribers' data couldn't live there.
+  - Login services of the database providers (Supabase Auth, Neon's Managed Better Auth) didn't decide it: Better Auth itself (open source, MIT, with Fastify and Drizzle support) runs inside our own server on any database (see Open).
+- **Limits** (official pages, 2026-10-23/24):
+  - **Vercel Hobby:** "restricted to non-commercial personal use only" (Pro, $20 a month, once the app takes payments). A function runs at most 300 s with 2 GB / 1 vCPU; request and response bodies at most 4.5 MB; one function region (`fra1` allowed). A month includes 4 hours of Active CPU (time spent waiting for Claude doesn't count), 1M invocations and 100 GB of transfer; over a limit, Hobby waits for the next 30 days. 100 deployments a day. Password Protection is Pro only ($20 per project a month); Vercel Authentication on all deployments is included. `TZ` is a reserved variable.
+  - **Neon Free:** 1 GB per project, 100 CU-hours a month (≈400 hours of the smallest compute), 5 GB of transfer; over a limit the compute is suspended until next month and the data is kept. Pooled connections through PgBouncer in transaction mode (the `-pooler` host); migrations and `pg_dump` use the direct one.
+- **Check first, done 2026-10-24** with a throwaway Vercel project and a throwaway Neon project in Frankfurt (Postgres 17.11), deployed from a clean copy of the repo outside git; only the dictionary, no word list, no Anthropic key; the probe's files were not kept:
+  - **Vercel's own packer doesn't work:** it compiles each `.ts` file on its own and leaves the extensionless imports (`../server/src/vercel`), which Node's ES module loader can't find (`ERR_MODULE_NOT_FOUND`), before `core/` even comes up. It would need `.js` on every import in `server/` and `core/`.
+  - **The esbuild bundle works:** the build command runs `vite build`, then a script that bundles the API with esbuild (0.28, a dev dependency of `server`) into one 3.6 MB `index.mjs` (`core/` and every library inside; only `pg-native` left out; a `createRequire` banner for the CommonJS libraries) and writes Vercel's Build Output API folder: `.vercel/output/static` from `web/dist`, `functions/api.func` (`runtime: nodejs24.x`, `launcherType: Nodejs`, `maxDuration: 300`, region `fra1`) and the routes `/api/*` → the function, then the files, then `index.html`. Vercel uses that folder on an ordinary deploy; the build takes ≈10 s.
+  - **The handler:** a module next to `main.ts` that does what `main.ts` does without `listen()`: config from the environment, `createDb`, the learner's language, `createClaudeAi`, `buildApp`, `await app.ready()` once per instance, then each request goes to Fastify (`app.server.emit("request", req, res)`). Fastify sees the original path (`/api/stats`), so the routes stay as they are. An instance started in 0.11 s (0.66 s while Neon was asleep).
+  - **Worked on the preview:** health, stats, dictionary suggest and lookup (with forms), past imports, `POST /imports`, our 404; a 2 MB multipart photo reached the AI step (which failed for lack of a key, as intended); the web app, a deep link (`/words`) through the `index.html` fallback, pdf.js's wasm and fonts with their content types, the manifest.
+  - **Speed from Berlin:** 0.13–0.3 s per API request, each with a new HTTPS connection. After 7 idle minutes the first request took 1.5 s (a new function instance and Neon waking up), the next ones 0.14 s.
+  - **Neon:** migrations from the Mac 3.4 s; `CREATE EXTENSION pg_trgm` works as `neondb_owner` (into `public`); `import:wiktionary` 29.5 s over the internet (11 s locally); the database is 88 MB, as on the Mac. pnpm 11 installs on Vercel through Corepack (`ENABLE_EXPERIMENTAL_COREPACK=1` and `packageManager`).
+  - **Found on the way:**
+    - Vercel runs **Node 24** (24.21; 26 isn't offered) in **UTC**, and `TZ` can't be set: the daily limits' "server's local midnight" (§11.5) would be 01:00 or 02:00 in Berlin unless the day is counted in a configured time zone. `engines: ">=24"` draws a warning (it would move to the next major by itself): pin `24.x`.
+    - Fastify's request ids restart in every function instance (`req-b`), so the "request <id>" in a 500 message no longer finds its log line; Vercel's own request id (`x-vercel-id`) does.
+    - A project's first deployment becomes **production**, and Vercel's default protection leaves the production `*.vercel.app` address public: the probe's pages (no data, no key) were reachable for ≈3 minutes until protection was set to all deployments. In the real app our own gate protects the API; Vercel Authentication on everything would also keep out an iPhone not logged in to Vercel.
+    - Neon's connection strings carry `channel_binding=require`; node-postgres takes them, with a warning that `sslmode=require` is treated as `verify-full`.
+- **Settled after the check** (the user, 2026-10-24 and 2026-10-25). The behaviour is in `docs/design.md` §17 (accounts) and §18 (deployment):
+  - **Accounts now,** with Better Auth inside our own server. An account signs in with its email or username and a password, or with Google. Sign-up asks for both an email and a username.
+  - **Invite-only sign-up** (`SIGNUP_MODE=invite`): only emails on an invite list can create an account. The list lives in the database and is edited with `invite:add`. Its purpose isn't AI cost but data protection, bots, and someone signing up with another person's email. It goes once the email service and a privacy page exist; then `open`.
+  - **AI is switched on per account.** It is off for new accounts, which can type words and practise. The user's own account is the developer account, with AI on.
+  - **Deleting an account,** with all the learner's data, from Settings → Account.
+  - **Passwords are reset by script** (`user:set-password`) until the email service exists; there is no "Forgot password" link.
+  - **Google:**
+    - A new invited email can sign up with Google directly.
+    - Google is added to an existing account from Settings → Account, while signed in. Better Auth links automatically only to a verified email, and there is no email verification yet.
+  - **The same Anthropic key** as on the Mac, with €5 of prepaid credit and no auto top-up, so nothing can spend more than €5. When the credit is used up, the app says "AI is unavailable right now".
+  - **Production starts fresh;** the Mac's word list stays on the Mac.
+  - **Backups:**
+    - A GitHub Action every night: `pg_dump` without the dictionary, encrypted with `age` (only the user holds the private key), uploaded to a Cloudflare R2 bucket and kept 30 days.
+    - Plus Neon Free's 6 hours of history.
+    - Nothing runs on the Mac.
+    - R2 will probably ask for a payment method, even within its free tier.
+  - **Deploys:** GitHub Actions on every push to `main`: the checks (with a PostgreSQL service), then the Neon migrations, then the Vercel deploy. No preview deployments; migrations only add.
+  - **Plans:**
+    - Vercel Hobby and Neon Free, both in Frankfurt. Neon's autoscaling is capped at 1 CU (set by the user on 2026-10-25).
+    - Vercel Pro once the app takes payments.
+    - The daily limits count their day in Europe/Berlin.
+  - **Open, to decide before M12.4:** the app's name, which becomes its address (`<name>.vercel.app`). `language-app`, `words-app`, `deutsch-words` and `wortschatz-app` are taken.
+  - **Not in M12:** the email service, open sign-up and the privacy page; push notifications; changing a username; a second, independent backup copy; Neon's paid history.
+- **Steps.** Each has tests first, the checks, its demo, a commit, and the user's review:
+
+| Step | Content | Demo |
+|---|---|---|
+| M12.1 Sign-in | Better Auth (password, username), its tables and the new `users` columns, `invites`; the session hook on every route (`SINGLE_USER_ID` goes); the AI client's language per call; Sign in and Create account; Sign out (a first Account screen); `user:claim`, `invite:add` / `list` / `remove`. Tried first on a copy of the dev database (worktree pattern) | On the iPhone over the LAN: signed out, the app shows Sign in; signed in as yourself, your word list; an invited test email creates an empty account in another browser; an email not on the list is refused |
+| M12.2 AI switch and account | `ai_enabled` on the server and in the screens; typed words without AI; the Account screen; deleting an account (cascades); `user:set-password`, `user:ai`; the used-up credit (503 `ai_unavailable`); the daily limits' day in `APP_TIME_ZONE` | The test account sees no photo import and no Ask AI, yours does; the test account is deleted, its data is gone and yours is untouched |
+| M12.3 Google | The Google Cloud project and OAuth client (return address `http://localhost:5173` now, production added in M12.4), the provider, Continue with Google, Connect in Account. Tested in the Mac's own browser on `localhost` (Google refuses LAN addresses, so the iPhone over the LAN keeps the password) | On the Mac: Google sign-in for an invited test email creates its account; Google connected to your account; an email not on the list is refused |
+| M12.4 Deployment | The build script and handler (from the check), `vercel.json`, the Vercel project under its name with its variables; Neon reset (password, migrations, dictionary) and `user:claim` there; the GitHub Actions checks and deploy; production's Google return address. **Check first:** Google sign-in inside the Home Screen app on the iPhone (if it doesn't come back into the app, the Home Screen app offers the password only) | **The M12 demo:** away from home Wi-Fi, the iPhone opens `https://<name>.vercel.app`, signs in, imports a photo and practises its words; Google sign-in there, in Safari and in the Home Screen app |
+| M12.5 Backups | The R2 bucket (30-day rule) and its token, the `age` key pair, the read-only `backup` role, `backup.yml`, `backup:restore` | The first night's backup in R2; a restore into a fresh local database matches Neon's row counts |
+
+- **Tests first:**
+  - **M12.1:**
+    - **Auth setup:** Better Auth's schema check passes on the migrated test database (otherwise every auth request fails); the migration adds the columns and tables and leaves user 1's data alone.
+    - **Sign-up:**
+      - An invited email gets an account: username stored lower-case and as typed in `display_username`, `ai_enabled` false, languages `en` / `de`. It is signed in, and the invite is marked used.
+      - An email not on the list gets 403 `not_invited` and no account; with `SIGNUP_MODE=open` there is no check.
+      - A taken username or email, the username rules (length, characters), and the password length are refused.
+    - **Sign-in:** by email and by username, in any case. A wrong password gets 401, with the same answer as an unknown name. Sign-out ends the session.
+    - **Every route** except `/api/health` and `/api/auth/*` answers 401 `unauthorized` without a session (one table-driven test over all routes). The existing route tests run as a signed-in learner, through a test helper, and another learner's ids still answer 404.
+    - **Protection:** a POST from an untrusted origin gets 403; with rate limiting on in that test, the 6th sign-in attempt within a minute gets 429.
+    - **Scripts:** `user:claim` gives user 1 its email, username, password, `email_verified` and AI, after which it can sign in; `invite:add` trims and lower-cases, and adding the same email again is harmless; `invite:remove`.
+    - **AI language:** the AI calls get the learner's language from the session, not from startup.
+    - **core:** the auth calls and their schemas (ids as strings); Better Auth's error body becomes an `ApiClientError`; 401 becomes `unauthorized`.
+    - **web:** the sign-in field picks email or username by the `@`; a signed-out page goes to Sign in and comes back to `next`; Create account's field rules; the wording for each error code.
+  - **M12.2:**
+    - Every AI route answers 403 `ai_not_enabled` without AI, and is unchanged with it.
+    - Typed words without AI are saved with no AI call; they show the shared word's example when there is one; `detailsPending` is 0.
+    - **Deleting an account:**
+      - removes its imports, words in the list, sessions, answers, AI usage, sign-ins, sign-in methods and invite;
+      - leaves shared words and other learners untouched;
+      - refuses a wrong password, and a Google-only account whose sign-in is more than a day old.
+    - `user:set-password` (the new password works, old sessions end); `user:ai`.
+    - **The used-up credit,** both forms built from a recorded response (400 with "credit balance is too low", and 402 `billing_error`): 503 `ai_unavailable`, not retried, recorded in `ai_usage`.
+    - **The daily limits' day** in `APP_TIME_ZONE`, with the server in UTC: calls at 23:30 and 00:30 Berlin time.
+    - **web:** the screens without AI (New import, Confirm word, Done, Home), the Account screen's states, the delete confirmation.
+  - **M12.3,** with Google's endpoints faked:
+    - an invited email signs up with Google: email verified, username made from the email, unique;
+    - an email not on the list comes back with `error=not_invited`;
+    - an existing password account with the same email gets `account_not_linked`;
+    - Connect, while signed in, links Google;
+    - the wording for the callback's errors on Sign in.
+  - **M12.4:**
+    - The build script writes `.vercel/output` with the static files, the function and the routes, and no import of a workspace package is left in the bundle.
+    - The bundled handler answers `/api/health`, refuses an unsigned request and serves a signed-in one against the test database (run in CI).
+    - A 500's message carries `x-vercel-id` when present.
+    - The CI workflow is green on a clean push, and a failing check stops the deploy (tried once on a branch).
+  - **M12.5:** the restore drill (the demo); `backup:restore` refuses a database that isn't empty.
 
 #### M13: Themes and own groups
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
@@ -347,7 +423,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 #### M19: Text-to-speech
 - German audio generated once per text, stored, and played like the Wiktionary recordings. Numbers and time need it: no recordings exist for "siebenundzwanzig" or "Viertel vor vier". Example sentences and words without a recording can use it too.
 - §15 has the research: Azure Neural TTS first (its free tier covers this; a slower version through SSML), Google Chirp 3 HD or ElevenLabs as alternatives.
-- **Open:** where the audio files are stored (object storage such as Supabase Storage, since the deployed server has no disk of its own, M12); generated on demand or in advance.
+- **Open:** where the audio files are stored (object storage, since the deployed server has no disk of its own, M12); generated on demand or in advance.
 
 #### M20: Numbers
 - An explanation page (how German numbers are built: einundzwanzig, hundert, tausend…), then practice in three separate modes: flip cards (27 → siebenundzwanzig), typed answers (see 27, type the German; the app checks it) and listening (hear the number, type the digits).
@@ -362,9 +438,11 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 ### Later
 
 In this order, after M21:
-- **Accounts** (unless M12 builds them): a login per learner (§15), needed at the latest for AI for subscribers.
+- **Open sign-up** (the user, 2026-10-25): the email service (needs its own domain; verification, password reset), a privacy page (and whether an Impressum is needed), then `SIGNUP_MODE=open` (§17.4).
+- **Push notifications** built on practice behaviour (the user, 2026-10-25): Home Screen app, HTTPS, a service worker, the learner's consent. Starts with HTTPS on the LAN (mkcert, `docs/design.md` §18.7), so the iPhone is a secure context during development.
 - **Gamification:** points for practice and something to spend them on; builds on M17.
-- **AI for subscribers** (the user, 2026-10-16): the AI features become paid, for subscribers only (which ones exactly, e.g. whether photo import and enrichment too, is open); comes with the login. Price them from real `ai_usage` numbers per learner. The model decides most of it: 50 Ask AI calls a day for 30 days cost ≈ 15¢ on Haiku 5.5 but ≈ $15 on Opus 5.5, and a photo page ≈ 0.2–0.4¢ vs 5–8¢ (§11.4).
+- **AI for subscribers** (the user, 2026-10-16): the AI features become paid, for subscribers only (which ones exactly, e.g. whether photo import and enrichment too, is open); a subscription turns the account's AI switch on (§17.5). Vercel Pro from then on (Hobby is non-commercial). Price them from real `ai_usage` numbers per learner. The model decides most of it: 50 Ask AI calls a day for 30 days cost ≈ 15¢ on Haiku 5.5 but ≈ $15 on Opus 5.5, and a photo page ≈ 0.2–0.4¢ vs 5–8¢ (§11.4).
+- **New example sentence** (the user, 2026-10-25): **New example** on Word detail's Example card, for AI accounts: one small AI call for that word (≈0.01¢ on Haiku), given the current sentence so it changes, counted under a daily limit like Ask AI. The sentence is stored on the learner's own `user_words` row, like their own translation, and shown instead of the shared one, so other learners' cards don't change; **Use the original** goes back. Accounts without AI could type their own example in Edit word.
 - **Someday:** export of the word list (CSV, Anki), and the items of §15 not chosen yet.
 
 ## Verification (every milestone)
