@@ -897,7 +897,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 - **Google on the Mac** (§4 Accounts): one OAuth client in Google Cloud, made once by hand:
   1. In the Google Cloud console, a project for the app (one for development and production).
   2. **Google Auth Platform → Branding:** the app's name, a support email and the developer's email. **Audience:** External, left in Testing (with only the basic scopes any Google account can sign in, §16, so the invite list is what keeps strangers out); listing your own and the test Gmail under Test users does no harm, in case Google holds back accounts that aren't listed. **Data access:** nothing to add (the basic `openid`, `email` and `profile` are asked for by default).
-  3. **Clients → Create client:** a Web application; under Authorized redirect URIs exactly `http://localhost:5173/api/auth/callback/google` (no JavaScript origin is needed: the server makes the exchange). Google shows the client secret when the client is made: copy it then. A new or changed redirect URI can take a few minutes to work. Production's (`https://dingsda.vercel.app/api/auth/callback/google`) joins the same client in M12.4.
+  3. **Clients → Create client:** a Web application; under Authorized redirect URIs exactly `http://localhost:5173/api/auth/callback/google` (no JavaScript origin is needed: the server makes the exchange). Google shows the client secret when the client is made: copy it then. A new or changed redirect URI can take a few minutes to work. Production's, `https://dingsda.vercel.app/api/auth/callback/google`, is on the same client beside it (added going live, M12.4); Google uses whichever matches the address the sign-in started from.
   4. In `.env`, `GOOGLE_CLIENT_ID=<…>.apps.googleusercontent.com` and `GOOGLE_CLIENT_SECRET=<…>`, then restart `pnpm dev`; `GET /api/sign-in-options` then answers `{"google":true}`.
 
   Google works only in the Mac's own browser on `http://localhost:5173`: it returns only to https or `localhost`, so the iPhone over the LAN (`http://<Mac IP>:5173`) signs in with the password and isn't shown the Google buttons. A Google account is connected to an existing account on the Mac (Settings → Account → **Connect**); the iPhone then shows it as connected. A `WEB_PORT` other than 5173 needs its own redirect URI.
@@ -909,7 +909,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Deployment on Vercel + Neon with nightly backups (M12.4–M12.5, §18; sign-in, the AI switch, deleting an account and Google sign-in are built, §4 Accounts; M12.4's build, function, configuration and workflow are built, going live is §18.8)
+- Nightly backups (M12.5, §18.6; accounts are built, §4 Accounts, and the app is live on Vercel + Neon since 2026-10-26, §18)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
 - Practice modes German → English, articles, plurals, verb forms (M15)
@@ -1015,7 +1015,7 @@ Recorded here so decisions already made are not lost.
     - `x-forwarded-for`: "The public IP address of the client that made the request. If you are trying to use Vercel behind a proxy, we currently overwrite the `X-Forwarded-For` header and **do not forward external IPs**. This restriction is in place to prevent IP spoofing."
     - `x-vercel-forwarded-for`: "This header is identical to the `x-forwarded-for` header. However, `x-forwarded-for` could be overwritten if you're using a proxy on top of Vercel."
     - `x-real-ip`: "This header is identical to the `x-forwarded-for` header." (`@vercel/functions`' own `ipAddress()` reads it.)
-    - **Chosen: `x-vercel-forwarded-for`**, Vercel's own header, the one the page says survives a proxy in front. The page says in so many words only of `x-forwarded-for` that Vercel overwrites what a client sent, so going live sends forged values of all three and checks the stored key (§18.8). Better Auth takes a header only when it holds a single address (without `trustedProxies`), walking `ipAddressHeaders` in order; with none it falls back to one shared `no-trusted-ip` count and logs a warning once.
+    - **Chosen: `x-vercel-forwarded-for`**, Vercel's own header, the one the page says survives a proxy in front. The page says in so many words only of `x-forwarded-for` that Vercel overwrites what a client sent, so going live sent forged values of all three and checked the stored key (§18.8): Vercel replaced them, and the key held the real address. Better Auth takes a header only when it holds a single address (without `trustedProxies`), walking `ipAddressHeaders` in order; with none it falls back to one shared `no-trusted-ip` count and logs a warning once.
   - **`x-vercel-id`** (same page): "a list of Vercel regions your request hit, as well as the region the function was executed in".
   - **`vercel build` with our own output** (CLI 63.1.2, run offline with a hand-written `.vercel/project.json`, an empty global config and no account): it deletes `.vercel/output`, runs vercel.json's `installCommand` and `buildCommand` (`pnpm build:vercel`), and keeps the Build Output API folder the build command wrote (Vercel's static builder finds `.vercel/output/config.json`). It merges routes of its own into `config.json`: an error phase (`{ "handle": "error" }` and a 404 for any path outside `/api` to `/404.html`) between our `/api` route and `filesystem`, and `"crons": []`; harmless, since the `index.html` catch-all leaves no 404 outside `/api`. It wrote no `builds.json`, and `diagnostics/cli_traces.json` with timings only. It warns that `"engines": { "node": ">=24" }` "will automatically upgrade when a new major Node.js Version is released", and says "Using pnpm@10.x based on project creation date" while running the pnpm on the `PATH` (11.18). The bundle it produced was byte for byte the one `pnpm build:vercel` writes.
   - **`vercel deploy --prebuilt`** ([vercel deploy](https://vercel.com/docs/cli/deploy#prebuilt), "upload and deploy the results of a previous `vc build` execution located in the .vercel/output directory"; [vercel build](https://vercel.com/docs/cli/build)): in the CLI's source it needs only `.vercel/output`; `builds.json` is optional, and when there it refuses a failed build or one built for another target (`--prod` against a preview build). So the deploy job runs `vercel pull`, `vercel build --prod` and `vercel deploy --prebuilt --prod`, Vercel's own documented sequence; an upload of `.vercel/output` from `pnpm build:vercel` alone would also be accepted.
@@ -1027,7 +1027,7 @@ Recorded here so decisions already made are not lost.
 - **Google sign-in rules (2026-10-25,** Google's OAuth pages):
   - **Return addresses** must be https, except `localhost`. A raw IP is refused, and the host's top-level domain must be on the public suffix list: `.local` isn't, `vercel.app` is. No wildcards, so each Vercel address is registered on its own.
   - **No warning screen for basic data:** asking only for `openid email profile`, any Google account can sign in without a warning or a 7-day expiry, even while the project is in "Testing", and no verification is needed. So the invite check is what keeps strangers out.
-  - **The Home Screen app:** Apple only says that out-of-scope links open in an in-app Safari view. Whether the return from Google lands back in the app with its cookie is undocumented, so it is tried on the iPhone (M12.4).
+  - **The Home Screen app:** Apple only says that out-of-scope links open in an in-app Safari view, and doesn't say whether the return from Google lands back in the app with its cookie. **Tried on the iPhone (iOS 18.7, 2026-10-26, M12.4):** Continue with Google opens Google in an in-app sheet ("Done" and the address bar, no app switch); after the account is chosen the sheet closes by itself and the app is on Home, signed in, and still signed in after it is closed and opened again. The session's user agent is Safari's. So the Home Screen app keeps Google.
   - **The button** (Google's branding guidelines, read 2026-10-26): the label "Sign in with Google", "Sign up with Google" or "Continue with Google"; the standard-colour "G", never recoloured, resized against the button or used alone, on Google's light (`#FFFFFF` fill, `#747775` 1 px stroke, `#1F1F1F` text), dark (`#131314`, `#8E918F`, `#E3E3E3`) or neutral button; 12 px before the G and 10 px after it on the web; the button may be scaled with its proportions. Google's own font is Google Sans Medium 14/20; ours uses DM Sans (no font is fetched from another site), the one point where it departs from Google's buttons.
 - **Other M12 facts (2026-10-25):**
   - **`pg_dump` version:** `ubuntu-latest` runners have PostgreSQL 16, and `pg_dump` refuses newer servers, so install `postgresql-client-17` (PGDG) or run it in the `postgres:17` image.
@@ -1036,21 +1036,19 @@ Recorded here so decisions already made are not lost.
   - **Vercel Instant Rollback** on Hobby reaches only the previous deployment.
   - **Used-up Anthropic credit** answers either 400 `invalid_request_error`, "Your credit balance is too low…", or 402 `billing_error`. Reports differ, so both are handled.
 
-## 17. Accounts: what is left for going live (M12.4, designed 2026-10-25)
+## 17. Accounts: where the steps went (M12.1–M12.4, all built)
 
-Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). When a step is built, its parts move into the sections above (§2, §4, §5, §9, §10, §12–§14) and this section keeps only what isn't built yet.
+Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). As each step was built, its parts moved into the sections above (§2, §4, §5, §9, §10, §12–§14); this section only records where they went.
 - **M12.1 (sign-in) is built:** accounts, sessions, the invite list, `user:claim` and the `invite:*` scripts are in §4 Accounts, §5 (`users`, Better Auth's tables, `invites`, the cascades), §9.4, §10 screens 17–19, §12 Signing in, §13 and §14. (Its subsections 17.3 and 17.4 moved there.)
 - **M12.2 is built (2026-10-26):** the AI switch (17.5) is in §4 Accounts (the AI switch), §6.6–§6.7 (saving without AI), §9 and §10 (Without AI); the used-up credit in §11.1 and §12; the daily limits' day in §11.5; the scripts (17.6) in §14; deleting an account (17.7) in §4 Accounts, §5 and §9.4; Account's Delete account (from 17.8) in §10 screen 19 and Sign in's "Your account was deleted." in screen 17; the `ai_not_enabled` and `ai_unavailable` rows of 17.9 in §12. The others keep their numbers.
 - **M12.3 is built (2026-10-26):** Google (17.2, and Google in 17.1) is in §4 Accounts (Google; deleting a Google-only account), §5 (`users`, `auth_accounts`, `auth_verifications`), §9 and §9.4 (`/sign-in-options`, `sign-in/social`, `link-social`, the callback), §12 (Google's errors, with the `not_invited` row of 17.9), §13, §14 (the Google OAuth client) and §16 (what Better Auth does); its screens (17.8) in §10 screens 17–19 and the design system's `GoogleButton`. 17.2, 17.8 and 17.9 are gone; only the production part of 17.1 is left.
 - **M12.3b is built (2026-10-26),** a follow-up decided after M12.3's demo and never in this section: Google's tokens not kept, Disconnect, and implicit linking kept, in §4 Accounts (Google), §5 (`auth_accounts`), §9.4 (`unlink-account`, the switched-off endpoints), §10 screen 19, §12, §13 and §16.
-- **M12.4's code is built (2026-10-26):** production's static https base URL as the one trusted origin, the `Secure` cookies with the `__Secure-` prefix and the client's address from `x-vercel-forwarded-for` are in §4 Accounts (Sessions, Addresses in production, Rate limits), §13, §14 and §16. What is left in 17.1 happens once, going live (§18.8).
+- **M12.4's code is built (2026-10-26):** production's static https base URL as the one trusted origin, the `Secure` cookies with the `__Secure-` prefix and the client's address from `x-vercel-forwarded-for` are in §4 Accounts (Sessions, Addresses in production, Rate limits), §13, §14 and §16.
+- **M12.4 went live (2026-10-26, §18.8):** `user:claim` ran on Neon's fresh database, so the developer account is user 1 there as on the Mac; the account scripts (§14) run from the Mac on Neon's direct connection. Google has production's return address on the same OAuth client (§14) and the Google pair in Vercel's variables (§18.3), and works in Safari and in the Home Screen app (§16); on https the screens offer it everywhere (§4 Accounts). 17.1 is gone.
 
-### 17.1 Overview
-- **Going live** (M12.4, §18.8, not done yet): `user:claim` runs once on Neon's fresh database, as on the Mac's, so the developer account is user 1 in both; the account scripts (§14) run from the Mac on Neon's direct connection. Google gets production's return address, `https://dingsda.vercel.app/api/auth/callback/google`, on the same OAuth client (§14), the Google pair in Vercel's variables (§18.3), and is tried in Safari and in the Home Screen app (§16); on https the screens offer it everywhere (§4 Accounts).
+## 18. Deployment (M12, designed 2026-10-25; M12.4 built and live 2026-10-26)
 
-## 18. Deployment (M12, designed 2026-10-25; M12.4's code built 2026-10-26, going live not done yet)
-
-M12.4's build, function, configuration and workflow are built (18.2–18.4); going live, once, is 18.8, not done yet; the backups (18.6) are M12.5.
+M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main`. The backups (18.6) are M12.5.
 
 ### 18.1 Where it runs
 | | Development (the Mac) | Production |
@@ -1091,7 +1089,7 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **GitHub Actions** (§18.4, §18.6):
   - secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner), `NEON_BACKUP_URL` (direct, read-only role), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`;
   - a plain variable: `AGE_RECIPIENT`, the backups' public key.
-- **Going live's secrets** sit in `deploy.env` at the repo root (git-ignored) while §18.8 is under way, and the commands read them from there, so none is typed, shown or pasted into a chat.
+- **Going live's secrets** sat in `deploy.env` at the repo root (git-ignored, values single-quoted) while §18.8 was under way, and the commands read them from there, so none was typed, shown or pasted into a chat; it was deleted afterwards. A later script on Neon gets a new `deploy.env` with `NEON_DIRECT_URL='…'` from Neon's console.
 - **Deployment protection:** Vercel Authentication with Standard Protection: every deployment's own address needs a Vercel login, the production domain doesn't (§16). So Vercel's own login stays off for production: the app's sign-in protects it, and Vercel's would also lock out the iPhone. There are no preview deployments (every deploy is `--prod`).
 
 ### 18.4 Deploys (GitHub Actions)
@@ -1143,7 +1141,7 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
   - Vite's `server.https` set to use it, with the `.local` name added to `allowedHosts`.
 - **Not for Google:** Google sign-in still wouldn't work there, since Google accepts only `localhost` or a public domain as a return address. M12 doesn't need it, so it comes with the first feature that needs a secure context on the phone during development: push notifications (or the microphone).
 
-### 18.8 Going live, once (M12.4, not done yet)
+### 18.8 Going live, once (M12.4, done 2026-10-26)
 The steps in order, done once by the user and Claude together. **You** marks what the user does by hand (a console, a password, a paste); **Claude** marks commands the session can run in the main checkout's root, which print no secret.
 - **Secrets:** they live only in `deploy.env` at the repo root (git-ignored, readable only by you) and, where they must stay, in Vercel, GitHub and the password manager. Commands read them in a subshell, `( set -a; . ./deploy.env; set +a; … )`, so a secret never appears on a command line, in output or in shell history; values go to Vercel through stdin. Nobody pastes a secret into the chat.
 - **The Vercel CLI** isn't installed: it runs as `npx -y vercel@63.1.2` (the newest release at least two weeks old on 2026-10-26), with the login made for `project add`.
@@ -1159,10 +1157,15 @@ The steps in order, done once by the user and Claude together. **You** marks wha
 2. **Neon** (You, in Neon's console, the project from the check):
    1. Settings: rename it `dingsda`; check Frankfurt (`aws-eu-central-1`), PostgreSQL 17, autoscaling capped at 1 CU.
    2. Roles → `neondb_owner` → **Reset password**, so the probe's connection strings stop working.
-   3. **Connect** (database `neondb`, role `neondb_owner`): copy the string with **Connection pooling** on (its host has `-pooler`) and off (direct). In both, replace `sslmode=require` with `sslmode=verify-full` (§18.5). Paste them into `deploy.env` with an editor:
+   3. **Connect** (database `neondb`, role `neondb_owner`): copy the string with **Connection pooling** on (its host has `-pooler`) and off (direct). In both, `sslmode=require` becomes `sslmode=verify-full` (§18.5). Each goes from the clipboard straight into `deploy.env`, then Claude single-quotes the values and switches `sslmode` (the strings carry `&`, which breaks `. ./deploy.env` unquoted):
       ```sh
-      NEON_POOLED_URL=postgresql://neondb_owner:…@ep-…-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
-      NEON_DIRECT_URL=postgresql://neondb_owner:…@ep-….eu-central-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
+      printf 'NEON_POOLED_URL=%s\n' "$(pbpaste)" >> deploy.env     # copied with pooling on
+      printf 'NEON_DIRECT_URL=%s\n' "$(pbpaste)" >> deploy.env     # copied with pooling off
+      ```
+      The result:
+      ```sh
+      NEON_POOLED_URL='postgresql://neondb_owner:…@ep-…-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require'
+      NEON_DIRECT_URL='postgresql://neondb_owner:…@ep-….eu-central-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require'
       ```
    4. **SQL Editor** (database `neondb`): drop the probe's schema and dictionary.
       ```sql
@@ -1223,7 +1226,7 @@ The steps in order, done once by the user and Claude together. **You** marks wha
    curl -s -o /dev/null -w '%{http_code}\n' -X POST https://dingsda.vercel.app/api/auth/sign-in/username \
      -H 'Origin: https://dingsda.vercel.app' -H 'Content-Type: application/json' \
      -H 'X-Vercel-Forwarded-For: 203.0.113.9' -H 'X-Forwarded-For: 203.0.113.9' -H 'X-Real-Ip: 203.0.113.9' \
-     -d '{"username":"nobody-here","password":"not a password"}'                         # 401
+     -d '{"username":"nobody_here","password":"not a password"}'                         # 401
    ```
    - **The client's address** (You, Neon's SQL Editor): `SELECT key, count FROM auth_rate_limits;` must show the Mac's public address in front of `|/sign-in/username`, not `203.0.113.9` and not `no-trusted-ip`. With `203.0.113.9`, Vercel passed the forged header on: Claude switches `VERCEL_CLIENT_IP` (`server/src/auth/auth.ts`) to `x-real-ip` and its tests, rebuilds, deploys and checks again. With `no-trusted-ip`, the header didn't arrive.
    - **The M12 demo** (You, the iPhone on mobile data, Wi-Fi off):
@@ -1239,6 +1242,18 @@ The steps in order, done once by the user and Claude together. **You** marks wha
 9. **A failing check stops the deploy,** tried once on a branch (Claude): on a new branch `ci-trial`, add `ci-trial` beside `main` under `on.push.branches` in `ci.yml` and to the deploy job's `if` (`|| github.ref == 'refs/heads/ci-trial'`), and a test that fails (`server/test/ci-trial.test.ts`, `expect(true).toBe(false)`); commit, `git push -u origin ci-trial`. Expected: Checks red at `pnpm test`, Deploy **skipped**, no new deployment in Vercel, Neon untouched. Then `git switch main`, `git branch -D ci-trial`, `git push origin --delete ci-trial`.
 10. **Afterwards** (Claude): `rm deploy.env`. Nothing in it is lost: Neon's strings are in its console, the other secrets in Vercel, GitHub and the password manager. A later script on Neon (`user:set-password`, `user:ai`, `invite:add`) gets a new `deploy.env` with `NEON_DIRECT_URL` from Neon's console. `docs/plan.md` records what went live, and anything found.
 
-**Confirmed before going live, and what only going live confirms:**
+**How going live went (2026-10-26),** where it differed from the steps above, and what it confirmed:
+- **Neon:** renamed `dingsda` and the password reset; `DROP SCHEMA public` worked as `neondb_owner`. Both strings connected (PostgreSQL 17.11) to an empty `neondb`. The migrations made 15 tables, the `drizzle` schema and `pg_trgm`; the dictionary took 29 s (98,308 entries, 249,020 forms, as on the Mac). `user:claim` gave user 1 the developer's Gmail, verified, with AI on. `migrate.ts` and `import-wiktionary.ts` didn't print `Database: …` as step 3 says; they do since.
+- **`vercel link`** also wrote `.env.local` (a short-lived `VERCEL_OIDC_TOKEN`) and appended `.vercel` and `.env*` to `.gitignore` (the latter would match `.env.example`): both undone. `vercel pull` writes `.env.local` again; delete it after.
+- **Protection** was already Standard: the API and `vercel project protection` call it `ssoProtection.deploymentType: "all_except_custom_domains"`. The production domain answers without a login; a deployment's own address answers 302 to Vercel's login (not 401).
+- **Region:** the project's default function region was `iad1`; set to `fra1` (`PATCH /v9/projects/dingsda`, `serverlessFunctionRegion`). The function runs in `fra1` (`x-vercel-id: fra1::fra1::…`).
+- **Variables:** the nine of §18.3 (four sensitive), plus `DAILY_PHOTO_LIMIT=20`, which the Mac's `.env` has instead of the default.
+- **The first deployment** came from the Mac (`vercel build --prod`, ≈6 s; `deploy --prebuilt --prod`). Health answers in ≈0.3 s from Berlin.
+- **The client's address:** the forged `203.0.113.9` in all three headers was ignored; the rate limit's key held the Mac's public address. `x-vercel-forwarded-for` stays. (A username with `-` is refused with 422 before the password, hence `nobody_here` in step 6.)
+- **The iPhone,** on Wi-Fi and on mobile data: password and Google sign-in in Safari, a photo import (Call 1 in 11 s, 44 words, all enriched), a practice session; and Google in the Home Screen app (§16).
+- **GitHub's secrets** were set with `gh secret set` (the GitHub CLI, installed 2026-10-26) from the user's own terminal: the ids from `.vercel/project.json`, `NEON_MIGRATE_URL` from `deploy.env`, the token at a hidden prompt; Claude Code's auto mode refused to set them from the session. The Vercel token is `github-actions-dingsda`, scope `lazy-pixel`, valid one year (until ≈2027-10-26): **renew it before then**, or deploys fail.
+- **CI:** the first push ran green: Checks 2 min 34 s, Deploy 1 min 4 s ("Database is up to date", a new production deployment). The trial on `ci-trial`: Checks red at `pnpm test`, Deploy skipped, no deployment; the branch was deleted.
+
+**Confirmed before going live, and what only going live confirmed** (all of it, on 2026-10-26):
 - **Confirmed** on the Mac: the build and its output, `vercel build` keeping our output (offline, §16), `deploy --prebuilt` needing nothing more than `.vercel/output` (the CLI's source), the bundled function with production's variables (`pnpm test:bundle` and the rehearsal), the migrations and dictionary on a fresh database and after the reset, the workflow's syntax (`actionlint`).
-- **Only going live:** the token's access for `pull`, `build` and `deploy` (a project-scoped token isn't documented for them on Hobby; a team-scoped one works), Vercel setting `x-vercel-forwarded-for` and overwriting a forged one (step 6), Neon taking `DROP SCHEMA public` from `neondb_owner`, the protection setting, Google's new return address, the Home Screen app's Google sign-in, and the workflow itself (steps 8 and 9).
+- **Going live:** the token's access for `pull`, `build` and `deploy` (a project-scoped token isn't documented for them on Hobby; a team-scoped one works), Vercel setting `x-vercel-forwarded-for` and overwriting a forged one (step 6), Neon taking `DROP SCHEMA public` from `neondb_owner`, the protection setting, Google's new return address, the Home Screen app's Google sign-in, and the workflow itself (steps 8 and 9).

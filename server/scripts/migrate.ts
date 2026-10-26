@@ -2,9 +2,12 @@
 import { loadEnvFile, parseConfig } from "../src/config";
 import { createDb } from "../src/db/client";
 import { runMigrations } from "../src/db/migrate";
+import { databaseName } from "./prompt";
 
 loadEnvFile();
-const db = createDb(parseConfig(process.env).DATABASE_URL);
+const { DATABASE_URL } = parseConfig(process.env);
+console.log(`Database: ${databaseName(DATABASE_URL)}`);
+const db = createDb(DATABASE_URL);
 try {
   await runMigrations(db);
   console.log("Database is up to date");

@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { loadEnvFile, parseConfig } from "../src/config";
 import { createDb } from "../src/db/client";
 import { loadDictionary } from "../src/dictionary/load";
+import { databaseName } from "./prompt";
 
 const file = process.argv[2];
 if (!file) {
@@ -15,7 +16,9 @@ if (!file) {
 }
 
 loadEnvFile();
-const db = createDb(parseConfig(process.env).DATABASE_URL);
+const { DATABASE_URL } = parseConfig(process.env);
+console.log(`Database: ${databaseName(DATABASE_URL)}`);
+const db = createDb(DATABASE_URL);
 const started = performance.now();
 try {
   const result = await loadDictionary(

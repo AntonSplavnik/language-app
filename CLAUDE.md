@@ -47,7 +47,7 @@ pnpm --filter server serve:vercel [port]   # serve the built function with plain
 ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm db:migrate )   # likewise invite:*, user:*, import:wiktionary
 ```
 
-CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`) on every push and pull request; on `main`, then Neon's migrations and the Vercel deploy. The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).
+**Production is live** at `https://dingsda.vercel.app` (Vercel + Neon, docs/design.md §18): a push to `main` deploys it, so push only what has passed its milestone's review. CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`) on every push and pull request; on `main`, then Neon's migrations and the Vercel deploy. The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).
 
 Configuration lives in the repo-root `.env` (copy `.env.example`); the server needs `BETTER_AUTH_SECRET` (`openssl rand -base64 32`). iPhone testing: same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once).
 
