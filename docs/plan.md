@@ -337,7 +337,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - Vercel Hobby and Neon Free, both in Frankfurt. Neon's autoscaling is capped at 1 CU (set by the user on 2026-10-25).
     - Vercel Pro once the app takes payments.
     - The daily limits count their day in Europe/Berlin.
-  - **The address:** `dingsda.vercel.app`, from the working name (Part 2 context, Name). `language-app`, `words-app`, `deutsch-words` and `wortschatz-app` were taken; `dingsda` was free on 2026-10-26 and is reserved by creating the Vercel project.
+  - **The address:** `dingsda.vercel.app`, from the working name (Part 2 context, Name). `language-app`, `words-app`, `deutsch-words` and `wortschatz-app` were taken; `dingsda` was free on 2026-10-26, and the user created the Vercel project that day (`npx -y vercel@48.0.0 project add dingsda`, under the `lazy-pixel` scope): it holds the address with no deployment, and nothing is linked in the repo until M12.4. The Vercel CLI isn't installed on the Mac; it runs through `npx -y vercel@<version>`.
   - **Not in M12:** the email service, open sign-up and the privacy page; push notifications; changing a username; a second, independent backup copy; Neon's paid history.
 - **Steps.** Each has tests first, the checks, its demo, a commit, and the user's review:
 
@@ -354,6 +354,8 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - **The server requires a username on sign-up** (400 `USERNAME_REQUIRED`) and sets `name` from it, rather than relying on the client.
   - **`invites.user_id` cascades** from `users`, so deleting an account (M12.2) removes its invite, as §17.7 asks.
   - **`demo:import` signs in first:** `--user <email|username>`, with the password asked for or piped in.
+  - **Demoed on the iPhone on 2026-10-26:** user 1 claimed on the Mac's database, a test account made from an invite, Sign out. Until M12.2, `ai_enabled` is stored but not enforced, so an invited account can still use the AI routes on the developer's key: no one else is invited before M12.2.
+  - **Left for M12.2 or later:** sign-in and sign-up answers carry the session token in their body (Better Auth's default; the web app ignores it); the mount could strip it.
 
 - **Tests first:**
   - **M12.1:**
