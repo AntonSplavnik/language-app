@@ -143,6 +143,8 @@ pnpm check         # Biome lint and format check
 pnpm format        # fix formatting with Biome
 pnpm db:generate   # generate a migration after changing server/src/db/schema.ts
 pnpm db:migrate    # apply migrations to the dev database (pnpm dev does this too)
+pnpm build:vercel  # the Vercel build: web app and the API bundled into .vercel/output
+pnpm test:bundle   # build, then test the output and the bundled function against the test database
 ```
 
 Server scripts. Paths are relative to the directory you run them from.

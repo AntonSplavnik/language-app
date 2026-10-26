@@ -3,6 +3,11 @@ dist/
 coverage/
 .env
 .DS_Store
+
+# Vercel: the linked project (.vercel/project.json), pulled settings and the build output
+.vercel/
+# Production's secrets while going live (docs/design.md §18.8); never in git
+deploy.env
 *.log
 
 # Wiktionary download (large; see docs/design.md §7)

@@ -10,9 +10,11 @@
     "dev": "pnpm -r --parallel dev",
     "test": "pnpm -r test",
     "test:live": "pnpm --filter server test:live",
+    "test:bundle": "pnpm build:vercel && pnpm --filter @language-app/server test:bundle",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter server db:generate",
     "db:migrate": "pnpm --filter server db:migrate",
+    "build:vercel": "pnpm --filter @language-app/web build && pnpm --filter @language-app/server build:vercel",
     "check": "biome check .",
     "format": "biome check --write ."
   },

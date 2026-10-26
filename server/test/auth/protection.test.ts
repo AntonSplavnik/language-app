@@ -18,12 +18,40 @@ beforeEach(async () => {
 });
 
 describe("trusted origins", () => {
-  it("a sign-in from another site gets 403", async () => {
-    const res = await authPost(app(), "/sign-in/email", alice, { origin: "http://evil.example" });
+  it.each([
+    ["by email", "/sign-in/email", alice],
+    // The username plugin's endpoint lacks Better Auth's own check; ours adds it (§4 Accounts).
+    ["by username", "/sign-in/username", { username: "alice", password: PASSWORD }],
+    [
+      "a sign-up",
+      "/sign-up/email",
+      { email: "bob@example.com", username: "bob", password: PASSWORD },
+    ],
+  ])("a sign-in %s from another site gets 403, without a cookie too", async (_, path, body) => {
+    const res = await authPost(app(), path, body, { origin: "http://evil.example" });
 
     expect(res.statusCode).toBe(403);
     expect(res.json()).toMatchObject({ code: "INVALID_ORIGIN" });
     expect(cookieOf(res)).toBe("");
+  });
+
+  it("a browser's cross-site navigation to sign in by username gets 403", async () => {
+    const res = await app().inject({
+      method: "POST",
+      url: "/api/auth/sign-in/username",
+      payload: { username: "alice", password: PASSWORD },
+      headers: { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate" },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("a client that sends no origin at all (a script such as demo:import) still signs in", async () => {
+    const res = await app().inject({
+      method: "POST",
+      url: "/api/auth/sign-in/username",
+      payload: { username: "alice", password: PASSWORD },
+    });
+    expect(res.statusCode).toBe(200);
   });
 
   it("a POST with the cookie from another site gets 403 and changes nothing", async () => {

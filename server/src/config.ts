@@ -24,6 +24,19 @@ const Fields = z.object({
     .string()
     .min(32, "BETTER_AUTH_SECRET must be at least 32 characters")
     .optional(),
+  /**
+   * Production's address (§18.3), such as `https://dingsda.vercel.app`: Better Auth's one base URL
+   * and trusted origin, with Secure cookies (§4 Accounts). Never set on the Mac, whose server
+   * refuses it: a Secure cookie is never sent back over the LAN's plain HTTP (§14).
+   */
+  BETTER_AUTH_URL: z
+    .string()
+    .refine(
+      isAppAddress,
+      "BETTER_AUTH_URL must be the app's https address, such as https://dingsda.vercel.app",
+    )
+    .transform((address) => new URL(address).origin)
+    .optional(),
   /** `invite`: only emails on the invite list can create an account (§4 Accounts). */
   SIGNUP_MODE: z.enum(["invite", "open"]).default("invite"),
   /**
@@ -62,6 +75,13 @@ function isTimeZone(zone: string): boolean {
   }
 }
 
+/** An https address with nothing after the host: `https://dingsda.vercel.app`, with or without `/`. */
+function isAppAddress(value: string): boolean {
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash;
+}
+
 /** Loads the repo-root `.env` into `process.env`, if it exists. Values already set win. */
 export function loadEnvFile(): void {
   const path = fileURLToPath(new URL("../../.env", import.meta.url));
@@ -72,6 +92,23 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   // Treat empty strings as unset, so `KEY=` in .env falls back to the default.
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ""));
   return Config.parse(cleaned);
+}
+
+/**
+ * What a Vercel Function can't start without (§18.3). The Mac's defaults don't apply there: its
+ * own database, its addresses, and no secret at all.
+ */
+const REQUIRED_ON_VERCEL = ["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL"] as const;
+
+/** The configuration of the Vercel Function, from Vercel's production variables (no `.env`). */
+export function parseVercelConfig(env: Record<string, string | undefined>): Config {
+  const missing = REQUIRED_ON_VERCEL.filter((name) => !env[name]);
+  if (missing.length > 0) {
+    throw new Error(
+      `${missing.join(", ")} must be set in Vercel's production variables (docs/design.md §18.3)`,
+    );
+  }
+  return parseConfig(env);
 }
 
 /** The Google OAuth client, or null when the server has none (Google isn't offered then). */

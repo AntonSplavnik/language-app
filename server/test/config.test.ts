@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authSecret, googleCredentials, parseConfig } from "../src/config";
+import { authSecret, googleCredentials, parseConfig, parseVercelConfig } from "../src/config";
 
 describe("parseConfig", () => {
   it("fills defaults for a bare environment", () => {
@@ -91,4 +91,54 @@ describe("the Google pair (§4 Accounts, §14)", () => {
       /GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET/,
     );
   });
+});
+
+describe("BETTER_AUTH_URL, production's address (§18.3)", () => {
+  it("is unset on the Mac", () => {
+    expect(parseConfig({}).BETTER_AUTH_URL).toBeUndefined();
+    expect(parseConfig({ BETTER_AUTH_URL: "" }).BETTER_AUTH_URL).toBeUndefined();
+  });
+
+  it("takes the app's https address, without a trailing slash", () => {
+    expect(parseConfig({ BETTER_AUTH_URL: "https://dingsda.vercel.app" }).BETTER_AUTH_URL).toBe(
+      "https://dingsda.vercel.app",
+    );
+    expect(parseConfig({ BETTER_AUTH_URL: "https://dingsda.vercel.app/" }).BETTER_AUTH_URL).toBe(
+      "https://dingsda.vercel.app",
+    );
+  });
+
+  it.each([
+    ["plain http", "http://dingsda.vercel.app"],
+    ["the Mac's address", "http://localhost:5173"],
+    ["a path", "https://dingsda.vercel.app/api/auth"],
+    ["a query", "https://dingsda.vercel.app/?x=1"],
+    ["not an address", "dingsda.vercel.app"],
+  ])("refuses %s", (_, value) => {
+    expect(() => parseConfig({ BETTER_AUTH_URL: value })).toThrow(/BETTER_AUTH_URL/);
+  });
+});
+
+describe("the configuration on Vercel (§18.3)", () => {
+  const production = {
+    DATABASE_URL: "postgres://neondb_owner:pw@ep-x-pooler.eu-central-1.aws.neon.tech/neondb",
+    BETTER_AUTH_SECRET: "s".repeat(32),
+    BETTER_AUTH_URL: "https://dingsda.vercel.app",
+  };
+
+  it("reads Vercel's variables as the Mac reads .env", () => {
+    const config = parseVercelConfig(production);
+    expect(config.DATABASE_URL).toBe(production.DATABASE_URL);
+    expect(config.BETTER_AUTH_URL).toBe("https://dingsda.vercel.app");
+    expect(config.APP_TIME_ZONE).toBe("Europe/Berlin");
+  });
+
+  // The Mac's defaults (its own database, its dynamic addresses) mean nothing there.
+  it.each(["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL"] as const)(
+    "refuses to start without %s",
+    (name) => {
+      expect(() => parseVercelConfig({ ...production, [name]: undefined })).toThrow(name);
+      expect(() => parseVercelConfig({ ...production, [name]: "" })).toThrow(name);
+    },
+  );
 });

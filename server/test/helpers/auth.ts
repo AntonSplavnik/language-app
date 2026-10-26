@@ -16,7 +16,15 @@ export function authPost(
     cookie,
     host,
     forwardedFor,
-  }: { origin?: string; cookie?: string; host?: string; forwardedFor?: string } = {},
+    headers = {},
+  }: {
+    origin?: string;
+    cookie?: string;
+    host?: string;
+    forwardedFor?: string;
+    /** Any other headers, such as the ones Vercel adds in production. */
+    headers?: Record<string, string>;
+  } = {},
 ) {
   return app.inject({
     method: "POST",
@@ -28,6 +36,7 @@ export function authPost(
       ...(host ? { host } : {}),
       // As Vite's proxy adds it on the Mac.
       ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+      ...headers,
     },
   });
 }

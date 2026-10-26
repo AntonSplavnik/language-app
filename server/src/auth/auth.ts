@@ -1,7 +1,12 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { PASSWORD_MAX, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN } from "@language-app/core";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import {
+  APIError,
+  createAuthMiddleware,
+  formCsrfMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
 import { username } from "better-auth/plugins";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
@@ -22,6 +27,12 @@ export type AuthOptions = {
   signupMode: SignupMode;
   /** Vite's port: the browser opens the app, and signs in, on it (§14). */
   webPort: number;
+  /**
+   * Production's https address (BETTER_AUTH_URL, §18.3): the one base URL and trusted origin,
+   * Secure cookies, and the client's address from Vercel's header. Without it, the Mac's
+   * addresses on `webPort`.
+   */
+  baseUrl?: string;
   /** The sign-in and sign-up limits (§17.3). Off only in tests that sign in many times. */
   rateLimit?: boolean;
   /** The Google OAuth client (GOOGLE_CLIENT_ID / _SECRET); without it Google isn't offered. */
@@ -38,6 +49,12 @@ const ATTEMPTS = { window: 60, max: 5 };
 const GOOGLE_STARTS = { window: 60, max: 10 };
 /** Vite's proxy, the way in to the server on the Mac. */
 const LOOPBACK = ["127.0.0.1", "::1"];
+/**
+ * The client's address on Vercel (§16): Vercel's edge sets it to the same address as
+ * `x-forwarded-for`, which it overwrites "to prevent IP spoofing". That a forged one is replaced
+ * too is checked going live (§18.8); `x-real-ip` is the other candidate.
+ */
+const VERCEL_CLIENT_IP = "x-vercel-forwarded-for";
 
 /**
  * Google's tokens are never kept (§4 Accounts): the app never calls Google after sign-in, so
@@ -68,39 +85,81 @@ export function devHosts(webPort: number): string[] {
   ];
 }
 
+/**
+ * Where the browser opens the app, and how Better Auth treats it: its base URL, the origins it
+ * trusts, whether cookies are Secure, and where a request's client address comes from.
+ */
+type Site = {
+  baseURL: string | { allowedHosts: string[]; protocol: "auto"; fallback: string };
+  trustedOrigins: string[];
+  useSecureCookies: boolean;
+  ipAddress: { trustedProxies: string[] } | { ipAddressHeaders: string[] };
+};
+
+/** The Mac (§4 Accounts): several addresses over plain HTTP, through Vite's proxy. */
+function macSite(webPort: number): Site {
+  const hosts = devHosts(webPort);
+  return {
+    // The base URL follows the request's host among them; the fallback serves calls without a
+    // request (the scripts).
+    baseURL: { allowedHosts: hosts, protocol: "auto", fallback: `http://localhost:${webPort}` },
+    trustedOrigins: hosts.map((host) => `http://${host}`),
+    // Never `Secure` here: the iPhone opens the app over plain HTTP, where a Secure cookie is
+    // never sent back. Decided once at startup, so it must not depend on NODE_ENV.
+    useSecureCookies: false,
+    // The rate limits count per client address. The server listens on 127.0.0.1 only, so every
+    // request comes through Vite, which adds the device's address to x-forwarded-for: the
+    // address after the last loopback hop is the client's. (The Mac's own browser, itself on
+    // loopback, shares one count.)
+    ipAddress: { trustedProxies: LOOPBACK },
+  };
+}
+
+/**
+ * Production on Vercel (§4 Accounts, §18.3): one https address, which is also the only origin a
+ * sign-in or any cookie-carrying POST may come from (a deployment's own `*.vercel.app` address
+ * isn't); Secure cookies, named `__Secure-…`; and the client's address from Vercel's header, a
+ * single address Better Auth takes as it is.
+ */
+function productionSite(baseUrl: string): Site {
+  const url = new URL(baseUrl);
+  if (url.protocol !== "https:") {
+    throw new Error(`Production's address must be https, not ${baseUrl}`);
+  }
+  return {
+    baseURL: url.origin,
+    trustedOrigins: [url.origin],
+    useSecureCookies: true,
+    ipAddress: { ipAddressHeaders: [VERCEL_CLIENT_IP] },
+  };
+}
+
 export function createAuth({
   db,
   secret,
   signupMode,
   webPort,
+  baseUrl,
   rateLimit = true,
   google,
   quiet = false,
 }: AuthOptions) {
-  const hosts = devHosts(webPort);
+  const site = baseUrl ? productionSite(baseUrl) : macSite(webPort);
 
   return betterAuth({
     secret,
-    // Several addresses over plain HTTP on the Mac. The fallback serves calls without a request
-    // (the scripts). Production (M12.4) gets a static https address instead.
-    baseURL: { allowedHosts: hosts, protocol: "auto", fallback: `http://localhost:${webPort}` },
-    trustedOrigins: hosts.map((host) => `http://${host}`),
+    baseURL: site.baseURL,
+    trustedOrigins: site.trustedOrigins,
     database: drizzleAdapter(db, { provider: "pg", schema, transaction: true }),
     telemetry: { enabled: false },
     logger: { disabled: quiet },
     advanced: {
       // users.id and every user_id stay integers; Better Auth's answers carry them as strings.
       database: { generateId: "serial" },
-      // Never `Secure` here: the iPhone opens the app over plain HTTP, where a Secure cookie is
-      // never sent back. Decided once at startup, so it must not depend on NODE_ENV.
-      useSecureCookies: false,
+      useSecureCookies: site.useSecureCookies,
       // Better Auth skips the origin check when NODE_ENV is "test"; ours always runs it.
       disableOriginCheck: false,
-      // The rate limits count per client address. The server listens on 127.0.0.1 only, so every
-      // request comes through Vite, which adds the device's address to x-forwarded-for: the
-      // address after the last loopback hop is the client's. (The Mac's own browser, itself on
-      // loopback, shares one count.)
-      ipAddress: { trustedProxies: LOOPBACK },
+      ipAddress: site.ipAddress,
     },
     user: {
       modelName: "users",
@@ -247,6 +306,12 @@ export function createAuth({
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/delete-user") return requirePasswordToDelete(ctx);
         if (ctx.path === "/unlink-account") return keepPassword(ctx);
+        // Better Auth's own sign-in and sign-up check a browser's origin even before there is a
+        // cookie (`formCsrfMiddleware`); the username plugin's sign-in doesn't, so ours does.
+        if (ctx.path === "/sign-in/username") {
+          await formCsrfMiddleware(ctx);
+          return;
+        }
         // Sign-up asks for a username (Better Auth's is optional), and `name` is the username.
         if (ctx.path !== "/sign-up/email") return;
         const typed: unknown = ctx.body?.username;

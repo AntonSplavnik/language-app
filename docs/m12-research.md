@@ -178,7 +178,7 @@ await ctx.internalAdapter.linkAccount({ userId: "1", providerId: "credential", a
 
 ## 2. Vercel deploy probe (M12.4)
 
-Deployed from a clean copy of the repo on 2026-10-24 (results in `docs/plan.md`, M12, "Check first"). M12.4 rewrites these in TypeScript, with the pool, Better Auth and request-id changes of §18.2.
+Deployed from a clean copy of the repo on 2026-10-24 (results in `docs/plan.md`, M12, "Check first"). M12.4 rewrites these in TypeScript, with the pool, Better Auth and request-id changes of §18.2. **Built in M12.4** (2026-10-26) as `server/scripts/vercel-output.ts` and `build-vercel.ts`, `server/src/vercel.ts` with `setup.ts`, `vercel.json` and `.github/workflows/ci.yml`; the commands for going live, with the CLI pinned at 63.1.2, are in `docs/design.md` §18.8. The probe's code below is kept as it was tried.
 
 `server/scripts/vercel-build.mjs` (run after `vite build`):
 ```js

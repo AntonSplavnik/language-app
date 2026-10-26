@@ -8,6 +8,7 @@ import { authRoutes, requireLearner } from "./auth/routes";
 import type { Db } from "./db/client";
 import { dictionaryRoutes } from "./dictionary/routes";
 import { registerErrorHandling } from "./http/errors";
+import { requestIds } from "./http/request-id";
 import { importRoutes } from "./imports/routes";
 import { practiceRoutes } from "./practice/routes";
 import { statsRoutes } from "./routes/stats";
@@ -31,7 +32,7 @@ export type AppDeps = {
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
-  const app = Fastify(options);
+  const app = Fastify({ genReqId: requestIds(), ...options });
 
   registerErrorHandling(app);
   app.register(multipart, { limits: { fileSize: MAX_PHOTO_BYTES, files: 1 } });

@@ -24,7 +24,13 @@ export const TEST_GOOGLE = {
   clientSecret: "test-client-secret",
 };
 
-type TestAuthOptions = { signupMode?: SignupMode; rateLimit?: boolean; google?: boolean };
+type TestAuthOptions = {
+  signupMode?: SignupMode;
+  rateLimit?: boolean;
+  google?: boolean;
+  /** Production's address (BETTER_AUTH_URL); without it, the Mac's addresses (§4 Accounts). */
+  baseUrl?: string;
+};
 
 const auths = new WeakMap<Db, Map<string, Auth>>();
 
@@ -36,9 +42,9 @@ const auths = new WeakMap<Db, Map<string, Auth>>();
  */
 export function testAuth(
   db: Db,
-  { signupMode = "invite", rateLimit = false, google = false }: TestAuthOptions = {},
+  { signupMode = "invite", rateLimit = false, google = false, baseUrl }: TestAuthOptions = {},
 ) {
-  const key = `${signupMode}:${rateLimit}:${google}`;
+  const key = `${signupMode}:${rateLimit}:${google}:${baseUrl ?? "mac"}`;
   const forDb = auths.get(db) ?? new Map<string, Auth>();
   auths.set(db, forDb);
   let auth = forDb.get(key);
@@ -48,6 +54,7 @@ export function testAuth(
       secret: TEST_SECRET,
       signupMode,
       webPort: TEST_WEB_PORT,
+      baseUrl,
       rateLimit,
       google: google ? TEST_GOOGLE : undefined,
       quiet: true,

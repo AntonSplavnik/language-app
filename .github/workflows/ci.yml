@@ -1,0 +1,96 @@
+# The checks on every push to main and on every pull request; on main, once they pass, the deploy
+# to production (docs/design.md §18.4). Actions are pinned to a release's commit, its tag beside it.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          # The test database, as docker/initdb makes it on the Mac; the tests rebuild its schema.
+          POSTGRES_DB: language_app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d language_app_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/language_app_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Node 24, as on Vercel, before pnpm (the version in package.json's packageManager).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm check
+      # Never calls Claude; `pnpm test:live` costs money and stays manual.
+      - run: pnpm test
+      - name: Bundle test (the Vercel build, and the bundled function against the test database)
+        run: pnpm test:bundle
+
+  deploy:
+    name: Deploy
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # One deploy at a time; a newer push waits for the running one instead of cancelling it.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - name: Install the Vercel CLI
+        run: npm install --global vercel@63.1.2
+      # Production's project settings, then the build here: vercel.json's buildCommand
+      # (pnpm build:vercel) writes .vercel/output, which `deploy --prebuilt` uploads as it is.
+      - name: Pull the project settings
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Build
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # Only once the build is ready, so a failed build leaves Neon alone. Migrations only add, so
+      # the code still live works on the new schema for the moment until the deploy (§18.4).
+      - name: Migrate Neon
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.NEON_MIGRATE_URL }}
+      - name: Deploy to production
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
