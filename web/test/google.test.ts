@@ -5,7 +5,12 @@ import {
   CONNECT_GOOGLE,
   callbackError,
   continueWithGoogle,
+  DISCONNECTING,
+  disconnectError,
+  disconnected,
+  disconnectGoogle,
   GOOGLE_NOT_CONNECTED,
+  GOOGLE_ONLY_WAY,
   googleAccountError,
   googleOffered,
   googleRow,
@@ -13,6 +18,7 @@ import {
   googleStartError,
   signInWithGoogleAgain,
   withoutCallbackError,
+  withoutMethod,
 } from "../src/auth/google";
 import { INVITE_ONLY, TOO_MANY } from "../src/auth/rules";
 
@@ -135,9 +141,18 @@ describe("Account's Google row", () => {
   const password = { id: "3", providerId: "credential" };
   const google = { id: "4", providerId: "google" };
 
-  it("Connected when the account has Google, wherever it is viewed", () => {
+  it("Connected with Disconnect when the account also has a password, wherever it is viewed", () => {
+    // Disconnect doesn't go to Google, so it is offered on the LAN too.
     expect(googleRow([password, google], true)).toBe("connected");
-    expect(googleRow([google], false)).toBe("connected");
+    expect(googleRow([google, password], false)).toBe("connected");
+  });
+
+  it("only Connected when Google is the account's only way to sign in", () => {
+    expect(googleRow([google], true)).toBe("onlyWay");
+    expect(googleRow([google], false)).toBe("onlyWay");
+    expect(GOOGLE_ONLY_WAY).toBe(
+      "Google is your only way to sign in, so it can't be disconnected.",
+    );
   });
 
   it("Connect where Google can be offered, nothing where it can't", () => {
@@ -147,6 +162,53 @@ describe("Account's Google row", () => {
 
   it("nothing until the sign-in methods are known", () => {
     expect(googleRow(null, true)).toBeNull();
+  });
+});
+
+describe("Disconnect on Account", () => {
+  const password = { id: "3", providerId: "credential" };
+  const google = { id: "4", providerId: "google" };
+  const failed = (code: string, status: number | null = 400) =>
+    new ApiClientError(code, `server says ${code}`, status);
+
+  it("names the Google sign-in method by its id, as unlink-account wants it", () => {
+    expect(disconnectGoogle([password, google])).toEqual({ accountId: "4" });
+    expect(disconnectGoogle([password])).toBeNull();
+    expect(disconnectGoogle(null)).toBeNull();
+  });
+
+  it("afterwards the row is Connect where Google is offered, and gone where it isn't", () => {
+    const left = withoutMethod([password, google], "4");
+    expect(left).toEqual([password]);
+    expect(googleRow(left, true)).toBe("connect");
+    expect(googleRow(left, false)).toBeNull();
+  });
+
+  it("says it's done, and for a verified email that Google still signs in and connects again", () => {
+    expect(disconnected({ emailVerified: false })).toBe("Google disconnected.");
+    expect(disconnected({ emailVerified: true })).toBe(
+      "Google disconnected. Continue with Google still signs in to this account and connects it again.",
+    );
+  });
+
+  it("says in plain words why it didn't disconnect", () => {
+    expect(disconnectError(failed("SESSION_NOT_FRESH", 403))).toBe(
+      "Your last sign-in was more than a day ago. Sign out and in again, then disconnect Google.",
+    );
+    expect(disconnectError(failed("FAILED_TO_UNLINK_LAST_ACCOUNT"))).toBe(GOOGLE_ONLY_WAY);
+    expect(disconnectError(failed("ACCOUNT_NOT_FOUND"))).toBe("Google was already disconnected.");
+    expect(disconnectError(failed("too_many_requests", 429))).toBe(TOO_MANY);
+    expect(disconnectError(new ApiClientError("network", "Can't reach the server", null))).toBe(
+      "Can't reach the server",
+    );
+    expect(disconnectError(failed("http_error", 500))).toBe(
+      "Couldn't disconnect Google. Try again.",
+    );
+    expect(disconnectError(new Error("boom"))).toBe("Couldn't disconnect Google. Try again.");
+  });
+
+  it("the busy label", () => {
+    expect(DISCONNECTING).toBe("Disconnecting…");
   });
 });
 

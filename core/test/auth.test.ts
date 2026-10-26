@@ -7,6 +7,7 @@ import {
   SignInOptions,
   SignUpRequest,
   SocialSignInRequest,
+  UnlinkAccountRequest,
 } from "../src";
 
 // Accounts (docs/design.md §17.3): Better Auth's endpoints under /api/auth, called like any other.
@@ -60,6 +61,7 @@ describe("auth endpoints (§17.3)", () => {
     expect(session?.user).toEqual({
       id: "2",
       email: "new@example.com",
+      emailVerified: false,
       username: "new.user",
       displayUsername: "New.User",
       aiEnabled: false,
@@ -162,6 +164,41 @@ describe("auth endpoints (§17.3)", () => {
     ]);
     expect(await api.listAccounts()).toEqual([{ id: "3", providerId: "credential" }]);
     expect(calls).toEqual([{ url: "/api/auth/list-accounts", method: "GET", body: undefined }]);
+  });
+
+  it("unlinkAccount (Disconnect) posts the sign-in method's id to unlink-account", async () => {
+    const { api, calls } = recording(200, { status: true });
+    expect(await api.unlinkAccount({ accountId: "4" })).toEqual({ status: true });
+    expect(calls).toEqual([
+      { url: "/api/auth/unlink-account", method: "POST", body: { accountId: "4" } },
+    ]);
+  });
+
+  it("unlinkAccount's refusals keep Better Auth's codes", async () => {
+    const last = createApiClient({
+      fetch: json(400, {
+        code: "FAILED_TO_UNLINK_LAST_ACCOUNT",
+        message: "You can't unlink your last account",
+      }),
+    });
+    await expect(last.unlinkAccount({ accountId: "4" })).rejects.toMatchObject({
+      code: "FAILED_TO_UNLINK_LAST_ACCOUNT",
+      status: 400,
+    });
+    const stale = createApiClient({
+      fetch: json(403, { code: "SESSION_NOT_FRESH", message: "Session is not fresh" }),
+    });
+    const error = await stale.unlinkAccount({ accountId: "4" }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect(error).toMatchObject({ code: "SESSION_NOT_FRESH", status: 403 });
+  });
+});
+
+describe("UnlinkAccountRequest (§9.4)", () => {
+  it("names one sign-in method by its id (from list-accounts), not by its provider", () => {
+    expect(UnlinkAccountRequest.safeParse({ accountId: "4" }).success).toBe(true);
+    expect(UnlinkAccountRequest.safeParse({ accountId: "" }).success).toBe(false);
+    expect(UnlinkAccountRequest.safeParse({ providerId: "google" }).success).toBe(false);
   });
 });
 

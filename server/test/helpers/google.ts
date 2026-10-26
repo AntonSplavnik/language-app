@@ -56,9 +56,11 @@ export type OutgoingRequest = { url: string; method: string; body: URLSearchPara
 /**
  * Replaces `fetch` for the test (undone by `vi.unstubAllGlobals()`): Google's token endpoint
  * answers with tokens for the account `signsInAs` names; any other address throws. Every request
- * is recorded, so a test can check what was sent and that nothing else was.
+ * is recorded, so a test can check what was sent and that nothing else was. Google sends a
+ * refresh token only when asked for offline access, which the app doesn't; `refreshToken` adds
+ * one anyway (with its expiry), to show that none would be kept.
  */
-export function fakeGoogle() {
+export function fakeGoogle({ refreshToken = false }: { refreshToken?: boolean } = {}) {
   const requests: OutgoingRequest[] = [];
   let account: GoogleAccount | null = null;
 
@@ -76,6 +78,9 @@ export function fakeGoogle() {
         "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
       token_type: "Bearer",
       id_token: idToken(account),
+      ...(refreshToken
+        ? { refresh_token: `1//test-refresh-${account.sub}`, refresh_token_expires_in: 604799 }
+        : {}),
     });
   });
 

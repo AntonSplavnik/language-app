@@ -37,6 +37,7 @@ describe("sign-up of an invited email", () => {
     expect(SignedInResponse.parse(res.json()).user).toEqual({
       id: String(row.id),
       email: "new@example.com",
+      emailVerified: false,
       username: "new.user",
       displayUsername: "New.User",
       aiEnabled: false,

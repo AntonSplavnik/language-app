@@ -3,11 +3,13 @@ import {
   type LinkSocialRequest,
   type SignInMethods,
   type SocialSignInRequest,
+  type UnlinkAccountRequest,
 } from "@language-app/core";
 import { ACCOUNT_URL, INVITE_ONLY, nextPath, signInPath, TOO_MANY } from "./rules";
 
 // Google on Sign in, Create account and Account (docs/design.md §10 screens 17–19): where it is
-// offered, where the browser comes back to, and what the errors it comes back with say.
+// offered, where the browser comes back to, what the errors it comes back with say, and
+// Account's Connect and Disconnect.
 
 /** The label Google's branding rules allow on Sign in and Create account. */
 export const CONTINUE_WITH_GOOGLE = "Continue with Google";
@@ -106,15 +108,67 @@ export function googleAccountError(code: string, email: string): string {
 }
 
 /**
- * Account's Google row under Sign-in methods: "Connected" when the account has Google (wherever
- * it is viewed), Connect where Google can be offered, nothing where it can't or while the
- * methods aren't known.
+ * Account's Google row under Sign-in methods, from the account's sign-in methods:
+ * - `connected`: "Connected", with **Disconnect** (the account has a password too). Wherever it
+ *   is viewed: disconnecting doesn't go to Google, so it works over the LAN as well.
+ * - `onlyWay`: "Connected" only; Google is the account's only way to sign in, which Better Auth
+ *   never removes.
+ * - `connect`: **Connect**, where Google can be offered; nothing where it can't, or while the
+ *   methods aren't known.
  */
 export function googleRow(
   methods: SignInMethods | null,
   offered: boolean,
-): "connected" | "connect" | null {
+): "connected" | "onlyWay" | "connect" | null {
   if (methods === null) return null;
-  if (methods.some((method) => method.providerId === "google")) return "connected";
+  if (methods.some((method) => method.providerId === "google")) {
+    return methods.some((method) => method.providerId === "credential") ? "connected" : "onlyWay";
+  }
   return offered ? "connect" : null;
+}
+
+/** Under the rows of a Google-only account, so the missing Disconnect isn't a mystery. */
+export const GOOGLE_ONLY_WAY = "Google is your only way to sign in, so it can't be disconnected.";
+export const DISCONNECTING = "Disconnecting…";
+
+/** Disconnect's request: the Google sign-in method by its id; null when there is none. */
+export function disconnectGoogle(methods: SignInMethods | null): UnlinkAccountRequest | null {
+  const google = methods?.find((method) => method.providerId === "google");
+  return google ? { accountId: google.id } : null;
+}
+
+/** The sign-in methods once one is gone. */
+export const withoutMethod = (methods: SignInMethods, id: string): SignInMethods =>
+  methods.filter((method) => method.id !== id);
+
+/**
+ * What Account says once Google is disconnected. A verified email (the developer account) is
+ * linked again by its next Google sign-in (§4 Accounts), so it says so; any other account's
+ * Google sign-in then answers that it isn't connected.
+ */
+export function disconnected({ emailVerified }: { emailVerified: boolean }): string {
+  return emailVerified
+    ? "Google disconnected. Continue with Google still signs in to this account and connects it again."
+    : "Google disconnected.";
+}
+
+/** Why Disconnect didn't work, in red under the rows; Google stays connected. */
+export function disconnectError(error: unknown): string {
+  switch (error instanceof ApiClientError ? error.code : null) {
+    // Better Auth wants a sign-in from within the last day to remove a sign-in method.
+    case "SESSION_NOT_FRESH":
+      return "Your last sign-in was more than a day ago. Sign out and in again, then disconnect Google.";
+    // The password went elsewhere meanwhile (the screen doesn't offer it otherwise).
+    case "FAILED_TO_UNLINK_LAST_ACCOUNT":
+      return GOOGLE_ONLY_WAY;
+    // Disconnected elsewhere meanwhile.
+    case "ACCOUNT_NOT_FOUND":
+      return "Google was already disconnected.";
+    case "too_many_requests":
+      return TOO_MANY;
+    case "network":
+      return (error as Error).message;
+    default:
+      return "Couldn't disconnect Google. Try again.";
+  }
 }

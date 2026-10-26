@@ -40,6 +40,20 @@ const GOOGLE_STARTS = { window: 60, max: 10 };
 const LOOPBACK = ["127.0.0.1", "::1"];
 
 /**
+ * Google's tokens are never kept (§4 Accounts): the app never calls Google after sign-in, so
+ * every write of a Google sign-in method leaves these columns empty. Google's account id and the
+ * scope it granted are kept.
+ */
+const NO_PROVIDER_TOKENS = {
+  accessToken: null,
+  refreshToken: null,
+  idToken: null,
+  accessTokenExpiresAt: null,
+  refreshTokenExpiresAt: null,
+};
+const TOKEN_FIELDS = Object.keys(NO_PROVIDER_TOKENS);
+
+/**
  * The addresses the Mac's browser and the iPhone open the app on (§14): `localhost`, a LAN
  * address or a `.local` name, on Vite's port. The base URL follows the request's host among them,
  * and requests that send cookies must come from one of them.
@@ -149,6 +163,25 @@ export function createAuth({
           },
         },
       },
+      // Every way Better Auth 1.7.7 writes a Google sign-in method goes through these: a first
+      // Google sign-in (create), signing in again (update), Connect (create, or update when that
+      // Google account is already connected) and the implicit link of a verified email (create).
+      account: {
+        create: {
+          before: async (account) =>
+            account.providerId === "credential"
+              ? undefined
+              : { data: { ...account, ...NO_PROVIDER_TOKENS } },
+        },
+        // An update says nothing of the row's provider; one that writes tokens is Google's (a
+        // password change writes only `password`).
+        update: {
+          before: async (data) =>
+            TOKEN_FIELDS.some((field) => field in data)
+              ? { data: { ...data, ...NO_PROVIDER_TOKENS } }
+              : undefined,
+        },
+      },
     },
     session: {
       modelName: "authSessions",
@@ -156,8 +189,14 @@ export function createAuth({
       // Extended by each day's use, through GET /api/auth/get-session.
       updateAge: ONE_DAY,
     },
-    // Explicit names: never `usePlural`, which would pick our practice `sessions`.
-    account: { modelName: "authAccounts" },
+    account: {
+      // Explicit names: never `usePlural`, which would pick our practice `sessions`.
+      modelName: "authAccounts",
+      // No copy of a sign-in method in a cookie (Better Auth's default with a database; set so
+      // it stays that way). Linking stays as it is: implicit for a verified email (§4 Accounts),
+      // and never the last way to sign in removed (`allowUnlinkingAll` off).
+      storeAccountCookie: false,
+    },
     verification: { modelName: "authVerifications" },
     rateLimit: {
       // Off by default outside NODE_ENV=production, so switched on explicitly.
@@ -195,11 +234,19 @@ export function createAuth({
         }
       : {},
     plugins: [username({ minUsernameLength: USERNAME_MIN, maxUsernameLength: USERNAME_MAX })],
-    // It would reveal usernames, and the form doesn't need it.
-    disabledPaths: ["/is-username-available"],
+    disabledPaths: [
+      // It would reveal usernames, and the form doesn't need it.
+      "/is-username-available",
+      // They hand out, refresh or use Google's tokens, which aren't kept (§4 Accounts): without
+      // them they could only fail, or ask Google.
+      "/get-access-token",
+      "/refresh-token",
+      "/account-info",
+    ],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/delete-user") return requirePasswordToDelete(ctx);
+        if (ctx.path === "/unlink-account") return keepPassword(ctx);
         // Sign-up asks for a username (Better Auth's is optional), and `name` is the username.
         if (ctx.path !== "/sign-up/email") return;
         const typed: unknown = ctx.body?.username;
@@ -236,6 +283,26 @@ async function requirePasswordToDelete(ctx: MiddlewareContext): Promise<void> {
     throw new APIError("BAD_REQUEST", {
       code: "PASSWORD_REQUIRED",
       message: "Enter your password to delete the account",
+    });
+  }
+}
+
+/**
+ * Disconnect removes Google, never the password (§4 Accounts): Better Auth would unlink any
+ * sign-in method but the last, and an account left with Google only can be deleted without a
+ * password from a sign-in under a day old, which the password rule above is there to prevent.
+ * An unknown id, a missing session or a stale one are left to the endpoint.
+ */
+async function keepPassword(ctx: MiddlewareContext): Promise<void> {
+  const id: unknown = ctx.body?.accountId;
+  if (typeof id !== "string") return;
+  const session = await getSessionFromCtx(ctx, { disableRefresh: true });
+  if (!session) return;
+  const methods = await ctx.context.internalAdapter.findAccounts(session.user.id);
+  if (methods.find((method) => method.id === id)?.providerId === "credential") {
+    throw new APIError("BAD_REQUEST", {
+      code: "CANNOT_UNLINK_PASSWORD",
+      message: "The password can't be removed",
     });
   }
 }

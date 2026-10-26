@@ -60,6 +60,13 @@
   color: var(--accent-ink);
 }
 
+/* The right of a connected Google row with a password beside it: "Connected" and Disconnect. */
+.end {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 /* Google's "Connected" before its check; body, muted. */
 .connected {
   display: inline-flex;
@@ -81,8 +88,17 @@
   color: var(--muted);
 }
 
-/* Why Google didn't connect, under the sign-in methods, and a failed deletion of an account
-   without a password (no field to put it under); caption. */
+/* Under the sign-in methods: what Disconnect did, or why a Google-only account has none;
+   caption, muted. */
+.note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Why Google didn't connect or disconnect, under the sign-in methods, and a failed deletion of an
+   account without a password (no field to put it under); caption. */
 .error {
   margin: 0;
   font-size: 13px;

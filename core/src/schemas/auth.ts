@@ -38,6 +38,11 @@ export type SignInUsernameRequest = z.infer<typeof SignInUsernameRequest>;
 export const AuthUser = z.object({
   id: z.string(),
   email: z.string(),
+  /**
+   * True for the claimed developer account and accounts made with Google. Such an account's
+   * Google sign-in links Google by itself (§4 Accounts), also after Disconnect.
+   */
+  emailVerified: z.boolean(),
   /** Lower-case; null only for an account made without one. */
   username: z
     .string()
@@ -84,6 +89,17 @@ export type DeleteAccountResponse = z.infer<typeof DeleteAccountResponse>;
  */
 export const SignInMethods = z.array(z.object({ id: z.string(), providerId: z.string() }));
 export type SignInMethods = z.infer<typeof SignInMethods>;
+
+/**
+ * Disconnect on Account (`POST /api/auth/unlink-account`, §9.4): the sign-in method to remove,
+ * by its `id` from list-accounts (Better Auth 1.7.7 calls it `accountId`; it isn't Google's
+ * account id). Only Google: the server keeps the password and the last way to sign in.
+ */
+export const UnlinkAccountRequest = z.object({ accountId: z.string().min(1) });
+export type UnlinkAccountRequest = z.infer<typeof UnlinkAccountRequest>;
+
+export const UnlinkAccountResponse = z.object({ status: z.boolean() });
+export type UnlinkAccountResponse = z.infer<typeof UnlinkAccountResponse>;
 
 /**
  * A page of this app to return to after Google: a path from the root, never another site

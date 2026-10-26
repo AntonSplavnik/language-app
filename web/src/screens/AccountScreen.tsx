@@ -1,4 +1,4 @@
-import type { SignInMethods } from "@language-app/core";
+import { ApiClientError, type SignInMethods } from "@language-app/core";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { aiFeaturesText } from "../auth/aiFeatures";
@@ -12,11 +12,17 @@ import {
 } from "../auth/deleteAccount";
 import {
   CONNECT_GOOGLE,
+  DISCONNECTING,
+  disconnectError,
+  disconnected,
+  disconnectGoogle,
+  GOOGLE_ONLY_WAY,
   googleAccountError,
   googleRow,
   googleStartError,
   SIGN_IN_WITH_GOOGLE,
   signInWithGoogleAgain,
+  withoutMethod,
 } from "../auth/google";
 import { useAuth, useSignedInUser } from "../auth/session";
 import { useCallbackError, useGoogleRedirect } from "../auth/useGoogle";
@@ -30,26 +36,30 @@ import ui from "../styles/ui.module.css";
 import styles from "./AccountScreen.module.css";
 
 /**
- * Account (§10 screen 19): who is signed in, how they sign in (Password, Google with Connect),
- * whether the AI features are included, Sign out, and Delete account at the bottom. Connect, and
- * signing in with Google again before deleting, come back here (with `?error=` on a failure).
+ * Account (§10 screen 19): who is signed in, how they sign in (Password, Google with Connect or
+ * Disconnect), whether the AI features are included, Sign out, and Delete account at the bottom.
+ * Connect, and signing in with Google again before deleting, come back here (with `?error=` on a
+ * failure); Disconnect stays on the page.
  */
 export function AccountScreen() {
   const user = useSignedInUser();
   const auth = useAuth();
   const toast = useToast();
-  const [busy, setBusy] = useState<null | "signOut" | "delete">(null);
+  const [busy, setBusy] = useState<null | "signOut" | "delete" | "disconnect">(null);
   // How the account signs in; null until known (or if it can't be loaded).
   const [methods, setMethods] = useState<SignInMethods | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
   // What deleting failed with, kept as the error itself: Sign in with Google depends on it.
   const [deleteFailure, setDeleteFailure] = useState<{ error: unknown } | null>(null);
-  // Why Google didn't connect (or sign in again): from its return, or from asking for its address.
+  // Why Google didn't connect (or sign in again): from its return, or from asking for its address;
+  // or why it didn't disconnect.
   const googleCode = useCallbackError();
   const [googleError, setGoogleError] = useState<string | null>(() =>
     googleCode ? googleAccountError(googleCode, user.email) : null,
   );
+  // What Disconnect did, in grey under the rows.
+  const [googleNote, setGoogleNote] = useState<string | null>(null);
   const google = useGoogleRedirect();
 
   useEffect(() => {
@@ -76,6 +86,7 @@ export function AccountScreen() {
 
   const connect = () => {
     setGoogleError(null);
+    setGoogleNote(null);
     google.go(
       () => api.linkSocial(CONNECT_GOOGLE),
       (error) => setGoogleError(googleStartError(error)),
@@ -88,6 +99,28 @@ export function AccountScreen() {
       () => api.signInSocial(signInWithGoogleAgain(user.email)),
       (error) => toast.show(googleStartError(error)),
     );
+
+  // Stays on the page (it doesn't go to Google, so it works over the LAN too). Afterwards the row
+  // is Connect where Google is offered, and gone where it isn't.
+  const disconnect = async () => {
+    const request = disconnectGoogle(methods);
+    if (methods === null || request === null) return;
+    setBusy("disconnect");
+    setGoogleError(null);
+    setGoogleNote(null);
+    try {
+      await api.unlinkAccount(request);
+      setMethods(withoutMethod(methods, request.accountId));
+      setGoogleNote(disconnected(user));
+    } catch (error) {
+      setGoogleError(disconnectError(error));
+      // Disconnected elsewhere meanwhile: show the methods as they are now.
+      if (error instanceof ApiClientError && error.code === "ACCOUNT_NOT_FOUND") {
+        api.listAccounts().then(setMethods, () => {});
+      }
+    }
+    setBusy(null);
+  };
 
   const signOut = async () => {
     setBusy("signOut");
@@ -142,6 +175,30 @@ export function AccountScreen() {
           {googleState === "connected" && (
             <li className={styles.method}>
               Google
+              <span className={styles.end}>
+                {/* Hidden while disconnecting: it is no longer sure, and the row needs the room. */}
+                {busy !== "disconnect" && (
+                  <span className={styles.connected}>
+                    Connected
+                    <CheckIcon className={styles.check} />
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={`${ui.button} ${ui.secondary} ${ui.small}`}
+                  disabled={anyBusy}
+                  aria-busy={busy === "disconnect" || undefined}
+                  onClick={disconnect}
+                >
+                  {busy === "disconnect" && <span className={ui.spinner} />}
+                  {busy === "disconnect" ? DISCONNECTING : "Disconnect"}
+                </button>
+              </span>
+            </li>
+          )}
+          {googleState === "onlyWay" && (
+            <li className={styles.method}>
+              Google
               <span className={styles.connected}>
                 Connected
                 <CheckIcon className={styles.check} />
@@ -164,6 +221,12 @@ export function AccountScreen() {
             </li>
           )}
         </ul>
+        {googleState === "onlyWay" && <p className={styles.note}>{GOOGLE_ONLY_WAY}</p>}
+        {googleNote && (
+          <p className={styles.note} role="status">
+            {googleNote}
+          </p>
+        )}
         {googleError && (
           <p className={styles.error} role="alert">
             {googleError}

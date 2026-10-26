@@ -14,6 +14,8 @@ import {
   type SignUpRequest,
   SocialRedirectResponse,
   type SocialSignInRequest,
+  type UnlinkAccountRequest,
+  UnlinkAccountResponse,
 } from "./schemas/auth";
 import { ApiError } from "./schemas/common";
 import { HealthResponse } from "./schemas/health";
@@ -161,6 +163,9 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     signOut: () => postJson(SignOutResponse, "/auth/sign-out"),
     /** How the account signs in: a password (`credential`), Google (`google`) (§9.4). */
     listAccounts: () => request(SignInMethods, "/auth/list-accounts"),
+    /** Disconnect: removes one sign-in method (Google), by its id from `listAccounts` (§9.4). */
+    unlinkAccount: (body: UnlinkAccountRequest) =>
+      postJson(UnlinkAccountResponse, "/auth/unlink-account", body),
     /** Deletes the account and all its data; with its password when it has one (§9.4). */
     deleteAccount: (body: DeleteAccountRequest) =>
       postJson(DeleteAccountResponse, "/auth/delete-user", body),
