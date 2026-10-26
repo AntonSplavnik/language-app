@@ -36,6 +36,8 @@ pnpm --filter server dict:lookup <lemma> <pos> [article]       # what the dictio
 pnpm --filter server demo:import <photo> --user <email|username> [--save]  # whole import flow against a running `pnpm dev`, signed in (one real AI call)
 pnpm --filter server user:claim <email> <username>           # once per database: user 1 (the prototype's word list) becomes your account; asks for a password
 pnpm --filter server invite:add <email>                      # sign-up is invite-only (SIGNUP_MODE=invite); also invite:list, invite:remove <email>
+pnpm --filter server user:set-password <email|username>      # new password (asked for, or piped in); ends the account's sign-ins
+pnpm --filter server user:ai <email|username> on|off         # the account's AI features (photo/PDF import, Ask AI, example sentences)
 pnpm typecheck
 pnpm check                # Biome lint + format check (`pnpm format` to fix)
 ```

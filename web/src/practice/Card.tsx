@@ -1,4 +1,5 @@
 import { cardBack, cardFront, type PracticeCard } from "@language-app/core";
+import { useSignedInUser } from "../auth/session";
 import { ExampleSentence } from "../components/ExampleSentence";
 import { Headword } from "../components/Headword";
 import { RotateIcon } from "../components/icons";
@@ -12,7 +13,8 @@ import styles from "./Card.module.css";
  */
 export function Card({ card, flipped }: { card: PracticeCard; flipped: boolean }) {
   const front = cardFront(card);
-  const back = cardBack(card);
+  // Without AI no details are pending: nothing could add them (§6.7).
+  const back = cardBack(card, { aiEnabled: useSignedInUser().aiEnabled });
 
   return (
     <div className={`${styles.card} ${flipped ? styles.flipped : ""}`}>

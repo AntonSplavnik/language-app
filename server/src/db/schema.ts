@@ -54,7 +54,7 @@ export const users = pgTable("users", {
   /** Stored lower-case, unique; `displayUsername` keeps it as typed. */
   username: text().unique(),
   displayUsername: text(),
-  /** Whether the account may use the AI features (§17.5). No client can set it. */
+  /** Whether the account may use the AI features (§4 Accounts, the AI switch). No client can set it. */
   aiEnabled: boolean().notNull().default(false),
 });
 
@@ -132,7 +132,7 @@ export const invites = pgTable("invites", {
   createdAt: createdAt(),
   /** When an account was created for it, and which; the invite doesn't matter after that. */
   usedAt: timestampTz(),
-  /** Deleting the account removes its invite too (§17.7). */
+  /** Deleting the account removes its invite too (§4 Accounts). */
   userId: integer().references(() => users.id, { onDelete: "cascade" }),
 });
 

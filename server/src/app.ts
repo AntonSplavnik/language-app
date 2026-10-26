@@ -21,6 +21,10 @@ export type AppDeps = {
   dailyPhotoLimit: number;
   /** Ask AI (describe) calls allowed per user per day (§11.5). */
   dailyDescribeLimit: number;
+  /** The zone whose midnight starts the daily limits' day (APP_TIME_ZONE, §11.5). */
+  timeZone: string;
+  /** The clock the daily limits read; the real one unless a test sets another. */
+  now?: () => Date;
 };
 
 /** Photos arrive already shrunk to ≈0.5 MB (§6.2); this only stops accidents. */
@@ -37,7 +41,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   app.get("/api/health", async (): Promise<HealthResponse> => ({ status: "ok" }));
   authRoutes(app, deps.auth);
 
-  // Every other route needs a session and acts for its learner (§17.3).
+  // Every other route needs a session and acts for its learner (§4 Accounts).
   app.register(async (learnerApp) => {
     learnerApp.addHook("onRequest", requireLearner(deps.auth));
     statsRoutes(learnerApp, deps);

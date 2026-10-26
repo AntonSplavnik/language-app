@@ -15,18 +15,21 @@ export function statsRoutes(app: FastifyInstance, { db }: { db: Db }) {
       .groupBy(userWords.status);
     const countOf = (status: string) => counts.find((c) => c.status === status)?.count ?? 0;
 
-    // Words that will show "Details pending" on their card until enrichment succeeds (§6.6).
-    const [pending] = await db
-      .select({ n: count() })
-      .from(userWords)
-      .innerJoin(words, eq(userWords.wordId, words.id))
-      .where(
-        and(
-          eq(userWords.userId, userId),
-          ne(userWords.status, "ignored"),
-          isNull(words.enrichedAt),
-        ),
-      );
+    // Words that will show "Details pending" on their card until enrichment succeeds (§6.6). An
+    // account without AI has none: there is nothing it could add them with.
+    const [pending] = request.learner.aiEnabled
+      ? await db
+          .select({ n: count() })
+          .from(userWords)
+          .innerJoin(words, eq(userWords.wordId, words.id))
+          .where(
+            and(
+              eq(userWords.userId, userId),
+              ne(userWords.status, "ignored"),
+              isNull(words.enrichedAt),
+            ),
+          )
+      : [{ n: 0 }];
 
     // An import with no photos yet has nothing to finish, so it gets no banner.
     const unfinished = await db

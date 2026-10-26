@@ -2,6 +2,7 @@ import type { Article, Candidate, ImportView } from "@language-app/core";
 import { Fragment, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api";
+import { useSignedInUser } from "../auth/session";
 import { Headword } from "../components/Headword";
 import { CheckIcon, ChevronDownIcon, WarningIcon } from "../components/icons";
 import { Page } from "../components/Page";
@@ -47,6 +48,7 @@ export function ReviewScreen() {
   const importId = Number(useParams().id);
   const navigate = useNavigate();
   const toast = useToast();
+  const { aiEnabled } = useSignedInUser();
 
   const [view, setView] = useState<ImportView | null>(null);
   const [decisions, setDecisions] = useState<Decisions>({});
@@ -125,7 +127,7 @@ export function ReviewScreen() {
           onClick={save}
         >
           {saving && <span className={ui.spinner} />}
-          {saveLabel({ adds, fresh: fresh.length, saving })}
+          {saveLabel({ adds, fresh: fresh.length, saving, aiEnabled })}
         </button>
       }
     >

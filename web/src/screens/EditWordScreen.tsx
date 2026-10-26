@@ -2,8 +2,8 @@ import { CUSTOM_TRANSLATION_MAX, cardBack, NOTE_MAX } from "@language-app/core";
 import { useId, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import { api } from "../api";
+import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Headword } from "../components/Headword";
-import { TrashIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { WordLoadState } from "../components/WordLoadState";
 import { useHistoryStep } from "../lib/sheetHistory";
@@ -148,53 +148,23 @@ export function EditWordScreen() {
         </label>
       </form>
 
-      <section className={styles.delete} aria-label="Delete word">
-        {confirmingDelete ? (
-          <div className={styles.confirm}>
-            <div className={styles.question}>
-              <span className={styles.trash}>
-                <TrashIcon size={20} />
-              </span>
-              <p>
-                <strong>
-                  Delete “<span lang="de">{back.headword}</span>” from your words?
-                </strong>{" "}
-                Its progress and note are lost, and a later import may offer it again as a new word.
-                To stop practising it for good, set its status to Ignored instead.
-              </p>
-            </div>
-            <div className={styles.buttons}>
-              <button
-                type="button"
-                className={`${ui.button} ${ui.secondary} ${styles.choice}`}
-                disabled={busy === "delete"}
-                onClick={() => setConfirmingDelete(false)}
-              >
-                Keep
-              </button>
-              <button
-                type="button"
-                className={`${ui.button} ${ui.danger} ${styles.choice}`}
-                disabled={busy !== null}
-                onClick={remove}
-              >
-                {busy === "delete" && <span className={ui.spinner} />}
-                Delete
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className={`${ui.button} ${styles.deleteButton}`}
-            disabled={busy !== null}
-            onClick={() => setConfirmingDelete(true)}
-          >
-            <TrashIcon size={20} />
-            Delete word
-          </button>
-        )}
-      </section>
+      <ConfirmDelete
+        label="Delete word"
+        question={
+          <>
+            Delete “<span lang="de">{back.headword}</span>” from your words?
+          </>
+        }
+        asking={confirmingDelete}
+        onAsk={() => setConfirmingDelete(true)}
+        onKeep={() => setConfirmingDelete(false)}
+        onDelete={remove}
+        deleting={busy === "delete"}
+        disabled={busy !== null}
+      >
+        Its progress and note are lost, and a later import may offer it again as a new word. To stop
+        practising it for good, set its status to Ignored instead.
+      </ConfirmDelete>
     </Page>
   );
 }

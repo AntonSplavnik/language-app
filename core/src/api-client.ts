@@ -2,8 +2,11 @@ import type { z } from "zod";
 import {
   AuthErrorBody,
   AuthSession,
+  type DeleteAccountRequest,
+  DeleteAccountResponse,
   SignedInResponse,
   type SignInEmailRequest,
+  SignInMethods,
   type SignInUsernameRequest,
   SignOutResponse,
   type SignUpRequest,
@@ -141,6 +144,11 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
       postJson(SignedInResponse, "/auth/sign-in/username", body),
     /** Ends this sign-in only. */
     signOut: () => postJson(SignOutResponse, "/auth/sign-out"),
+    /** How the account signs in: a password (`credential`), later Google (§9.4). */
+    listAccounts: () => request(SignInMethods, "/auth/list-accounts"),
+    /** Deletes the account and all its data; with its password when it has one (§9.4). */
+    deleteAccount: (body: DeleteAccountRequest) =>
+      postJson(DeleteAccountResponse, "/auth/delete-user", body),
 
     stats: () => request(StatsResponse, "/stats"),
 

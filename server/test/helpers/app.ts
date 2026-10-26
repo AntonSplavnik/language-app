@@ -61,17 +61,23 @@ export function buildTestApp(
     ai = unusedAi,
     dailyPhotoLimit = 50,
     dailyDescribeLimit = 200,
+    timeZone = "Europe/Berlin",
+    now,
     auth = testAuth(db),
     learner = LEARNER_ID,
   }: {
     ai?: AiClient;
     dailyPhotoLimit?: number;
     dailyDescribeLimit?: number;
+    /** The daily limits' zone (APP_TIME_ZONE). */
+    timeZone?: string;
+    /** The clock the daily limits read; the real one by default. */
+    now?: () => Date;
     auth?: Auth;
     learner?: number | null;
   } = {},
 ) {
-  const app = buildApp({ db, ai, auth, dailyPhotoLimit, dailyDescribeLimit });
+  const app = buildApp({ db, ai, auth, dailyPhotoLimit, dailyDescribeLimit, timeZone, now });
   if (learner === null) return app;
   const inject = app.inject.bind(app);
   return Object.assign(app, {

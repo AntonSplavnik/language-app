@@ -1,7 +1,7 @@
 import type { EnrichInputWord, EnrichOutput, VerbForms } from "@language-app/core";
 import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
-import type { LearnerRef } from "../auth/learner";
+import type { Learner } from "../auth/learner";
 import type { Db } from "../db/client";
 import { userWords, words, wordTranslations } from "../db/schema";
 import { type DictionaryEntry, entriesForWord, lookupWords, wordKey } from "../dictionary/lookup";
@@ -25,6 +25,10 @@ type PendingWord = Awaited<ReturnType<typeof loadPending>>[number];
  * Enriches the given words that are not enriched yet. Never throws for a failed AI call: those
  * words stay pending (`enriched_at` NULL) and can be retried. `pending` counts the given words
  * still without details afterwards.
+ *
+ * For an account without AI only the first step runs, the dictionary's forms and pronunciation;
+ * the words stay unenriched, so an account with AI that adds them later gets their example
+ * sentences, and `pending` is 0: there is nothing this account could add them with (§6.7).
  */
 export async function enrichWords(
   { db, ai, log }: EnrichDeps,
@@ -32,7 +36,7 @@ export async function enrichWords(
     learner,
     importId = null,
     wordIds,
-  }: { learner: LearnerRef; importId?: number | null; wordIds: number[] },
+  }: { learner: Learner; importId?: number | null; wordIds: number[] },
 ): Promise<EnrichResult> {
   if (wordIds.length === 0) return { enriched: 0, pending: 0 };
 
@@ -59,6 +63,7 @@ export async function enrichWords(
       .set({ ...(forms ? { ...forms, formsSource: "dictionary" as const } : {}), ...pronunciation })
       .where(and(eq(words.id, word.id), isNull(words.enrichedAt)));
   }
+  if (!learner.aiEnabled) return { enriched: 0, pending: 0 };
 
   // 2. The AI writes every example sentence, and the forms the dictionary didn't have.
   let enriched = 0;
@@ -135,7 +140,7 @@ export async function enrichWords(
 /** Retries enrichment for every word of the learner that has no details yet (§9). */
 export async function enrichPendingForUser(
   deps: EnrichDeps,
-  learner: LearnerRef,
+  learner: Learner,
 ): Promise<EnrichResult> {
   return enrichWords(deps, { learner, wordIds: await pendingWordIds(deps.db, learner.id) });
 }

@@ -77,7 +77,7 @@ export function SignUpScreen() {
         </button>
       }
     >
-      <p className={styles.lead}>Invite only: use the email your invite was sent to.</p>
+      <p className={ui.lead}>Invite only: use the email your invite was sent to.</p>
       <form
         id={formId}
         className={styles.form}

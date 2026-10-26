@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api";
+import { useSignedInUser } from "../auth/session";
 import { ExampleSentence } from "../components/ExampleSentence";
 import { Headword } from "../components/Headword";
 import { ChevronDownIcon, PencilIcon } from "../components/icons";
@@ -36,6 +37,8 @@ export function WordDetailScreen() {
   const toast = useToast();
   const { word, setWord, loading, load } = useWord(id);
   const [savingStatus, setSavingStatus] = useState<WordStatus | null>(null);
+  // Without AI no details are pending, so there is no "Use Add details on Home".
+  const { aiEnabled } = useSignedInUser();
 
   const listUrl = from ?? wordsUrl({ status: word?.status ?? "learning", q: "" });
 
@@ -47,7 +50,7 @@ export function WordDetailScreen() {
     );
   }
 
-  const back = cardBack(word);
+  const back = cardBack(word, { aiEnabled });
   // A noun's gender colours its chip.
   const article = word.pos === "noun" ? word.article : null;
   const note = sourceNote(word);

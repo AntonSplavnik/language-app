@@ -2,6 +2,7 @@ import { ApiClientError, IMPORT_NAME_MAX, type ImportView } from "@language-app/
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../api";
+import { useSignedInUser } from "../auth/session";
 import { DropZone } from "../components/DropZone";
 import { CameraIcon, CheckIcon, ChevronRightIcon, CloseIcon, PlusIcon } from "../components/icons";
 import { Page } from "../components/Page";
@@ -10,6 +11,7 @@ import { PdfError, renderPage } from "../device/pdf";
 import { pickPhotos } from "../device/pickPhotos";
 import { shrinkImage } from "../device/shrinkImage";
 import { handedOver } from "../imports/pdfImport";
+import { isRetryable } from "../imports/photoErrors";
 import { errorMessage, useToast } from "../lib/toast";
 import {
   canRemove,
@@ -26,9 +28,6 @@ import {
 import ui from "../styles/ui.module.css";
 import styles from "./ImportScreen.module.css";
 
-/** Errors worth retrying with the same photo; anything else needs another photo (§12 Import). */
-const RETRYABLE = new Set(["ai_busy", "ai_invalid_output", "network", "internal", "http_error"]);
-
 /**
  * Add photos (§10 Import). `/imports/new` until the first photo is sent, then `/imports/:id`; the
  * route stays the same, so the photos in memory survive the URL change. Pages of a PDF arrive from
@@ -39,6 +38,7 @@ export function ImportScreen() {
   const navigate = useNavigate();
   const toast = useToast();
   const location = useLocation();
+  const { aiEnabled } = useSignedInUser();
   // Only in memory: after a reload a PDF import resumes like any other (its pages read so far).
   const [pdf] = useState(() =>
     handedOver((location.state as { pdfImport?: unknown } | null)?.pdfImport),
@@ -161,7 +161,7 @@ export function ImportScreen() {
             type: "failed",
             id: next.id,
             message: errorMessage(error),
-            retryable: RETRYABLE.has(code) || code === "unknown",
+            retryable: isRetryable(code) || code === "unknown",
           });
         },
       );
@@ -294,8 +294,9 @@ export function ImportScreen() {
               onRetake={addPhotos}
             />
           ))}
-          {/* A PDF import is the pages chosen; more pages are another import. */}
-          {!isPdf && (
+          {/* A PDF import is the pages chosen; more pages are another import. Without AI (an
+              import begun before it was switched off) the photos read so far can be reviewed. */}
+          {!isPdf && aiEnabled && (
             <li className={styles.addCell}>
               <button type="button" className={styles.add} onClick={addPhotos}>
                 <span className={styles.addIcon}>

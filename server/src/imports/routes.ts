@@ -8,6 +8,7 @@ import {
 } from "@language-app/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { requireAi } from "../auth/learner";
 import { HttpError } from "../http/errors";
 import { saveTypedWords } from "../words/typed";
 import { listPastImports, renameImport } from "./past";
@@ -35,8 +36,10 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
     }),
   );
 
+  // Photos and PDF pages are read by the AI (Call 1), so making such an import needs it.
   app.post("/api/imports", async (request, reply) => {
     const body = CreateImportRequest.parse(request.body ?? {});
+    requireAi(request.learner);
     reply.code(201);
     return createImport(db, request.learner.id, body);
   });
@@ -61,6 +64,7 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
   });
 
   app.post("/api/imports/:id/photos", async (request) => {
+    requireAi(request.learner);
     const { id } = Params.parse(request.params);
     if (!request.isMultipart()) {
       throw new HttpError(400, "invalid_request", "Send one photo as multipart field 'photo'");

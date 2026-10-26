@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ApiClientError, AuthSession, createApiClient, SignUpRequest } from "../src";
+import {
+  ApiClientError,
+  AuthSession,
+  createApiClient,
+  DeleteAccountRequest,
+  SignUpRequest,
+} from "../src";
 
 // Accounts (docs/design.md §17.3): Better Auth's endpoints under /api/auth, called like any other.
 
@@ -111,6 +117,57 @@ describe("auth endpoints (§17.3)", () => {
     const { api, calls } = recording(200, { success: true });
     expect(await api.signOut()).toEqual({ success: true });
     expect(calls).toEqual([{ url: "/api/auth/sign-out", method: "POST", body: {} }]);
+  });
+
+  it("deleteAccount posts the password to delete-user", async () => {
+    const { api, calls } = recording(200, { success: true, message: "User deleted" });
+    expect(await api.deleteAccount({ password: "long enough" })).toEqual({
+      success: true,
+      message: "User deleted",
+    });
+    expect(calls).toEqual([
+      { url: "/api/auth/delete-user", method: "POST", body: { password: "long enough" } },
+    ]);
+  });
+
+  it("deleteAccount without a password (an account that has none) sends an empty body", async () => {
+    const { api, calls } = recording(200, { success: true, message: "User deleted" });
+    await api.deleteAccount({});
+    expect(calls[0]?.body).toEqual({});
+  });
+
+  it("a wrong password keeps Better Auth's code", async () => {
+    const api = createApiClient({
+      fetch: json(400, { code: "INVALID_PASSWORD", message: "Invalid password" }),
+    });
+    await expect(api.deleteAccount({ password: "wrong one" })).rejects.toMatchObject({
+      code: "INVALID_PASSWORD",
+      status: 400,
+    });
+  });
+
+  it("listAccounts reads the ways the account signs in", async () => {
+    const { api, calls } = recording(200, [
+      {
+        id: "3",
+        providerId: "credential",
+        accountId: "2",
+        userId: "2",
+        scopes: [],
+        createdAt: "2026-10-25T10:00:00.000Z",
+        updatedAt: "2026-10-25T10:00:00.000Z",
+      },
+    ]);
+    expect(await api.listAccounts()).toEqual([{ id: "3", providerId: "credential" }]);
+    expect(calls).toEqual([{ url: "/api/auth/list-accounts", method: "GET", body: undefined }]);
+  });
+});
+
+describe("DeleteAccountRequest (§9.4)", () => {
+  it("takes an optional password of at most 128 characters", () => {
+    expect(DeleteAccountRequest.safeParse({}).success).toBe(true);
+    expect(DeleteAccountRequest.safeParse({ password: "pw" }).success).toBe(true);
+    expect(DeleteAccountRequest.safeParse({ password: "x".repeat(129) }).success).toBe(false);
   });
 });
 

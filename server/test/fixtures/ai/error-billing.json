@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "kind": "error",
+    "source": "The Messages API's answer once the prepaid credit is used up, in its second reported form, 402 billing_error (docs/design.md §16, Other M12 facts). Not recorded: used-up credit can't be provoked on the developer's key, so it is written in the API's error shape."
+  },
+  "status": 402,
+  "headers": {
+    "content-type": "application/json",
+    "request-id": "req_011BillingError000000001"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "billing_error",
+      "message": "This organization has run out of credit. Please go to Plans & Billing to purchase credits."
+    },
+    "request_id": "req_011BillingError000000001"
+  }
+}

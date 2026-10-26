@@ -29,6 +29,13 @@ export function doneLines(result: SaveResponse | null): { headline: string; note
 }
 
 /**
+ * Whether Done says "Example sentences and forms are ready.": words were added and enrichment
+ * left none without details. Not for an account without AI, whose words get no example sentences.
+ */
+export const detailsReady = (result: SaveResponse | null, aiEnabled: boolean) =>
+  aiEnabled && result !== null && result.added > 0 && result.detailsPending === 0;
+
+/**
  * Whether Done offers to name the import: only a past import (one that added something to learn)
  * without a name.
  */
@@ -47,9 +54,11 @@ export function doneSource(result: DoneState | null, past: PastImports, id: numb
 
 /**
  * Done's way to add more: Import more pages (after PDF pages, from the PDF again, which suggests
- * the pages after these), or Type more words after a typed list.
+ * the pages after these), or Type more words after a typed list, and always for an account
+ * without AI.
  */
-export function moreWords(source: ImportSource): { to: string; label: string } {
+export function moreWords(source: ImportSource, aiEnabled = true): { to: string; label: string } {
+  if (!aiEnabled) return { to: "/words/new?mode=list", label: "Type more words" };
   switch (source) {
     case "typed":
       return { to: "/words/new?mode=list", label: "Type more words" };

@@ -2,6 +2,8 @@ import { APP_NAME, type StatsResponse } from "@language-app/core";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
+import { newImportHint, newImportPath, showsAddDetails } from "../auth/aiFeatures";
+import { useSignedInUser } from "../auth/session";
 import {
   ArrowUpRightIcon,
   BookIcon,
@@ -80,6 +82,9 @@ export function Home() {
 function Ready({ stats }: { stats: StatsResponse }) {
   const practice = practiceText(stats);
   const started = hasWords(stats);
+  // Without AI, New import is Add words, and there is no Add details.
+  const { aiEnabled } = useSignedInUser();
+  const newImport = newImportPath(aiEnabled);
 
   // The only way to My words: the counts open the Learning tab, which links the others.
   const myWords = (
@@ -115,7 +120,7 @@ function Ready({ stats }: { stats: StatsResponse }) {
         </Link>
       ))}
 
-      {stats.detailsPending > 0 && (
+      {showsAddDetails(aiEnabled, stats.detailsPending) && (
         <PendingDetails key={stats.detailsPending} count={stats.detailsPending} />
       )}
 
@@ -134,7 +139,7 @@ function Ready({ stats }: { stats: StatsResponse }) {
       {started ? (
         <div className={styles.tiles}>
           {myWords}
-          <Link to="/imports/new" className={`${styles.tile} ${styles.newImport}`}>
+          <Link to={newImport} className={`${styles.tile} ${styles.newImport}`}>
             <span className={styles.well}>
               <PlusIcon size={22} />
             </span>
@@ -147,15 +152,13 @@ function Ready({ stats }: { stats: StatsResponse }) {
       ) : (
         // No words yet: New import is the main action, and the hint says what it is for.
         <>
-          <Link to="/imports/new" className={styles.bigAction}>
+          <Link to={newImport} className={styles.bigAction}>
             <span className={styles.bigLabel}>New import</span>
             <span className={styles.bigCircle}>
               <PlusIcon size={26} />
             </span>
           </Link>
-          <p className={styles.hint}>
-            Photograph the pages you studied to collect their new words.
-          </p>
+          <p className={styles.hint}>{newImportHint(aiEnabled)}</p>
           {myWords}
         </>
       )}

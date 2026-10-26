@@ -15,8 +15,11 @@ import { errorMessage } from "../lib/toast";
 export type AuthState =
   | { kind: "loading" }
   | { kind: "failed"; message: string }
-  /** `byChoice`: the learner signed out, so Sign in opens without the page in `next`. */
-  | { kind: "signedOut"; byChoice?: boolean }
+  /**
+   * `byChoice`: the learner signed out (or deleted the account), so Sign in opens without the page
+   * in `next`; `deleted`: Sign in says "Your account was deleted."
+   */
+  | { kind: "signedOut"; byChoice?: boolean; deleted?: boolean }
   | { kind: "signedIn"; user: AuthUser };
 
 type AuthApi = {
@@ -25,6 +28,8 @@ type AuthApi = {
   signedIn: (user: AuthUser) => void;
   /** After Sign out. */
   signedOut: () => void;
+  /** After Delete account: signed out, and Sign in says so. */
+  accountDeleted: () => void;
   /** Asks the server again, after the first request failed. */
   reload: () => void;
 };
@@ -54,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       state,
       signedIn: (user) => setState({ kind: "signedIn", user }),
       signedOut: () => setState({ kind: "signedOut", byChoice: true }),
+      accountDeleted: () => setState({ kind: "signedOut", byChoice: true, deleted: true }),
       reload,
     }),
     [state, reload],

@@ -61,3 +61,16 @@
   font-size: 16px;
   line-height: 1.4;
 }
+
+/* "Not included in your account": a feature the account doesn't have, so muted. */
+.off {
+  color: var(--muted);
+}
+
+/* A failed deletion of an account without a password (no field to put it under); caption. */
+.deleteError {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--danger);
+}

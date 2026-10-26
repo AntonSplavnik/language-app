@@ -24,10 +24,32 @@ const Config = z.object({
     .string()
     .min(32, "BETTER_AUTH_SECRET must be at least 32 characters")
     .optional(),
-  /** `invite`: only emails on the invite list can create an account (§17.4). */
+  /** `invite`: only emails on the invite list can create an account (§4 Accounts). */
   SIGNUP_MODE: z.enum(["invite", "open"]).default("invite"),
+  /**
+   * The zone whose midnight starts the daily limits' day (§11.5), not the server's own: Vercel
+   * runs in UTC and `TZ` can't be set there.
+   */
+  APP_TIME_ZONE: z
+    .string()
+    .default("Europe/Berlin")
+    .refine(isTimeZone, "APP_TIME_ZONE must be an IANA time zone, such as Europe/Berlin"),
 });
 export type Config = z.infer<typeof Config>;
+
+/**
+ * A name from the IANA time zone database (`Europe/Berlin`, `UTC`), as `Intl` knows them. Offsets
+ * (`+02:00`), which `Intl` also takes, are refused: they have no summer time.
+ */
+function isTimeZone(zone: string): boolean {
+  if (!/^[A-Za-z]/.test(zone)) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Loads the repo-root `.env` into `process.env`, if it exists. Values already set win. */
 export function loadEnvFile(): void {

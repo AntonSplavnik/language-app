@@ -8,12 +8,20 @@
   padding-top: 8px;
 }
 
-/* Create account's "Invite only: …" line under the title; body, muted. */
-.lead {
-  margin: -6px 0 0;
+/* Sign in's "Your account was deleted.", a card with a check like Add words' "… added" line. */
+.notice {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
   font-size: 15px;
-  line-height: 1.4;
-  color: var(--muted);
+  color: var(--text);
+}
+
+.noticeIcon {
+  flex: none;
+  color: var(--accent-ink);
 }
 
 /* The quiet link to the other screen, as Import's "or type words". */

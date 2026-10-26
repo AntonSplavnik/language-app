@@ -2,6 +2,8 @@ import { type AddedWord, type EntryView, SUGGEST_MIN, TYPED_TEXT_MAX } from "@la
 import { Fragment, useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api";
+import { AI_NOT_INCLUDED, addWordsBack } from "../auth/aiFeatures";
+import { useSignedInUser } from "../auth/session";
 import { Headword } from "../components/Headword";
 import { CheckIcon } from "../components/icons";
 import { Page } from "../components/Page";
@@ -28,6 +30,8 @@ export function AddWordsScreen() {
   const navigate = useNavigate();
   const [state, update] = useAddWords();
   const { draft } = state;
+  // Without AI, this is New import itself (§10 screen 14): it says why there are no photos.
+  const { aiEnabled } = useSignedInUser();
 
   // The line after a save is shown only right after it: taken out of the tab as the screen opens
   // (so leaving and coming back, or a reload, shows none), and hidden on typing or switching tabs.
@@ -53,7 +57,7 @@ export function AddWordsScreen() {
   return (
     <Page
       largeTitle="Add words"
-      back="/imports/new"
+      back={addWordsBack(aiEnabled)}
       footer={
         <button
           type="button"
@@ -65,6 +69,7 @@ export function AddWordsScreen() {
         </button>
       }
     >
+      {!aiEnabled && <p className={ui.lead}>{AI_NOT_INCLUDED}</p>}
       <SegmentedTabs
         label="How many words"
         current={mode}

@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
+import { useSignedInUser } from "../auth/session";
 import { Headword } from "../components/Headword";
 import {
   CheckIcon,
@@ -48,6 +49,7 @@ import {
   viewsOf,
   wordsOf,
 } from "../state/addWords";
+import { savingLabel } from "../state/reviewDecisions";
 import { useAddWords } from "../state/useAddWords";
 import ui from "../styles/ui.module.css";
 import { shortGlosses } from "../words/glosses";
@@ -106,6 +108,7 @@ function Confirm({
 }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const { aiEnabled } = useSignedInUser();
   const fromAddWords = Boolean(
     (useLocation().state as { fromAddWords?: boolean } | null)?.fromAddWords,
   );
@@ -277,7 +280,7 @@ function Confirm({
             onClick={() => next({ kind: "add", words: wordsOf(step, views) })}
           >
             {saving && <span className={ui.spinner} />}
-            {saving ? "Adding details…" : addLabel(step)}
+            {saving ? savingLabel(aiEnabled) : addLabel(step)}
           </button>
         </div>
       }
@@ -393,6 +396,8 @@ function EntryCard({
   onAsk: () => void;
 }) {
   const fieldId = useId();
+  // Ask AI only for an account with AI (§10 screen 15); the glosses and typing work either way.
+  const { aiEnabled } = useSignedInUser();
   const chosen = translation !== undefined;
   const details = (
     <span className={styles.word}>
@@ -461,7 +466,7 @@ function EntryCard({
                 {chip}
               </button>
             ))}
-            <AskAi asking={asking} onAsk={onAsk} />
+            {aiEnabled && <AskAi asking={asking} onAsk={onAsk} />}
           </div>
         </div>
       )}
@@ -505,6 +510,7 @@ function HandCard({
   onAsk: () => void;
 }) {
   const ids = { word: useId(), pos: useId(), translation: useId() };
+  const { aiEnabled } = useSignedInUser();
   const open = hand.open || nothingFound;
 
   return (
@@ -590,10 +596,12 @@ function HandCard({
               onChange={(event) => onChange({ translation: event.target.value })}
             />
           </div>
-          <div className={styles.handAsk}>
-            <AskAi asking={asking} onAsk={onAsk} />
-            <span className={styles.askHint}>Fills in all four</span>
-          </div>
+          {aiEnabled && (
+            <div className={styles.handAsk}>
+              <AskAi asking={asking} onAsk={onAsk} />
+              <span className={styles.askHint}>Fills in all four</span>
+            </div>
+          )}
         </div>
       )}
     </section>

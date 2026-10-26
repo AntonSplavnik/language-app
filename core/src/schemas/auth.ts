@@ -68,5 +68,22 @@ export type SignedInResponse = z.infer<typeof SignedInResponse>;
 export const SignOutResponse = z.object({ success: z.boolean() });
 export type SignOutResponse = z.infer<typeof SignOutResponse>;
 
+/**
+ * Delete account (`POST /api/auth/delete-user`): the password of an account that has one; an
+ * account without (Google only) sends none and needs a sign-in from within the last day.
+ */
+export const DeleteAccountRequest = z.object({ password: z.string().max(PASSWORD_MAX).optional() });
+export type DeleteAccountRequest = z.infer<typeof DeleteAccountRequest>;
+
+export const DeleteAccountResponse = z.object({ success: z.boolean(), message: z.string() });
+export type DeleteAccountResponse = z.infer<typeof DeleteAccountResponse>;
+
+/**
+ * `GET /api/auth/list-accounts`: the account's ways to sign in, `credential` (a password) and
+ * later `google`. Better Auth sends more; the schema keeps these.
+ */
+export const SignInMethods = z.array(z.object({ id: z.string(), providerId: z.string() }));
+export type SignInMethods = z.infer<typeof SignInMethods>;
+
 /** Better Auth's error body. The rate limiter's 429 has no code, only a message. */
 export const AuthErrorBody = z.object({ code: z.string().optional(), message: z.string() });

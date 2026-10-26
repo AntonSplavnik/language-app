@@ -1,10 +1,11 @@
 import { useId, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { api } from "../api";
+import { ACCOUNT_DELETED } from "../auth/deleteAccount";
 import { SIGN_UP, signInError, signInMethod } from "../auth/rules";
 import { useAuth } from "../auth/session";
 import { FormCard, FormError, FormField } from "../components/FormCard";
-import { ChevronRightIcon } from "../components/icons";
+import { CheckIcon, ChevronRightIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import ui from "../styles/ui.module.css";
 import styles from "./AuthScreens.module.css";
@@ -16,6 +17,8 @@ import styles from "./AuthScreens.module.css";
 export function SignInScreen() {
   const { search } = useLocation();
   const auth = useAuth();
+  // Right after Delete account (§10 screen 19); a reload, or signing in, forgets it.
+  const deleted = auth.state.kind === "signedOut" && auth.state.deleted === true;
   const formId = useId();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -54,6 +57,12 @@ export function SignInScreen() {
         </button>
       }
     >
+      {deleted && (
+        <p className={`${ui.card} ${styles.notice}`} role="status">
+          <CheckIcon size={18} className={styles.noticeIcon} />
+          {ACCOUNT_DELETED}
+        </p>
+      )}
       <form
         id={formId}
         className={styles.form}

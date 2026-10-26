@@ -44,7 +44,7 @@ async function koreanLearner() {
   return first(
     await db
       .insert(users)
-      .values({ name: "Minji", learnerLanguage: "ko", targetLanguage: "de" })
+      .values({ name: "Minji", learnerLanguage: "ko", targetLanguage: "de", aiEnabled: true })
       .returning({ id: users.id }),
   ).id;
 }

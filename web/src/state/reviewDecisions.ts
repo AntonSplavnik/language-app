@@ -81,17 +81,25 @@ export const reviewSummary = (fresh: number, adds: number) => ({
   adds: `${adds} to practise`,
 });
 
-/** The save button: what saving does, or what it is doing. */
+/** What a button says while new words are saved (and get their details, with AI). */
+export const savingLabel = (aiEnabled: boolean) => (aiEnabled ? "Adding details…" : "Saving…");
+
+/**
+ * The save button: what saving does, or what it is doing. Without AI saving adds no details, so it
+ * just says "Saving…".
+ */
 export function saveLabel({
   adds,
   fresh,
   saving,
+  aiEnabled = true,
 }: {
   adds: number;
   fresh: number;
   saving: boolean;
+  aiEnabled?: boolean;
 }): string {
-  if (saving) return adds > 0 ? "Adding details…" : "Saving…";
+  if (saving) return adds > 0 ? savingLabel(aiEnabled) : "Saving…";
   if (adds > 0) return `Save ${words(adds)}`;
   if (fresh === 0) return "Finish";
   return fresh === 1 ? "Ignore 1 word" : `Ignore all ${fresh} words`;

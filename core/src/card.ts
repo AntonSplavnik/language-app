@@ -21,7 +21,10 @@ export type CardBack = {
   forms: string | null;
   example: { de: string; translation: string | null } | null;
   note: string | null;
-  /** Enrichment has not run yet, so some details may be missing. */
+  /**
+   * Enrichment has not run yet, so some details may be missing. Never for an account without AI,
+   * which has no way to add them (§6.7).
+   */
   detailsPending: boolean;
   /** The recording a speaker button plays on tap; null when there is none. Never on the front. */
   audioUrl: string | null;
@@ -33,13 +36,17 @@ export function cardFront(word: WordView): CardFront {
   return { translation: displayTranslation(word), pos: word.pos };
 }
 
-export function cardBack(word: WordView): CardBack {
+/** `aiEnabled`: whether the signed-in account has the AI features (true unless said otherwise). */
+export function cardBack(
+  word: WordView,
+  { aiEnabled = true }: { aiEnabled?: boolean } = {},
+): CardBack {
   return {
     headword: word.pos === "noun" && word.article ? `${word.article} ${word.lemma}` : word.lemma,
     forms: formsText(word),
     example: word.exampleDe ? { de: word.exampleDe, translation: word.exampleTranslation } : null,
     note: word.note,
-    detailsPending: !word.enriched,
+    detailsPending: aiEnabled && !word.enriched,
     audioUrl: word.audioUrl,
   };
 }

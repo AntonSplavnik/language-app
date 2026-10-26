@@ -2,10 +2,19 @@ import { IMPORT_NAME_MAX } from "@language-app/core";
 import { useId, useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api";
+import { showsAddDetails } from "../auth/aiFeatures";
+import { useSignedInUser } from "../auth/session";
 import { CheckIcon, PlayIcon, SparkleIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { PendingDetails } from "../components/PendingDetails";
-import { type DoneState, doneLines, doneSource, moreWords, needsName } from "../imports/done";
+import {
+  type DoneState,
+  detailsReady,
+  doneLines,
+  doneSource,
+  moreWords,
+  needsName,
+} from "../imports/done";
 import { usePastImports } from "../imports/usePastImports";
 import { errorMessage, useToast } from "../lib/toast";
 import { useStartSession } from "../practice/useStartSession";
@@ -21,7 +30,10 @@ export function DoneScreen() {
   // Done reads the past imports to find this one, so a reloaded Done screen offers naming too.
   const { state: past } = usePastImports();
   const offerName = past.kind === "ready" && needsName(past.imports, importId);
-  const more = moreWords(doneSource(result, past, importId));
+  // Without AI there are no example sentences to announce, and no Add details (§10 Done).
+  const { aiEnabled } = useSignedInUser();
+  const more = moreWords(doneSource(result, past, importId), aiEnabled);
+  const ready = detailsReady(result, aiEnabled);
 
   return (
     <Page
@@ -58,10 +70,10 @@ export function DoneScreen() {
         </span>
         <div className={styles.text}>
           <p className={styles.headline}>{headline}</p>
-          {(note || (result && result.added > 0 && result.detailsPending === 0)) && (
+          {(note || ready) && (
             <div className={styles.details}>
               {note && <p>{note}</p>}
-              {result && result.added > 0 && result.detailsPending === 0 && (
+              {ready && (
                 <p className={styles.ready}>
                   <SparkleIcon size={16} />
                   Example sentences and forms are ready.
@@ -71,7 +83,9 @@ export function DoneScreen() {
           )}
         </div>
       </div>
-      {result && result.detailsPending > 0 && <PendingDetails count={result.detailsPending} />}
+      {result && showsAddDetails(aiEnabled, result.detailsPending) && (
+        <PendingDetails count={result.detailsPending} />
+      )}
       {offerName && <NameImport importId={importId} />}
     </Page>
   );

@@ -244,6 +244,15 @@
   text-align: center;
 }
 
+/* A muted line right under a large title, saying what the screen is for or what it leaves out
+   (Create account's "Invite only: …", Add words without AI); body, muted. */
+.lead {
+  margin: -6px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 .spinner {
   width: 16px;
   height: 16px;

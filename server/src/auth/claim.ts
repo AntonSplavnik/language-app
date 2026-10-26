@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Auth } from "./auth";
 import { normalizeEmail } from "./invites";
 
-/** User 1: the prototype's single learner, who owns the word list on the Mac (§17.6). */
+/** User 1: the prototype's single learner, who owns the word list on the Mac (§14). */
 export const FIRST_USER_ID = "1";
 
 export type Claim = { email: string; username: string; password: string };
@@ -17,7 +17,7 @@ export type ClaimResult = {
 };
 
 /**
- * Turns user 1 into the developer account (docs/design.md §17.6): its email, username, a
+ * Turns user 1 into the developer account (docs/design.md §14): its email, username, a
  * password, `email_verified` and AI on, through Better Auth's internal adapter so the password is
  * hashed and the username normalised as on sign-up. Refuses a user 1 that already has an email.
  * The password is set before the rest, so a failure (a taken username) leaves user 1 unclaimed

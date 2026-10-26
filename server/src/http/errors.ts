@@ -18,6 +18,7 @@ export class HttpError extends Error {
 /** How a failed AI call reaches the client (§12). */
 const AI_ERRORS: Record<AiErrorCode, { status: number; code: string; message: string }> = {
   busy: { status: 503, code: "ai_busy", message: "AI is busy, try again" },
+  unavailable: { status: 503, code: "ai_unavailable", message: "AI is unavailable right now" },
   refused: { status: 422, code: "ai_refused", message: "Couldn't read this photo" },
   invalid_output: {
     status: 422,

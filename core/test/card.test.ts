@@ -135,4 +135,14 @@ describe("cardBack (§8.2)", () => {
       audioUrl: null,
     });
   });
+
+  it("for an account without AI nothing is pending: there is nothing to add the details with", () => {
+    const pending = { ...tisch, exampleDe: null, exampleTranslation: null, enriched: false };
+    expect(cardBack(pending, { aiEnabled: false })).toMatchObject({
+      example: null,
+      detailsPending: false,
+    });
+    // A shared word someone else's AI enriched still shows its example.
+    expect(cardBack(tisch, { aiEnabled: false }).example?.de).toBe("Der Tisch steht in der Küche.");
+  });
 });

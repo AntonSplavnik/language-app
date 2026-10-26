@@ -9,8 +9,8 @@ import type {
 } from "@language-app/core";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
-import { countCallsToday } from "../ai/usage";
-import type { LearnerRef } from "../auth/learner";
+import { countCallsToday, type DayDeps, today } from "../ai/usage";
+import type { Learner, LearnerRef } from "../auth/learner";
 import type { Db, Executor } from "../db/client";
 import { imports, users, userWords, words, wordTranslations } from "../db/schema";
 import { checkWord } from "../dictionary/check";
@@ -23,7 +23,7 @@ import { candidateKey, newCandidateWords, type WordIdentity } from "./candidates
 
 const TARGET_LANGUAGE = "de";
 
-export type ImportDeps = { db: Db; ai: AiClient; dailyPhotoLimit: number };
+export type ImportDeps = { db: Db; ai: AiClient; dailyPhotoLimit: number } & DayDeps;
 
 /**
  * The `words` row with this identity, created when there is none (§6.5, §6.7). `values` are only
@@ -91,15 +91,16 @@ export async function startReview(db: Db, userId: number, id: number): Promise<I
 
 /** One photo: extract (§11.2), then merge, compare and check the new words (§6.3). */
 export async function addPhoto(
-  { db, ai, dailyPhotoLimit }: ImportDeps,
+  deps: ImportDeps,
   learner: LearnerRef,
   id: number,
   jpeg: Uint8Array,
 ): Promise<PhotoUploadResponse> {
+  const { db, ai, dailyPhotoLimit } = deps;
   const userId = learner.id;
   const row = await findImport(db, userId, id);
   if (row.status !== "collecting") throw importClosed();
-  if ((await countCallsToday(db, userId, "extract")) >= dailyPhotoLimit) {
+  if ((await countCallsToday(db, userId, "extract", today(deps))) >= dailyPhotoLimit) {
     // A PDF page counts like a photo (§11.5).
     throw new HttpError(429, "daily_limit", "Daily page limit reached");
   }
@@ -145,11 +146,12 @@ export async function addPhoto(
 /**
  * Saves the decisions, then enriches the added words (§6.5–6.6). Saving commits first, so the
  * words exist even if enrichment fails; `detailsPending` counts the added words still without
- * details. Enrichment keeps running if the client disconnects.
+ * details. Enrichment keeps running if the client disconnects. For an account without AI (an
+ * import started before its AI was switched off) only the dictionary's facts are copied (§6.6).
  */
 export async function saveAndEnrich(
   deps: ImportDeps & { log?: EnrichDeps["log"] },
-  learner: LearnerRef,
+  learner: Learner,
   id: number,
   decisions: SaveDecision[],
 ): Promise<SaveResponse> {

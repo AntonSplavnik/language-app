@@ -36,6 +36,7 @@ const app = buildApp(
     auth,
     dailyPhotoLimit: config.DAILY_PHOTO_LIMIT,
     dailyDescribeLimit: config.DAILY_DESCRIBE_LIMIT,
+    timeZone: config.APP_TIME_ZONE,
   },
   { logger: true },
 );

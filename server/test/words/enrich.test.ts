@@ -63,7 +63,7 @@ function setup(
     enrich: (wordIds: number[], importId: number | null = null) =>
       enrichWords(
         { db, ai },
-        { learner: { id: LEARNER_ID, learnerLanguage: "en" }, importId, wordIds },
+        { learner: { id: LEARNER_ID, learnerLanguage: "en", aiEnabled: true }, importId, wordIds },
       ),
   };
 }

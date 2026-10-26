@@ -1,14 +1,16 @@
 import { SignedInResponse } from "@language-app/core";
 import { asc, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { findAccount, setAiEnabled, setPassword } from "../../src/auth/accounts";
 import { claimFirstUser } from "../../src/auth/claim";
 import { addInvite, isInvited, listInvites, removeInvite } from "../../src/auth/invites";
-import { authAccounts, invites, users, userWords, words } from "../../src/db/schema";
+import { authAccounts, authSessions, invites, users, userWords, words } from "../../src/db/schema";
 import { buildTestApp, testAuth } from "../helpers/app";
 import { authPost, cookieOf, getWith, PASSWORD, signUp } from "../helpers/auth";
 import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
-// The account scripts (docs/design.md §17.6): user:claim and the invite list.
+// The account scripts (docs/design.md §14): user:claim, user:set-password, user:ai and the invite
+// list.
 
 const db = useTestDb();
 const app = () => buildTestApp(db, { learner: null });
@@ -82,6 +84,7 @@ describe("user:claim", () => {
   });
 
   it("refuses a username or an email another account has; user 1 stays unclaimed", async () => {
+    await db.update(users).set({ aiEnabled: false }).where(eq(users.id, LEARNER_ID));
     await addInvite(db, "taken@example.com");
     await signUp(app(), { email: "taken@example.com", username: "Taken" });
 
@@ -110,6 +113,139 @@ describe("user:claim", () => {
   ])("refuses %s", async (_, change, message) => {
     await expect(claimFirstUser(testAuth(db), { ...claim, ...change })).rejects.toThrow(message);
     expect(await learner()).toMatchObject({ email: null });
+  });
+});
+
+describe("user:set-password", () => {
+  const NEW_PASSWORD = "a brand new password";
+  const signIn = (username: string, password: string) =>
+    authPost(app(), "/sign-in/username", { username, password });
+
+  async function account() {
+    await addInvite(db, "test@example.com");
+    const cookie = await signUp(app(), { email: "test@example.com", username: "Test" });
+    return cookie;
+  }
+
+  it("sets the new password; the old one stops working", async () => {
+    await account();
+    const result = await setPassword(testAuth(db), db, "test", NEW_PASSWORD);
+
+    expect(result).toMatchObject({
+      account: { email: "test@example.com", username: "test", displayUsername: "Test" },
+      added: false,
+      sessionsEnded: 1,
+    });
+    expect((await signIn("test", NEW_PASSWORD)).statusCode).toBe(200);
+    expect((await signIn("test", PASSWORD)).statusCode).toBe(401);
+  });
+
+  it("ends the account's sessions, and only its own", async () => {
+    const cookie = await account();
+    const second = cookieOf(await signIn("test", PASSWORD));
+    const learnerApp = buildTestApp(db);
+    await learnerApp.inject({ method: "GET", url: "/api/stats" });
+    const learnerSessions = await db
+      .select()
+      .from(authSessions)
+      .where(eq(authSessions.userId, LEARNER_ID));
+
+    expect(
+      (await setPassword(testAuth(db), db, "test@example.com", NEW_PASSWORD)).sessionsEnded,
+    ).toBe(2);
+    for (const old of [cookie, second]) {
+      expect((await getWith(app(), "/api/stats", old)).statusCode).toBe(401);
+    }
+    expect(
+      await db.select().from(authSessions).where(eq(authSessions.userId, LEARNER_ID)),
+    ).toHaveLength(learnerSessions.length);
+  });
+
+  it("finds the account by email or username, in any case and with spaces around", async () => {
+    await account();
+    for (const login of [" TEST@example.com ", "tEsT"]) {
+      expect((await setPassword(testAuth(db), db, login, NEW_PASSWORD)).account.username).toBe(
+        "test",
+      );
+    }
+  });
+
+  it("gives an account without a password one (a Google-only account)", async () => {
+    const id = first(
+      await db
+        .insert(users)
+        .values({
+          name: "g",
+          email: "g@example.com",
+          username: "g.user",
+          learnerLanguage: "en",
+          targetLanguage: "de",
+        })
+        .returning({ id: users.id }),
+    ).id;
+    await db.insert(authAccounts).values({ userId: id, providerId: "google", accountId: "sub-1" });
+
+    expect((await setPassword(testAuth(db), db, "g.user", NEW_PASSWORD)).added).toBe(true);
+    expect((await signIn("g.user", NEW_PASSWORD)).statusCode).toBe(200);
+  });
+
+  it.each([
+    ["a short password", "1234567", /8–128 characters/],
+    ["a long password", "x".repeat(129), /8–128 characters/],
+  ])("refuses %s, changing nothing", async (_, password, message) => {
+    await account();
+    await expect(setPassword(testAuth(db), db, "test", password)).rejects.toThrow(message);
+    expect((await signIn("test", PASSWORD)).statusCode).toBe(200);
+  });
+
+  it("refuses an unknown account", async () => {
+    await expect(setPassword(testAuth(db), db, "nobody", NEW_PASSWORD)).rejects.toThrow(
+      "No account with the username nobody",
+    );
+    await expect(setPassword(testAuth(db), db, "no@example.com", NEW_PASSWORD)).rejects.toThrow(
+      "No account with the email no@example.com",
+    );
+  });
+});
+
+describe("user:ai", () => {
+  async function account() {
+    await addInvite(db, "test@example.com");
+    return signUp(app(), { email: "test@example.com", username: "Test" });
+  }
+
+  it("switches AI on and off, saying what it was", async () => {
+    await account();
+    expect(await setAiEnabled(db, "test", true)).toMatchObject({
+      account: { username: "test", aiEnabled: true },
+      was: false,
+    });
+    expect((await findAccount(db, "test@example.com"))?.aiEnabled).toBe(true);
+    expect(await setAiEnabled(db, "TEST@example.com", false)).toMatchObject({
+      account: { aiEnabled: false },
+      was: true,
+    });
+    expect(await setAiEnabled(db, "test", false)).toMatchObject({ was: false });
+  });
+
+  it("the switch reaches the account's next request", async () => {
+    const cookie = await account();
+    const ask = () =>
+      app().inject({
+        method: "POST",
+        url: "/api/words/enrich-pending",
+        payload: {},
+        headers: { cookie },
+      });
+    expect((await ask()).statusCode).toBe(403);
+    await setAiEnabled(db, "test", true);
+    expect((await ask()).statusCode).toBe(200);
+  });
+
+  it("refuses an unknown account", async () => {
+    await expect(setAiEnabled(db, "nobody", true)).rejects.toThrow(
+      "No account with the username nobody",
+    );
   });
 });
 

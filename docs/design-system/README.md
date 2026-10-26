@@ -62,7 +62,7 @@ A visual version with live previews of every component in both themes is the **G
 ### Feedback
 
 - [Banner](components/Banner.md): A card on Home for unfinished work, with a chevron or an action at the right.
-- [ConfirmDelete](components/ConfirmDelete.md): Deleting a word asks in place, never with a browser dialog (Edit word).
+- [ConfirmDelete](components/ConfirmDelete.md): Deleting asks in place, never with a browser dialog (Edit word's Delete word, Account's Delete account with its password).
 - [EmptyState](components/EmptyState.md): What an empty list says (My words tabs, a search with no match): centred, a 64 px rounded icon square (`surface` + `border`, book icon in `muted`), a bold first line in `text`, the explanation in 15 px `muted`, then any action.
 - [Toast](components/Toast.md): A short confirmation near the bottom edge (`web/src/lib/toast.tsx`): "Moved to Learned", "Saved", "“der Tisch” deleted", or an error message.
 
@@ -81,7 +81,7 @@ A visual version with live previews of every component in both themes is the **G
 
 The app (working name "Dingsda", kept behind `APP_NAME` in `core/`; "German Words" stays the name of this design system) is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.lead`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `ConfirmDelete`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 

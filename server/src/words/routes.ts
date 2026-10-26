@@ -9,23 +9,21 @@ import {
 } from "@language-app/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { AiClient } from "../ai/types";
-import type { Db } from "../db/client";
+import { requireAi } from "../auth/learner";
 import { enrichPendingForUser } from "./enrich";
 import { deleteWord, getWordDetail, listWords, updateWord } from "./service";
-import { describeWord, saveTypedWords } from "./typed";
+import { type DescribeDeps, describeWord, saveTypedWords } from "./typed";
 
 const Params = z.object({ id: z.coerce.number().int().positive() });
 
-export function wordRoutes(
-  app: FastifyInstance,
-  { db, ai, dailyDescribeLimit }: { db: Db; ai: AiClient; dailyDescribeLimit: number },
-) {
-  app.post(
-    "/api/words/enrich-pending",
-    async (request): Promise<EnrichPendingResponse> =>
-      enrichPendingForUser({ db, ai, log: request.log }, request.learner),
-  );
+export function wordRoutes(app: FastifyInstance, deps: DescribeDeps) {
+  const { db, ai } = deps;
+
+  /** Add details: enrichment again, for the words without details (§6.6). An AI route. */
+  app.post("/api/words/enrich-pending", async (request): Promise<EnrichPendingResponse> => {
+    requireAi(request.learner);
+    return enrichPendingForUser({ db, ai, log: request.log }, request.learner);
+  });
 
   /** One typed word: the entries chosen for one typed text, without an import (§9.3). */
   app.post("/api/words", async (request): Promise<AddWordsResponse> => {
@@ -39,16 +37,11 @@ export function wordRoutes(
     return saved;
   });
 
-  /** Ask AI (Call 3, §11.6). */
-  app.post(
-    "/api/words/describe",
-    async (request): Promise<DescribeResponse> =>
-      describeWord(
-        { db, ai, dailyDescribeLimit },
-        request.learner,
-        DescribeRequest.parse(request.body),
-      ),
-  );
+  /** Ask AI (Call 3, §11.6). An AI route. */
+  app.post("/api/words/describe", async (request): Promise<DescribeResponse> => {
+    requireAi(request.learner);
+    return describeWord(deps, request.learner, DescribeRequest.parse(request.body));
+  });
 
   app.get("/api/words", async (request) =>
     listWords(db, request.learner.id, WordListQuery.parse(request.query)),

@@ -213,14 +213,35 @@ function countTokens(response: BetaMessage): { inputTokens: number; outputTokens
   );
 }
 
-/** Rate limits, overload and network failures (after the SDK's retries) become `busy`. */
+/**
+ * Rate limits, overload and network failures (after the SDK's retries) become `busy`; the used-up
+ * credit becomes `unavailable`. The SDK doesn't retry a 400 or 402, and neither do we.
+ */
 function toAiError(error: unknown): unknown {
   if (error instanceof Anthropic.APIConnectionError) {
     return new AiError("busy", "Couldn't reach Claude", { cause: error });
+  }
+  if (error instanceof Anthropic.APIError && creditUsedUp(error)) {
+    return new AiError("unavailable", `The Anthropic credit is used up (${error.status})`, {
+      cause: error,
+    });
   }
   if (error instanceof Anthropic.APIError && (error.status === 429 || error.status >= 500)) {
     return new AiError("busy", `Claude is busy (${error.status})`, { cause: error });
   }
   // Anything else (bad request, bad API key) is a bug or a configuration problem: let it surface.
   return error;
+}
+
+/**
+ * The two answers reported for used-up prepaid credit (§16): 402 `billing_error`, or a 400
+ * `invalid_request_error` whose message says the credit balance is too low. The second has no
+ * type of its own, so only its message tells it from a bad request.
+ */
+function creditUsedUp(error: InstanceType<typeof Anthropic.APIError>): boolean {
+  if (error.status === 402 || error.type === "billing_error") return true;
+  if (error.status !== 400) return false;
+  const body = error.error as { error?: { message?: unknown } } | undefined;
+  const message = typeof body?.error?.message === "string" ? body.error.message : error.message;
+  return /credit balance is too low/i.test(message);
 }

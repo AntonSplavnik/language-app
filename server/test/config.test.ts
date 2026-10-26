@@ -15,6 +15,8 @@ describe("parseConfig", () => {
     // Accounts (§17.4): invite-only unless switched to open.
     expect(config.SIGNUP_MODE).toBe("invite");
     expect(config.WEB_PORT).toBe(5173);
+    // The daily limits' day (§11.5).
+    expect(config.APP_TIME_ZONE).toBe("Europe/Berlin");
   });
 
   it("treats empty values as unset", () => {
@@ -44,5 +46,18 @@ describe("the Better Auth secret", () => {
   it("accepts only the two sign-up modes", () => {
     expect(parseConfig({ SIGNUP_MODE: "open" }).SIGNUP_MODE).toBe("open");
     expect(() => parseConfig({ SIGNUP_MODE: "closed" })).toThrow();
+  });
+});
+
+describe("APP_TIME_ZONE (§11.5)", () => {
+  it("takes an IANA time zone", () => {
+    expect(parseConfig({ APP_TIME_ZONE: "America/New_York" }).APP_TIME_ZONE).toBe(
+      "America/New_York",
+    );
+    expect(parseConfig({ APP_TIME_ZONE: "UTC" }).APP_TIME_ZONE).toBe("UTC");
+  });
+
+  it.each(["Mars/Olympus_Mons", "Berlin", "+02:00", "CEST+2"])("refuses %s", (zone) => {
+    expect(() => parseConfig({ APP_TIME_ZONE: zone })).toThrow(/APP_TIME_ZONE/);
   });
 });

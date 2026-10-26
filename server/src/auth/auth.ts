@@ -1,11 +1,11 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { PASSWORD_MAX, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN } from "@language-app/core";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { username } from "better-auth/plugins";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
-import { isInvited, markInviteUsed } from "./invites";
+import { isInvited, markInviteUsed, removeInvite } from "./invites";
 
 // Accounts with Better Auth, inside our own server (docs/design.md §17.3, §16 Better Auth). Its
 // tables are ours (db/schema.ts); the web app calls its endpoints under /api/auth like any other.
@@ -97,6 +97,24 @@ export function createAuth({
           return { error: "not_invited", errorDescription: "This email is not on the invite list" };
         }
       },
+      // Settings → Account → Delete account (§4 Accounts). Better Auth deletes the users row
+      // (after its sessions and sign-in methods), and our tables go with it: everything a learner
+      // owns references users ON DELETE CASCADE (§5). It wants the password, or a session
+      // younger than a day (`freshAge`); the hook below makes an account with a password give it.
+      deleteUser: {
+        enabled: true,
+        // An invite for the account's email that was never linked to it (added again later)
+        // would let the email sign up again; the linked one has gone with the cascade.
+        afterDelete: async (user) => {
+          if (typeof user.email !== "string") return;
+          try {
+            await removeInvite(db, user.email);
+          } catch (error) {
+            // The account is gone either way; only a stray invite would be left.
+            console.error("Couldn't remove the deleted account's invite", error);
+          }
+        },
+      },
     },
     databaseHooks: {
       user: {
@@ -131,6 +149,8 @@ export function createAuth({
         "/sign-in/email": ATTEMPTS,
         "/sign-in/username": ATTEMPTS,
         "/sign-up/email": ATTEMPTS,
+        // It checks a password too.
+        "/delete-user": ATTEMPTS,
       },
     },
     emailAndPassword: {
@@ -144,8 +164,9 @@ export function createAuth({
     // It would reveal usernames, and the form doesn't need it.
     disabledPaths: ["/is-username-available"],
     hooks: {
-      // Sign-up asks for a username (Better Auth's is optional), and `name` is the username.
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/delete-user") return requirePasswordToDelete(ctx);
+        // Sign-up asks for a username (Better Auth's is optional), and `name` is the username.
         if (ctx.path !== "/sign-up/email") return;
         const typed: unknown = ctx.body?.username;
         if (typeof typed !== "string" || typed.trim() === "") {
@@ -161,3 +182,23 @@ export function createAuth({
 }
 
 export type Auth = ReturnType<typeof createAuth>;
+
+type MiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+/**
+ * Deleting an account with a password needs that password (§4 Accounts): Better Auth would also
+ * take a session younger than a day instead, which is meant for accounts without one (Google).
+ * Without a session the endpoint itself answers 401.
+ */
+async function requirePasswordToDelete(ctx: MiddlewareContext): Promise<void> {
+  const password: unknown = ctx.body?.password;
+  if (typeof password === "string" && password !== "") return;
+  const session = await getSessionFromCtx(ctx, { disableRefresh: true });
+  if (!session) return;
+  if (await ctx.context.internalAdapter.findCredentialAccount(session.user.id)) {
+    throw new APIError("BAD_REQUEST", {
+      code: "PASSWORD_REQUIRED",
+      message: "Enter your password to delete the account",
+    });
+  }
+}

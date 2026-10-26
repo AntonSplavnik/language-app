@@ -1,5 +1,6 @@
 import { APP_NAME } from "@language-app/core";
 import { Navigate, Route, Routes, useLocation } from "react-router";
+import { withoutAiRedirect } from "./auth/aiFeatures";
 import { ACCOUNT_URL, redirectFor, SIGN_IN, SIGN_UP } from "./auth/rules";
 import { useAuth } from "./auth/session";
 import { LoadState } from "./components/LoadState";
@@ -39,11 +40,14 @@ export function App() {
       </Page>
     );
   }
-  const redirect = redirectFor(
-    state.kind === "signedIn" ? { signedIn: true } : { signedIn: false, byChoice: state.byChoice },
-    pathname,
-    search,
-  );
+  const redirect =
+    redirectFor(
+      state.kind === "signedIn"
+        ? { signedIn: true }
+        : { signedIn: false, byChoice: state.byChoice },
+      pathname,
+      search,
+    ) ?? (state.kind === "signedIn" ? withoutAiRedirect(state.user.aiEnabled, pathname) : null);
   if (redirect) return <Navigate to={redirect} replace />;
   // Signed out, only Sign in and Create account open.
   if (state.kind === "signedOut") {

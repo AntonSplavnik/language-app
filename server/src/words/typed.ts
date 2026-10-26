@@ -10,8 +10,8 @@ import type {
 } from "@language-app/core";
 import { and, eq, inArray } from "drizzle-orm";
 import { type AiClient, AiError } from "../ai/types";
-import { countCallsToday } from "../ai/usage";
-import type { LearnerRef } from "../auth/learner";
+import { countCallsToday, type DayDeps, today } from "../ai/usage";
+import type { Learner, LearnerRef } from "../auth/learner";
 import type { Db, Executor } from "../db/client";
 import { dictionaryEntries, imports, userWords, wordTranslations } from "../db/schema";
 import { checkWord } from "../dictionary/check";
@@ -37,11 +37,12 @@ type Planned = WordIdentity & {
  * Saves typed words (§6.7): each becomes a shared `words` row (found or created) and a `learning`
  * row in the learner's list; a word already in the list is left as it is. With `asImport` the
  * words are one `done` import with `source = typed`, made only when something was added. Then
- * enrichment runs as for imported words; it never fails the save.
+ * enrichment runs as for imported words; it never fails the save. Without AI, it is only the
+ * dictionary's step, with no AI call (§6.7).
  */
 export async function saveTypedWords(
   deps: EnrichDeps,
-  learner: LearnerRef,
+  learner: Learner,
   typed: TypedWord[],
   { asImport }: { asImport: boolean },
 ): Promise<TypedImportResponse> {
@@ -214,12 +215,13 @@ async function translationFor(
   return null;
 }
 
-export type DescribeDeps = { db: Db; ai: AiClient; dailyDescribeLimit: number };
+export type DescribeDeps = { db: Db; ai: AiClient; dailyDescribeLimit: number } & DayDeps;
 
 /** How a failed Ask AI reaches the client (§12 Adding words); not the photo wording of §12 Import. */
 const DESCRIBE_ERRORS: Record<AiError["code"], { status: number; code: string; message: string }> =
   {
     busy: { status: 503, code: "ai_busy", message: "AI is busy, try again" },
+    unavailable: { status: 503, code: "ai_unavailable", message: "AI is unavailable right now" },
     refused: {
       status: 422,
       code: "ai_refused",
@@ -242,17 +244,18 @@ const DESCRIBE_ERRORS: Record<AiError["code"], { status: number; code: string; m
  * in that entry's sense, keeping the entry's word. Counted against the daily Ask AI limit.
  */
 export async function describeWord(
-  { db, ai, dailyDescribeLimit }: DescribeDeps,
+  deps: DescribeDeps,
   learner: LearnerRef,
   { text, entryId }: DescribeRequest,
 ): Promise<DescribeResponse> {
+  const { db, ai, dailyDescribeLimit } = deps;
   const userId = learner.id;
   let entry: DictionaryEntry | undefined;
   if (entryId !== undefined) {
     [entry] = await db.select().from(dictionaryEntries).where(eq(dictionaryEntries.id, entryId));
     if (!entry) throw new HttpError(404, "entry_not_found", "Dictionary entry not found");
   }
-  if ((await countCallsToday(db, userId, "describe")) >= dailyDescribeLimit) {
+  if ((await countCallsToday(db, userId, "describe", today(deps))) >= dailyDescribeLimit) {
     throw new HttpError(429, "daily_limit", "Daily AI limit reached");
   }
 

@@ -32,6 +32,11 @@ export interface AiClient {
 export type AiErrorCode =
   /** Rate limited, overloaded or unreachable after the SDK's own retries; worth retrying later. */
   | "busy"
+  /**
+   * The Anthropic credit is used up (400 "credit balance is too low", or 402 `billing_error`):
+   * nothing works until it is topped up, so it isn't retried (§12).
+   */
+  | "unavailable"
   /** Declined by safety classifiers, after the server-side fallback also declined. */
   | "refused"
   /** The response did not match the schema twice in a row. */

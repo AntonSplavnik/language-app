@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "kind": "error",
+    "source": "The Messages API's answer once the prepaid credit is used up, in its first reported form (docs/design.md §16, Other M12 facts). Not recorded: used-up credit can't be provoked on the developer's key, so it is written in the API's error shape, as the other cases that can't be provoked are built in the tests."
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "request-id": "req_011CreditBalanceTooLow0001"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."
+    },
+    "request_id": "req_011CreditBalanceTooLow0001"
+  }
+}

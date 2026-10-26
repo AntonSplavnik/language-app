@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import type { DescribeInput, EnrichedWord, EnrichInputWord } from "@language-app/core";
-import type { MessageRequest, MessageTransport } from "../../src/ai/transport";
+import {
+  anthropicTransport,
+  type MessageRequest,
+  type MessageTransport,
+} from "../../src/ai/transport";
 
 /** A real Claude response recorded with `pnpm --filter server ai:try … --save <name>`. */
 export type AiFixture = {
@@ -94,6 +98,35 @@ export const apiError = (status: number) =>
 
 export const connectionError = () =>
   new Anthropic.APIConnectionError({ message: "Connection error." });
+
+/** An error answer of the Messages API, as it arrives over HTTP (status, headers, JSON body). */
+export type AiErrorFixture = {
+  meta: { kind: "error"; source: string };
+  status: number;
+  headers: Record<string, string>;
+  body: unknown;
+};
+
+export function loadAiErrorFixture(name: string): AiErrorFixture {
+  const url = new URL(`../fixtures/ai/${name}.json`, import.meta.url);
+  return JSON.parse(readFileSync(url, "utf8")) as AiErrorFixture;
+}
+
+/**
+ * The real transport, with the real SDK and its own retry policy, talking to a fake `fetch` that
+ * answers every request with the fixture. `calls()` says how often the SDK asked.
+ */
+export function answeringTransport(fixture: AiErrorFixture) {
+  let calls = 0;
+  const fetch: typeof globalThis.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify(fixture.body), {
+      status: fixture.status,
+      headers: fixture.headers,
+    });
+  };
+  return { transport: anthropicTransport("test-key", { fetch }), calls: () => calls };
+}
 
 /**
  * A transport that builds each response from its request, for calls that run in parallel or in

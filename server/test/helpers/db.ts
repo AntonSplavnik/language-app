@@ -11,7 +11,8 @@ export const LEARNER_ID = 1;
 
 /**
  * Gives a test file a connection to the test database and empties it before each test.
- * User 1 is kept, signed out and unclaimed; everything else is truncated.
+ * User 1 is kept, signed out and unclaimed but with AI on, as the developer account has it (the
+ * route tests use the AI routes as user 1); everything else is truncated.
  */
 export function useTestDb(): Db {
   const db = createDb(testDatabaseUrl());
@@ -38,6 +39,6 @@ async function resetDb(db: Db): Promise<void> {
     UPDATE users
     SET name = 'Learner', learner_language = 'en', target_language = 'de', email = NULL,
         email_verified = false, image = NULL, username = NULL, display_username = NULL,
-        ai_enabled = false
+        ai_enabled = true
     WHERE id = ${LEARNER_ID}`);
 }
