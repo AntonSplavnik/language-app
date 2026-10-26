@@ -8,9 +8,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { dictionaryEntries, dictionaryForms, users, userWords, words } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
 import { SIMILARITY_MIN } from "../../src/dictionary/search";
-import { SINGLE_USER_ID } from "../../src/user";
 import { buildTestApp } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 // The dictionary search for typed words (docs/design.md §6.7, §7 search, §9.3), against the sample
 // cut from the real file (server/test/fixtures/kaikki-sample.jsonl).
@@ -51,7 +50,7 @@ async function inMyList(
   lemma: string,
   pos: EntryView["pos"],
   article: EntryView["article"],
-  { status = "learning", userId = SINGLE_USER_ID }: { status?: WordStatus; userId?: number } = {},
+  { status = "learning", userId = LEARNER_ID }: { status?: WordStatus; userId?: number } = {},
 ) {
   const word = first(
     await db

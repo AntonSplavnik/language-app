@@ -1,28 +1,51 @@
 // Runs the import flow end to end against a running `pnpm dev`, through the same API client and
 // /api proxy the web app uses. Makes one real AI call.
 //
-//   pnpm --filter server demo:import <photo> [--save] [--base http://localhost:5173]
+//   pnpm --filter server demo:import <photo> --user <email|username> [--save] [--base http://localhost:5173]
 //
-// Without --save the import is left open (Home shows a banner for it). With --save, content words
-// are added (dictionary article applied to mismatches) and small words are skipped.
+// Signs in as --user first (the password is asked for, or piped in). Without --save the import is
+// left open (Home shows a banner for it). With --save, content words are added (dictionary article
+// applied to mismatches) and small words are skipped.
 import { basename, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Candidate, createApiClient, type SaveDecision } from "@language-app/core";
+import { askPassword } from "./prompt";
 import { shrinkLikeTheBrowser } from "./shrink-photo";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  options: { save: { type: "boolean" }, base: { type: "string" } },
+  options: { save: { type: "boolean" }, base: { type: "string" }, user: { type: "string" } },
 });
 const [photo] = positionals;
-if (!photo) {
-  console.error("Usage: demo:import <photo> [--save] [--base http://localhost:5173]");
+const login = values.user;
+if (!photo || !login) {
+  console.error(
+    "Usage: demo:import <photo> --user <email|username> [--save] [--base http://localhost:5173]",
+  );
   process.exit(1);
 }
 
 const baseUrl = values.base ?? `http://localhost:${process.env.WEB_PORT || 5173}`;
-const api = createApiClient({ baseUrl, fetch });
+// Node's fetch keeps no cookies: this one sends back the session cookie the sign-in set.
+let cookie = "";
+const api = createApiClient({
+  baseUrl,
+  fetch: async (input, init) => {
+    const headers = new Headers(init?.headers);
+    if (cookie) headers.set("cookie", cookie);
+    const res = await fetch(input, { ...init, headers });
+    const set = res.headers.getSetCookie().map((c) => c.split(";")[0]);
+    if (set.length > 0) cookie = set.join("; ");
+    return res;
+  },
+});
 const CONTENT_WORDS = new Set(["noun", "verb", "adjective", "adverb"]);
+
+const password = await askPassword();
+const { user } = login.includes("@")
+  ? await api.signInEmail({ email: login, password })
+  : await api.signInUsername({ username: login, password });
+console.log(`Signed in as ${user.displayUsername ?? user.email}`);
 
 const created = await api.createImport({ name: `Demo: ${basename(photo)}` });
 console.log(`Import #${created.id} created`);

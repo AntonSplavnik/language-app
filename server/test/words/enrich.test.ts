@@ -7,10 +7,9 @@ import type { MessageRequest } from "../../src/ai/transport";
 import { dbUsageSink } from "../../src/ai/usage";
 import { aiUsage, imports, userWords, words, wordTranslations } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
-import { SINGLE_USER_ID } from "../../src/user";
 import { enrichWords } from "../../src/words/enrich";
 import { apiError, enrichInputOf, fakeEnrichResponse, respondingTransport } from "../helpers/ai";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
@@ -41,7 +40,7 @@ async function addWord(
       .returning({ id: words.id }),
   );
   await db.insert(wordTranslations).values({ wordId: word.id, language: "en", translation });
-  await db.insert(userWords).values({ userId: SINGLE_USER_ID, wordId: word.id, status });
+  await db.insert(userWords).values({ userId: LEARNER_ID, wordId: word.id, status });
   return word.id;
 }
 
@@ -58,12 +57,14 @@ function setup(
       describe: "claude-haiku-5-5",
     },
     effort: "medium",
-    learnerLanguage: "en",
   });
   return {
     requests: replay.requests,
     enrich: (wordIds: number[], importId: number | null = null) =>
-      enrichWords({ db, ai }, { userId: SINGLE_USER_ID, importId, wordIds }),
+      enrichWords(
+        { db, ai },
+        { learner: { id: LEARNER_ID, learnerLanguage: "en" }, importId, wordIds },
+      ),
   };
 }
 
@@ -271,7 +272,7 @@ describe("enrichWords (§6.6)", () => {
 
   it("records each call in ai_usage against the import", async () => {
     const lesson = first(
-      await db.insert(imports).values({ userId: SINGLE_USER_ID }).returning({ id: imports.id }),
+      await db.insert(imports).values({ userId: LEARNER_ID }).returning({ id: imports.id }),
     );
     const tisch = await addWord("Tisch", "noun", "der", "table");
     await setup().enrich([tisch], lesson.id);

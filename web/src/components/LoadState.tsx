@@ -7,20 +7,25 @@ export type Load = { kind: "loading" } | { kind: "missing" } | { kind: "failed";
 
 type LoadStateProps = {
   loading: Load;
-  /** What a gone thing says, and the link to its list: "This word is not in your list any more." */
-  missing: { text: string; to: string; label: string };
+  /**
+   * What a gone thing says, and the link to its list: "This word is not in your list any more."
+   * Left out where nothing can be gone (the app's start).
+   */
+  missing?: { text: string; to: string; label: string };
   onRetry: () => void;
 };
 
 /**
  * A screen about one thing until it is there: loading, gone, or failed with Try again (§12). Word
- * detail and Edit word (through WordLoadState), an import's page and Rename import.
+ * detail and Edit word (through WordLoadState), an import's page and Rename import, and the app's
+ * start when it can't ask who is signed in.
  */
 export function LoadState({ loading, missing, onRetry }: LoadStateProps) {
   switch (loading.kind) {
     case "loading":
       return <p className={styles.muted}>Loading…</p>;
     case "missing":
+      if (!missing) return null;
       return (
         <div className={styles.gone}>
           <p>{missing.text}</p>

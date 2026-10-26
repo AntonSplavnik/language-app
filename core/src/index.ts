@@ -3,6 +3,7 @@ export * from "./card";
 export * from "./highlight";
 export * from "./learning";
 export * from "./schemas/ai";
+export * from "./schemas/auth";
 export * from "./schemas/common";
 export * from "./schemas/health";
 export * from "./schemas/imports";

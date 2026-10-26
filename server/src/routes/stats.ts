@@ -3,11 +3,10 @@ import { and, count, desc, eq, gt, inArray, isNull, ne } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Db } from "../db/client";
 import { imports, userWords, words } from "../db/schema";
-import { SINGLE_USER_ID } from "../user";
 
 export function statsRoutes(app: FastifyInstance, { db }: { db: Db }) {
-  app.get("/api/stats", async (): Promise<StatsResponse> => {
-    const userId = SINGLE_USER_ID;
+  app.get("/api/stats", async (request): Promise<StatsResponse> => {
+    const userId = request.learner.id;
 
     const counts = await db
       .select({ status: userWords.status, count: count() })

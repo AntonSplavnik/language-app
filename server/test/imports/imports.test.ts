@@ -13,10 +13,9 @@ import { createClaudeAi } from "../../src/ai/claude";
 import { dbUsageSink } from "../../src/ai/usage";
 import { aiUsage, imports, userWords, words, wordTranslations } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
-import { SINGLE_USER_ID } from "../../src/user";
 import { apiError, loadAiFixture, replayTransport, withStopReason, withText } from "../helpers/ai";
 import { buildTestApp, multipartFile } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
@@ -61,7 +60,6 @@ function setup(responses: Array<BetaMessage | Error> = [], dailyPhotoLimit = 50)
       describe: "claude-haiku-5-5",
     },
     effort: "medium",
-    learnerLanguage: "en",
   });
   const app = buildTestApp(db, { ai, dailyPhotoLimit });
 
@@ -158,7 +156,7 @@ describe("POST /api/imports", () => {
     );
     await db
       .insert(userWords)
-      .values({ userId: SINGLE_USER_ID, wordId: word.id, status: "learning", importId: pdf.id });
+      .values({ userId: LEARNER_ID, wordId: word.id, status: "learning", importId: pdf.id });
     const listed = ImportListResponse.parse(
       (await s.app.inject({ method: "GET", url: "/api/imports" })).json(),
     ).imports;
@@ -260,9 +258,7 @@ describe("POST /api/imports/:id/photos (§6.1–6.3)", () => {
         })
         .returning({ id: words.id }),
     );
-    await db
-      .insert(userWords)
-      .values({ userId: SINGLE_USER_ID, wordId: tisch.id, status: "ignored" });
+    await db.insert(userWords).values({ userId: LEARNER_ID, wordId: tisch.id, status: "ignored" });
 
     const view = await importWithPage(s);
     expect(candidate(view, "Tisch|noun|der").existing).toBe("in_my_words");
@@ -287,8 +283,8 @@ describe("POST /api/imports/:id/photos (§6.1–6.3)", () => {
     const s = setup([page(PAGE_ONE)], 2);
     const created = await s.createImport();
     await db.insert(aiUsage).values([
-      { userId: SINGLE_USER_ID, callType: "extract", model: "m", ok: true },
-      { userId: SINGLE_USER_ID, callType: "extract", model: "m", ok: false },
+      { userId: LEARNER_ID, callType: "extract", model: "m", ok: true },
+      { userId: LEARNER_ID, callType: "extract", model: "m", ok: false },
     ]);
 
     const res = await s.upload(created.id);
@@ -466,7 +462,7 @@ describe("POST /api/imports/:id/save (§6.5)", () => {
     );
     await db
       .insert(userWords)
-      .values({ userId: SINGLE_USER_ID, wordId: zeitung.id, status: "learned" });
+      .values({ userId: LEARNER_ID, wordId: zeitung.id, status: "learned" });
 
     const res = await s.save(view.id, [{ key: "Zeitung|noun|der", action: "add", article: "die" }]);
     expect(SaveResponse.parse(res.json())).toMatchObject({ added: 0 });
@@ -583,7 +579,7 @@ describe("POST /api/imports/:id/save (§6.5)", () => {
       await db
         .select()
         .from(userWords)
-        .where(and(eq(userWords.userId, SINGLE_USER_ID)))
+        .where(and(eq(userWords.userId, LEARNER_ID)))
         .orderBy(asc(userWords.id)),
     ).toHaveLength(1);
   });

@@ -97,7 +97,7 @@ const auth = betterAuth({
         return { error: "not_invited", errorDescription: "This email is not on the invite list" };
       }
     },
-    deleteUser: { enabled: true }, // our tables cascade from users (§17.2)
+    deleteUser: { enabled: true }, // our tables cascade from users (design §5)
   },
   session: { modelName: "authSessions", expiresIn: 60 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
   account: { modelName: "authAccounts" },

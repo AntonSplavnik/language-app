@@ -1,12 +1,17 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeEach } from "vitest";
 import { createDb, type Db } from "../../src/db/client";
-import { SINGLE_USER_ID } from "../../src/user";
 import { testDatabaseUrl } from "./env";
 
 /**
+ * The learner the route tests act as: user 1, created by the seed migration (the prototype's
+ * single learner, claimed as the developer account by `user:claim`).
+ */
+export const LEARNER_ID = 1;
+
+/**
  * Gives a test file a connection to the test database and empties it before each test.
- * The seeded single user is kept; everything else is truncated.
+ * User 1 is kept, signed out and unclaimed; everything else is truncated.
  */
 export function useTestDb(): Db {
   const db = createDb(testDatabaseUrl());
@@ -28,5 +33,11 @@ async function resetDb(db: Db): Promise<void> {
   );
   const tables = rows.map((r) => `"${r.tablename}"`).join(", ");
   await db.execute(sql.raw(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`));
-  await db.execute(sql`DELETE FROM users WHERE id <> ${SINGLE_USER_ID}`);
+  await db.execute(sql`DELETE FROM users WHERE id <> ${LEARNER_ID}`);
+  await db.execute(sql`
+    UPDATE users
+    SET name = 'Learner', learner_language = 'en', target_language = 'de', email = NULL,
+        email_verified = false, image = NULL, username = NULL, display_username = NULL,
+        ai_enabled = false
+    WHERE id = ${LEARNER_ID}`);
 }

@@ -1,4 +1,13 @@
 import type { z } from "zod";
+import {
+  AuthErrorBody,
+  AuthSession,
+  SignedInResponse,
+  type SignInEmailRequest,
+  type SignInUsernameRequest,
+  SignOutResponse,
+  type SignUpRequest,
+} from "./schemas/auth";
 import { ApiError } from "./schemas/common";
 import { HealthResponse } from "./schemas/health";
 import {
@@ -44,7 +53,11 @@ import {
 /** Every failed API call: an error from the server, an unexpected response, or no connection. */
 export class ApiClientError extends Error {
   constructor(
-    /** Server error code, or `http_error`, `invalid_response`, `network`. */
+    /**
+     * Server error code (ours, or Better Auth's such as `INVALID_EMAIL_OR_PASSWORD`), or
+     * `unauthorized` (a 401), `too_many_requests` (a 429), `http_error`, `invalid_response`,
+     * `network`.
+     */
     readonly code: string,
     message: string,
     /** HTTP status; null when the request never got a response. */
@@ -81,7 +94,17 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
       if (error.success) {
         throw new ApiClientError(error.data.error.code, error.data.error.message, res.status);
       }
-      throw new ApiClientError("http_error", `Request failed (${res.status})`, res.status);
+      // Better Auth's endpoints answer `{ code, message }` instead (§17.3).
+      const authError = AuthErrorBody.safeParse(body);
+      if (authError.success) {
+        const { code, message } = authError.data;
+        throw new ApiClientError(code ?? codeForStatus(res.status), message, res.status);
+      }
+      throw new ApiClientError(
+        codeForStatus(res.status),
+        `Request failed (${res.status})`,
+        res.status,
+      );
     }
 
     const parsed = schema.safeParse(body);
@@ -107,6 +130,18 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 
   return {
     health: () => request(HealthResponse, "/health"),
+
+    /** The signed-in account, or null; also keeps the session cookie fresh (§17.3). */
+    getSession: () => request(AuthSession, "/auth/get-session"),
+    /** Create account: signs the new account in (§17.3). */
+    signUp: (body: SignUpRequest) => postJson(SignedInResponse, "/auth/sign-up/email", body),
+    signInEmail: (body: SignInEmailRequest) =>
+      postJson(SignedInResponse, "/auth/sign-in/email", body),
+    signInUsername: (body: SignInUsernameRequest) =>
+      postJson(SignedInResponse, "/auth/sign-in/username", body),
+    /** Ends this sign-in only. */
+    signOut: () => postJson(SignOutResponse, "/auth/sign-out"),
+
     stats: () => request(StatsResponse, "/stats"),
 
     /** The past imports (§9.2), newest first. */
@@ -159,6 +194,16 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
+
+/**
+ * The code of an error answer without a body we can read: any 401 means the session is gone, and
+ * Better Auth's rate limiter answers 429 with only a message (§17.3).
+ */
+function codeForStatus(status: number): string {
+  if (status === 401) return "unauthorized";
+  if (status === 429) return "too_many_requests";
+  return "http_error";
+}
 
 /** `?a=1&b=2` from the given values, leaving out empty ones; "" when nothing is left. */
 function queryString(params: Record<string, string | number | undefined>): string {

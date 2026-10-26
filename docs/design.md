@@ -1,7 +1,7 @@
 # Language App — Prototype Design
 
-**Date:** 2026-10-11, last updated 2026-10-23
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF); kept in sync with the code.
+**Date:** 2026-10-11, last updated 2026-10-25
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in); kept in sync with the code.
 
 ## 1. Purpose
 
@@ -25,10 +25,10 @@ A companion app for learning German from any book. After each study session the 
 - Per-word progress tracking
 - "My words" list with edit, status change and delete
 - AI usage tracking (tokens and time per call, from which the cost is worked out) and a daily photo limit
-- One user, no login; English as the learner language; German as the target language
+- Accounts (M12.1): sign-in by email or username and a password, invite-only sign-up; English as the learner language; German as the target language
 
 ### Not in the prototype (see §15 Later)
-Grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, accounts, phone app, starter word lists.
+Grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
 
 ## 3. Key decisions
 
@@ -71,15 +71,16 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
   - **API client** used by the web app.
   - **Learning rules**: applying a card result to a word's progress (`applyResult(progress, result, now) → progress`).
   - **Card formatting** (`card.ts`): what the front and back of a card show, and which translation to show (`displayTranslation`: the learner's own wins).
-- **`server/`** — the only unit that talks to the database and to Claude. Holds the API key. Each feature folder has its own `routes.ts` with its HTTP endpoints (§9); `app.ts` wires them together.
+- **`server/`** — the only unit that talks to the database and to Claude. Holds the API key. Each feature folder has its own `routes.ts` with its HTTP endpoints (§9); `app.ts` wires them together, every route but `/api/health` and `/api/auth/*` behind the session hook.
   - `db/` — Drizzle schema and migrations.
-  - `ai/` — the Claude client (`AiClient`: `extractWords(jpeg, ctx)`, `enrichWords(words, ctx)`) on a swappable message transport, so tests replay recorded responses; the prompts; `ai_usage` rows.
+  - `auth/` — accounts with Better Auth (`auth.ts`, its configuration), its endpoints mounted under `/api/auth/*` and the session hook (`routes.ts`), the signed-in learner (`learner.ts`), the invite list (`invites.ts`) and `user:claim` (`claim.ts`); see Accounts below.
+  - `ai/` — the Claude client (`AiClient`: `extractWords(jpeg, ctx)`, `enrichWords(words, ctx)`, `describeWord(input, ctx)`) on a swappable message transport, so tests replay recorded responses; the prompts; `ai_usage` rows. `ctx` names the learner: their id (for `ai_usage`) and their language, taken from the session for each call.
   - `dictionary/` — Wiktionary lookups and the check rules; `scripts/import-wiktionary.ts` loads the reference table.
   - `imports/` — import flow: merge, compare, dictionary check, save.
   - `words/` — enrichment (`enrich.ts`), pronunciation from the dictionary and its backfill (`pronunciation.ts`), the learner's word list: list, detail, edit, delete (`service.ts`), and the query every word view is built on (`views.ts`).
   - `practice/` — session word selection and result recording.
   - `routes/stats.ts` — Home's counters; `http/errors.ts` — error responses (§12); `config.ts` — `.env` validation.
-- **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`, `playAudio()`, and for PDFs `pickPdf()`, `openPdf()` / `renderPage()` and the remembered book's storage, `bookStore`), so a phone app only needs to replace those.
+- **`web/`** — screens and interaction only: photo picking and shrinking, review list, card flip/swipe animation, keyboard shortcuts. All data access goes through the `core/` API client; who is signed in comes from `auth/session.tsx`, and `auth/rules.ts` holds Sign in's and Create account's rules. Device features sit behind small wrappers (`pickPhotos()`, `shrinkImage()`, `playAudio()`, and for PDFs `pickPdf()`, `openPdf()` / `renderPage()` and the remembered book's storage, `bookStore`), so a phone app only needs to replace those.
 
 ### Technology
 
@@ -90,14 +91,25 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Runtime | Node.js 24 or newer (developed on 26) |
 | Web | React + Vite, React Router, CSS Modules, `@use-gesture/react` for swipes, pdf.js (`pdfjs-dist`, its legacy build, §6.8) to render PDF pages |
 | Server | Fastify, `@fastify/multipart` for photo upload |
+| Accounts | Better Auth 1.7.7 (`better-auth` and `@better-auth/drizzle-adapter`, always the same exact version) with its `username` plugin, inside the server; the web app uses no Better Auth client library |
 | Database | PostgreSQL 17 in Docker, Drizzle ORM + drizzle-kit migrations |
 | Validation | Zod (shared in `core/`) |
 | AI | Anthropic TypeScript SDK (`@anthropic-ai/sdk`), structured outputs |
 | Tests | Vitest |
 | Lint / format | Biome |
 
-### Single user
-A single user row is created by a seed migration (`0001_seed-single-user.sql`). The server uses its fixed id (`SINGLE_USER_ID`) for every request. Every learner-owned table has `user_id`, so adding accounts later does not change the schema.
+### Accounts
+Every learner has an account and signs in with their email or username and a password (M12.1; Google comes in M12.3). Better Auth runs inside our Fastify server, with its tables in our database (§5) and its migrations in our drizzle-kit flow.
+- **Sign-up is invite-only** while `SIGNUP_MODE=invite` (the default): an account can only be created for an email on the invite list (`invites`, edited with `invite:*`, §14). Better Auth's `user.validateUserInfo` checks the list before any user is created and answers 403 `not_invited`; once the account exists, a database hook (`databaseHooks.user.create.after`, which Better Auth runs after the sign-up's transaction commits) marks the invite used and links it. After that the list doesn't matter: removing an invite doesn't remove its account. `SIGNUP_MODE=open` skips the check (only once the email service and a privacy page exist, §15).
+- **Every API route needs a session,** except `/api/health` and `/api/auth/*`. An `onRequest` hook in front of them reads the session cookie (`auth.api.getSession`, without extending the session) and hands the route the learner, `{ id, learnerLanguage, aiEnabled }`; without a session it answers 401 `unauthorized`. Routes keep everything per `user_id`, so another learner's ids answer 404 (§9).
+- **The AI's language** is the signed-in learner's, passed to every AI call (§11) from the session; the AI client is created once without one.
+- **User 1** is the prototype's single learner, created by the seed migration (`0001_seed-single-user.sql`), who owns the word list on the Mac. It has no email or password until `user:claim` (§14) makes it the developer account, with AI on.
+- **Sessions** are rows in `auth_sessions`, found through the cookie `better-auth.session_token` (HttpOnly, `SameSite=Lax`, signed with `BETTER_AUTH_SECRET`). A session lasts 60 days and is extended by each day's use: the web app calls `GET /api/auth/get-session` when it starts, which refreshes it and its cookie (§10). On the Mac the cookie is never `Secure` (`advanced.useSecureCookies: false`), so signing in works over the LAN's plain HTTP; Safari and the Home Screen app keep separate cookies, so each signs in once.
+- **Addresses on the Mac:** the base URL follows the request's host among `localhost`, `127.0.0.1`, `192.168.*.*`, `10.*.*.*` and `*.local` on `WEB_PORT` (Better Auth's `baseURL.allowedHosts`, `protocol: "auto"`, falling back to `http://localhost:<WEB_PORT>` for the scripts), and the same addresses are the trusted origins: a sign-in, a sign-up, or any POST to `/api/auth/*` that carries the cookie must come from one of them (403 `INVALID_ORIGIN`). Better Auth skips this check when `NODE_ENV=test`; ours sets `advanced.disableOriginCheck: false`, so it always runs.
+- **Rate limits:** 5 attempts a minute per client address on each of `/sign-in/email`, `/sign-in/username` and `/sign-up/email`, then 429; switched on explicitly (Better Auth's default is production only) and counted in `auth_rate_limits`, so every server instance sees them. The address comes from `x-forwarded-for`: Vite's proxy adds the device's address (`xfwd`), and the server, listening on 127.0.0.1 only, trusts the loopback hop (`advanced.ipAddress.trustedProxies`). The Mac's own browser, itself on loopback, has one shared count.
+- **Ids:** Better Auth runs with database-generated integer ids (`advanced.database.generateId: "serial"`), so `users.id` and every `user_id` stay integers; its answers carry ids as strings (`"2"`), and the server converts them where it reads them.
+- **Errors:** Better Auth's endpoints answer with their own body, `{ code, message }` (`USERNAME_IS_ALREADY_TAKEN`, `INVALID_EMAIL_OR_PASSWORD`, `not_invited`…; the rate limiter's 429 has only a message). `core/`'s client turns them into `ApiClientError`s like ours (§12).
+- **No password reset by email.** Until the email service exists, a forgotten password is reset by the owner with a script (`user:set-password`, M12.2), and Sign in has no "Forgot password" link.
 
 ## 5. Data model
 
@@ -106,17 +118,44 @@ users ──< user_words >── words ──< word_translations
   │           │            │
   ├──< imports┘            └ (checked against) dictionary_entries
   ├──< sessions ──< card_results >── user_words
-  └──< ai_usage
+  ├──< ai_usage
+  ├──< auth_sessions, auth_accounts
+  └──< invites (the one it was made from)
 ```
 
+**Deleting a user deletes their data in one statement:** `imports`, `user_words`, `sessions`, `ai_usage`, `auth_sessions`, `auth_accounts` and `invites` reference `users` with `ON DELETE CASCADE`, and `card_results` cascade from sessions and user words. The shared `words` and `word_translations` rows stay, since they hold no personal data. (Deleting an account from the app comes with M12.2, §17.)
+
 ### `users`
+The learner's account, and Better Auth's user model (`user.modelName: "users"`; it addresses the columns by their Drizzle property names).
+
 | Field | Notes |
 |---|---|
 | `id` | |
-| `name` | |
-| `learner_language` | `en` (later `ko`) |
-| `target_language` | `de` |
+| `name` | The username as typed (set from it on sign-up); user 1 keeps "Learner" |
+| `learner_language` | `en` (later `ko`); default `en` for a new account. Better Auth "additional field" with `input: false`: no client can set it |
+| `target_language` | `de`; default `de`, `input: false` like `learner_language` |
 | `created_at` | |
+| `email` | Unique, stored lower-case; null only on user 1 until `user:claim` (§4 Accounts) |
+| `email_verified` | Default false; true on the claimed developer account (and after a Google sign-up, M12.3) |
+| `image` | Google's picture address (M12.3), unused for now |
+| `updated_at` | |
+| `username` | Unique, stored lower-case |
+| `display_username` | The username as typed, shown in the app |
+| `ai_enabled` | Default false; `input: false`, so no client can set it. Set by `user:claim` (and `user:ai`, M12.2); enforced from M12.2 (§17.5) |
+
+### Better Auth's tables
+Prefixed so they aren't confused with practice `sessions`, and named explicitly in its configuration (`session.modelName: "authSessions"` etc.; never `usePlural`, which would pick our `sessions`). Integer identity ids like ours.
+- `auth_sessions`: one per sign-in: `token` (unique), `expires_at`, `ip_address`, `user_agent`, `user_id`.
+- `auth_accounts`: one per way to sign in: `provider_id` `credential` with the password hash in `password` (scrypt) and the user's id as `account_id`; later `google` with Google's account id.
+- `auth_verifications`: unused until the email service.
+- `auth_rate_limits`: the sign-in and sign-up attempt counters, `key` (`<address>|<path>`), `count`, `last_request` (ms).
+
+### `invites`
+| Field | Notes |
+|---|---|
+| `email` | Primary key; trimmed and lower-case |
+| `created_at` | |
+| `used_at`, `user_id` | When an account was created for it, and which (§4 Accounts) |
 
 ### `words` — shared dictionary of word facts (no personal data)
 | Field | Notes |
@@ -399,11 +438,12 @@ After the last card, under the large title "Session done": a results card with "
 
 ## 9. API
 
-All routes under `/api`, JSON unless noted. Request and response shapes are Zod schemas in `core/`.
+All routes under `/api`, JSON unless noted. Request and response shapes are Zod schemas in `core/`. Every route but `/health` and `/auth/*` needs a session and acts for its learner; without one it answers 401 `unauthorized` (§4 Accounts, §9.4).
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | `{ status: "ok" }` |
+| GET, POST | `/auth/*` | Better Auth's endpoints: sign-up, sign-in, sign-out, the session, see §9.4 |
 | GET | `/stats` | Home counters (learning, learned), `detailsPending` (the learner's non-ignored words without details) and unfinished imports |
 | GET | `/imports` | Past imports → `{ imports }`, see §9.2 |
 | POST | `/imports` | Create import `{ name?, source? }` (name trimmed, at most 100 characters; `source` `photos` (default) or `pdf`, §6.8; anything else, `typed` included, is 400 `invalid_request`) → 201 + import |
@@ -448,6 +488,14 @@ An `EntryView` is one dictionary entry as Confirm word shows it (§10 screen 15)
 - **`POST /words/describe`** — `{ text }` (trimmed, 1–50 characters) asks the AI which word the learner meant (Call 3, §11.6) → `{ lemma, pos, article, translation }`. With `entryId`, only a translation is asked for, in that entry's sense, and the answer keeps the entry's word (a noun entry with several genders, *der/das Liter*, has one meaning: its first gender stands in). 404 `entry_not_found`, checked before the AI is asked; 422 `not_german` when the AI says the text isn't German; the AI errors of §12 (`ai_busy`, `ai_refused`, `ai_invalid_output`); 429 `daily_limit` beyond the Ask AI limit (§11.5).
 - **`POST /words`** and **`POST /imports/typed`** — `{ words: TypedWord[] }`; a `TypedWord` is `{ lemma, pos, article, translation, entryId? }`, with `entryId` when it was chosen from the dictionary (the server checks that the entry still has that lemma, part of speech and gender; otherwise the word counts as entered by hand). Texts are trimmed; the lemma is 1–100 characters, the translation 1–200; an article on a word that isn't a noun is dropped. Two words with the same identity count once (the first). `POST /words` takes 1–5 words (the entries chosen for one typed text), `POST /imports/typed` 1–150 (a list's 30 texts with up to 5 entries chosen for each; `TYPED_IMPORT_MAX` in `core/`). Both save as in §6.7 and answer after enrichment: `POST /words` → `{ added: [{ userWordId, lemma, article }], alreadyInList, detailsPending }`; `POST /imports/typed` → `{ importId, added, alreadyInList, detailsPending }`, with `importId` `null` when nothing was added. `alreadyInList` counts the words that were in the list already.
 
+### 9.4 Accounts
+Better Auth's endpoints under `/api/auth/*`, mounted in Fastify as one GET/POST route that hands each request to its Fetch handler and sends its answer back as it is (both `Set-Cookie` headers included). Their answers carry ids as strings, and their errors are `{ code, message }` (§12). `core/` has the schemas and client calls for the ones the app uses; the web app calls them like any other route, without Better Auth's client library.
+- **`POST /auth/sign-up/email`** — `{ email, username, password }` (`SignUpRequest`): username 3–30 letters, digits, `.` and `_`, unique ignoring case (stored lower-case, `display_username` as typed); password 8–128 characters; email unique, stored lower-case. Better Auth's username is optional; ours isn't: a hook before the endpoint answers 400 `USERNAME_REQUIRED` without one, and sets `name` to it. Fields no client may set (`aiEnabled`, the languages) are ignored. Checks the invite list (§4 Accounts), creates the account and signs it in → `{ token, user }` and the session cookie. Errors: 400 `USERNAME_IS_ALREADY_TAKEN`, `USERNAME_TOO_SHORT`, `USERNAME_TOO_LONG`, `INVALID_USERNAME`, `USERNAME_REQUIRED`, `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `INVALID_EMAIL`; 422 `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`; 403 `not_invited`.
+- **`POST /auth/sign-in/email`** `{ email, password }` and **`POST /auth/sign-in/username`** `{ username, password }` — either in any case → `{ token, user }` and the session cookie. A wrong password and an unknown name get the same 401: `INVALID_EMAIL_OR_PASSWORD`, or `INVALID_USERNAME_OR_PASSWORD`.
+- **`POST /auth/sign-out`** — `{}` → `{ success: true }`; ends this sign-in only (its `auth_sessions` row), and clears the cookie.
+- **`GET /auth/get-session`** — the session and its account, or `null` when signed out (`AuthSession`). The account is `{ id, email, username, displayUsername, aiEnabled }` (Better Auth sends more; the schema keeps these). Extends a session older than a day, with its cookie.
+- **Switched off:** `/is-username-available` (it would reveal usernames). Better Auth's other built-in endpoints are left as they are; without an email sender, `/request-password-reset` answers `RESET_PASSWORD_DISABLED`.
+
 ## 10. Screens
 
 ```
@@ -456,8 +504,13 @@ Home ─┬─► Import ─┬─► Review ──► Done ─► (Practice the
       │           └─► Add words ──► Confirm word ──► (a list) Done
       ├─► Practice setup ──► Flashcards ──► Summary
       ├─► My words ──► Word detail ──► Edit word
-      └─► Settings ──► Imports ──► Import ──► Rename import
+      └─► Settings ─┬─► Account ──► (Sign out) Sign in
+                    └─► Imports ──► Import ──► Rename import
+
+(signed out) Sign in ◄──► Create account ──► (signed in) the page in ?next=, or Home
 ```
+
+**Signed in or not.** When the app starts it asks who is signed in (`GET /api/auth/get-session`, §9.4), showing nothing until it knows; if it can't reach the server it says so with **Try again**. Signed out, only Sign in and Create account open: any other page goes to Sign in with itself kept in `?next=` (`/signin?next=%2Fwords%3Fstatus%3Dlearned`; Home needs none), and signing in or creating an account returns to it. `next` is followed only to a page of the app (a path starting with one `/`, not Sign in or Create account), otherwise Home. Signed in, Sign in and Create account go to `next` or Home. Any 401 from a route while using the app (the session expired, or was ended elsewhere) leads to Sign in the same way.
 
 Mobile-first layout, usable on desktop; light and dark follow the system. How screens look (colour, type, cards, buttons, headers, the sticky action bar, toasts) is the design system in `docs/design-system/`, starting from its `README.md`. This section says what each screen shows and does.
 
@@ -510,7 +563,8 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
    - **Save** stores the changes, shows "Saved" and returns to Word detail, which loads the word again. **Cancel**, like the browser's Back, drops the typed texts without asking. Neither adds a history entry: opened from Word detail, they go back to it; opened directly (a typed URL), the detail replaces the edit screen. Either way the detail's Back still goes to the list it was opened from.
    - **Delete word** (soft red, with a bin icon), at the bottom of the screen, asks in place, not with a browser dialog, in a red-tinted card with a bin icon, the question in bold over the rest, and **Keep** / **Delete** side by side: "Delete “der Tisch” from your words? Its progress and note are lost, and a later import may offer it again as a new word. To stop practising it for good, set its status to Ignored instead." After deleting, a toast "“der Tisch” deleted" and the list; Back must not lead to the deleted word. When the history is list → detail → edit, the app goes back two entries, to that list; otherwise the list replaces the edit screen.
    - A word that no longer exists says "This word is not in your list any more", as on Word detail.
-10. **Settings** (`/settings`) — a menu: the round back button, the large title "Settings", then one card with a row per section: its name, a short status at the right in grey and a chevron; the whole row opens the section. Other sections (such as the daily goal, plan M17) will join this card. For now one row:
+10. **Settings** (`/settings`) — a menu: the round back button, the large title "Settings", then one card with a row per section: its name, a short status at the right in grey and a chevron; the whole row opens the section. Other sections (such as the daily goal, plan M17) will join this card. For now two rows:
+    - **Account**, first, with the username (as typed) at the right, opens Account (screen 19);
     - **Imports**, with the number of past imports at the right ("5"; nothing while there are none), opens Imports.
 11. **Imports** (`/settings/imports`) — the round back button (to Settings), the large title "Imports", and the past imports (`GET /imports`), newest first, as rows on the page like My words' rows, a hairline between them, each with a chevron: the label (import labels above) in bold, and under it in grey the day when the import has a name, and its words ("13 Oct · 9 words", "54 words"). The whole row opens the import. Without any: "Your imports will appear here."
 12. **Import** (`/settings/imports/:id`) — the round back button (to Imports), the import's label as the large title, and one muted line under it: its words and the day it was added ("9 words · added 13 Oct"). Then a card of actions, for now one row: **Rename** with a chevron, which opens Rename import. Later actions on an import (deleting it, for example) join this card. The page finds the import among the past imports; one that isn't there (any more) says "This import is not in your list any more" with a link to Imports.
@@ -532,6 +586,22 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
     - **Preview:** small thumbnails of the chosen pages in a row that scrolls sideways to the screen's edges, each with its number under it, so the learner sees they picked the right pages. They are drawn one at a time, 400 ms after the fields stop changing; until then each is a shimmering placeholder (a plain one if the page can't be drawn). A page no longer chosen stops being drawn (pdf.js `RenderTask.cancel()`), pages drawn earlier come back at once, and nothing on the screen waits for them.
     - **Name (optional)**, its placeholder the automatic name ("Pages 42–45").
     - **Import pages** in the action bar (the big lime button; "Import 4 pages", "Import 1 page") opens the Import screen (screen 2) with the pages as tiles; from there it is the photo flow.
+
+17. **Sign in** (`/signin`)
+    - **Layout:** no back button, and the large title "Sign in". One card (a form card, `FormCard`) with **Email or username** (`autocomplete="username"`, no automatic capital, no autocorrect) and **Password** (`type="password"`, `autocomplete="current-password"`), each a small uppercase label over a field sunk into the card (17 px). **Sign in** in the action bar (lime; grey while a field is empty; "Signing in…" with a spinner while it runs); Enter signs in too.
+    - **The one field:** with an `@` it is an email (`POST /api/auth/sign-in/email`), otherwise a username (`POST /api/auth/sign-in/username`).
+    - **Under the card:** the error, in red, then the quiet link **Create an account ›** (keeping `?next=`). **Continue with Google** joins them in M12.3.
+    - **Errors:** "Wrong email, username or password" (a wrong password, an unknown name, or one that can't be anyone's), "Too many attempts. Try again in a minute." (429), and otherwise the API client's message ("Can't reach the server").
+    - Signing in returns to the page kept in `?next=` (see Signed in or not, above).
+18. **Create account** (`/signup`)
+    - **Layout:** the round back button (to Sign in, keeping `?next=`), the large title "Create account", and a muted line "Invite only: use the email your invite was sent to." One form card with **Email** (`type="email"`, `autocomplete="email"`), **Username** (the note "3–30 letters, digits, . or _"; no automatic capital, no autocorrect) and **Password** (the note "At least 8 characters", `autocomplete="new-password"`). **Create account** in the action bar ("Creating account…" while it runs).
+    - **The field rules** are checked before anything is sent: an empty email "Enter your email address", a broken one "Enter a valid email address", a username outside the rule and a password shorter than 8 characters (or longer than 128, "At most 128 characters") show the rule in red under the field, which gets a red border; the first such field gets the focus. Typing in a field clears its error. Spaces around the email and the username are trimmed.
+    - **Errors from the server:** under their field, "This username is taken" and "An account with this email exists. Sign in instead."; under the card, "This app is invite-only. Ask for an invite first." (403 `not_invited`), "Too many attempts. Try again in a minute.", or the API client's message.
+    - The new account is signed in at once and lands on `?next=` or Home (an empty word list). **Continue with Google** joins in M12.3.
+19. **Account** (`/settings/account`)
+    - **Header:** the round back button (to Settings) and the large title "Account".
+    - **Cards:** the username (as typed) large (28 px, the display font), with the email under it in grey; **Sign-in methods** (the small uppercase label), for now one row, **Password**, with a check (Google, with **Connect**, joins in M12.3); **AI features**: "Included: photo and PDF import, Ask AI, example sentences" with AI on, otherwise "Not included in your account".
+    - **Sign out:** a large secondary button under the cards ("Signing out…"); it ends this sign-in only and goes to Sign in, without `next`. If it fails, a toast says so. **Delete account** joins at the bottom in M12.2.
 
 ## 11. AI calls
 
@@ -677,9 +747,22 @@ Recorded fixtures: an entry's translation (*die Bank*, "bank (financial institut
 | A chosen word is already in the list (added meanwhile) | Not added twice; counted in `alreadyInList` |
 | The dictionary isn't loaded | Every word is "Not in the dictionary"; the hand form and Ask AI still work |
 
+### Signing in
+| Problem | Behaviour |
+|---|---|
+| A page opened signed out, or a route answers 401 (session expired or ended elsewhere) | Sign in, with the page kept in `?next=` (§10) |
+| Asking who is signed in fails when the app starts | "Can't reach the server" with **Try again**; nothing else loads |
+| Wrong password, unknown email or username | "Wrong email, username or password", the same for both |
+| 6th sign-in or sign-up attempt within a minute from one device | 429: "Too many attempts. Try again in a minute." |
+| Sign-up with an email not on the invite list | 403 `not_invited`: "This app is invite-only. Ask for an invite first."; no account |
+| Sign-up with a taken username or email | Under the field: "This username is taken", "An account with this email exists. Sign in instead." |
+| A POST to `/api/auth/*` from an address that isn't trusted | 403 `INVALID_ORIGIN`; nothing changes |
+| Sign out fails | Toast; still signed in |
+
 ### Error codes
 | HTTP | `code` | When |
 |---|---|---|
+| 401 | `unauthorized` | A route without a valid session ("Sign in to continue"); the web app goes to Sign in |
 | 400 | `invalid_request` | Body, query or parameters fail validation, no photo was sent, or two save decisions for one key. Fastify's own client errors (malformed JSON, wrong content type) keep their 4xx status |
 | 400 | `invalid_image` | The upload is not a JPEG |
 | 400 | `unknown_candidate`, `invalid_article` | Save decisions don't fit the import (§6.5) |
@@ -693,15 +776,17 @@ Recorded fixtures: an entry's translation (*die Bank*, "bank (financial institut
 | 503 | `ai_busy` | Claude rate-limited, overloaded or unreachable after the SDK's retries |
 | 500 | `internal` | Anything unexpected; the message includes the request id |
 
+Better Auth's endpoints (`/api/auth/*`) answer with their own body, `{ code, message }`, and their own codes (§9.4): 400/422 for the sign-up rules, 401 `INVALID_EMAIL_OR_PASSWORD` / `INVALID_USERNAME_OR_PASSWORD`, 403 `not_invited` and `INVALID_ORIGIN`, and 429 from the rate limiter with only a message.
+
 ### General
-Every error response has the body `{ "error": { "code": "...", "message": "..." } }` (`ApiError` in `core/`). An unexpected server error answers 500 `internal` with "Something went wrong (request <id>)"; the details stay in the server log under that request id. The API client turns every failed call into an `ApiClientError` with the server's code, or `network` (no response), `http_error` (an error without that body) or `invalid_response` (a body that fails its schema). The web app shows the message in a toast, or inline with **Try again** where the screen has nothing else to show.
+Every error response has the body `{ "error": { "code": "...", "message": "..." } }` (`ApiError` in `core/`), except Better Auth's (above). An unexpected server error answers 500 `internal` with "Something went wrong (request <id>)"; the details stay in the server log under that request id. The API client turns every failed call into an `ApiClientError` with the server's code (ours, or Better Auth's `code` from `{ code, message }`), or `unauthorized` (a 401 without a code), `too_many_requests` (a 429 without one, as the rate limiter sends), `network` (no response), `http_error` (another error without such a body) or `invalid_response` (a body that fails its schema). The web app shows the message in a toast, or inline with **Try again** where the screen has nothing else to show.
 
 ## 13. Testing
 
 | Layer | What | How | Cost |
 |---|---|---|---|
-| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's and Rename import's history steps, import labels and finding an import among the past imports, My words' day headings, a typed list's lines, shortened glosses, Confirm word's steps, PDF page ranges and labels, the automatic name, the page suggested next, PDF tiles in the photo queue, the thumbnail queue, the remembered book (a fake IndexedDB) | Vitest in `core/`, `server/` and `web/` | Free |
-| Server | Import flow (extract → merge → compare → dictionary → save → enrich), an import's source (photos or PDF pages), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, the migration that turns `last_import` sessions into `import` ones, dictionary search (suggestions, lookup, forms, similar words), typed words (one word, a list as an import, facts from the chosen entry, a custom translation on a reused word), Call 3 and its limit, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500) | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response) | Free |
+| Unit | Learning rules, card formatting, API client, candidate merging, dictionary match logic, swipe thresholds, result queue, audio player (fake `<audio>` elements), photo / review / word-form helpers, the bold word in an example sentence, Word detail's labels, Edit word's and Rename import's history steps, import labels and finding an import among the past imports, My words' day headings, a typed list's lines, shortened glosses, Confirm word's steps, PDF page ranges and labels, the automatic name, the page suggested next, PDF tiles in the photo queue, the thumbnail queue, the remembered book (a fake IndexedDB), the auth calls and their schemas (ids as strings, Better Auth's error body, 401 and 429 codes), Sign in's email-or-username choice, `?next=` (and that it never leaves the app), Create account's field rules, the wording for each sign-in and sign-up error | Vitest in `core/`, `server/` and `web/` | Free |
+| Server | Import flow (extract → merge → compare → dictionary → save → enrich), an import's source (photos or PDF pages), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, the migration that turns `last_import` sessions into `import` ones, dictionary search (suggestions, lookup, forms, similar words), typed words (one word, a list as an import, facts from the chosen entry, a custom translation on a reused word), Call 3 and its limit, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500); accounts: Better Auth's schema check on our tables, the accounts migration on a database of its own (user 1's data untouched, the cascades), sign-up (invites, `SIGNUP_MODE=open`, the username and password rules, taken names), sign-in by email and username in any case, sign-out, trusted origins, the rate limits per address, every route but `/api/health` and `/api/auth/*` answering 401 without a session (one test over all the app's routes), the AI calls in the session's language, `user:claim` and the invite list | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response). The route tests run as signed-in user 1: the test app's `inject` gives each request a real session row and a signed cookie (`buildTestApp`, `learner: null` for signed out). Rate limits are off except in their own tests | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` and `dictionary_forms`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`), a 3-word enrich batch and two Ask AI calls (a misspelt noun, an English word) through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, the corrected word, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
 | AI quality (optional, not built yet) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models; needs the hand-checked pages first | ~$2–3 per run on Opus |
@@ -712,20 +797,21 @@ Fixtures are created by running a few real photos through Claude once and saving
 ## 14. Development setup
 
 - `docker compose up -d` starts PostgreSQL (dev and test databases).
-- `pnpm dev` migrates the dev database, then starts the server (127.0.0.1:3000) and Vite (all interfaces, port 5173, `strictPort`). Vite proxies `/api` to the server, so the browser needs only one address.
+- `pnpm dev` migrates the dev database, then starts the server (127.0.0.1:3000) and Vite (all interfaces, port 5173, `strictPort`). Vite proxies `/api` to the server, so the browser needs only one address; it keeps the browser's `Host` (the address the app was opened on) and adds the device's address to `x-forwarded-for` (`xfwd`).
 - The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`. A database with words saved before pronunciation existed then needs `pnpm --filter server backfill:pronunciation` once (§6.6). One loaded before M10 needs the import run once more, for the forms table (§7).
 - Checks: `pnpm test` (never calls Claude), `pnpm typecheck`, `pnpm check` (Biome; `pnpm format` fixes formatting). `ai:try` and `pnpm test:live` shrink photos with macOS `sips`.
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Words", without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
-- Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `DAILY_DESCRIBE_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173).
-- No login: anyone on the home network can open the app. Acceptable for the prototype.
-- The server starts without `ANTHROPIC_API_KEY`; only the AI calls fail until it is set. The AI writes translations in the single user's `learner_language`, read at startup.
+- Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `DAILY_DESCRIBE_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173; the server also uses it for the addresses it trusts, §4 Accounts), `BETTER_AUTH_SECRET` (signs the session cookie, at least 32 characters, `openssl rand -base64 32`; the server and `user:claim` refuse to start without it; never in git) and `SIGNUP_MODE` (`invite`, the default, or `open`).
+- **Accounts on the Mac** (§4 Accounts): the migration that adds them leaves the word list with user 1, which has no email or password yet. `pnpm --filter server user:claim <email> <username>` asks for a password (typed hidden, twice; or piped in) and makes user 1 the developer account: that email, the username (stored lower-case, shown as typed), the password, `email_verified` and AI on. It refuses a user 1 that already has an email, and prints what it changed. The invite list: `invite:add <email>` (trimmed and lower-cased; adding one twice is harmless), `invite:list` (each email, and when and by which account it was used), `invite:remove <email>` (an account made from it stays). All of them work on `DATABASE_URL` and print which database that is.
+- Never start the Mac's server with an https base URL or `useSecureCookies`: a `Secure` cookie is never sent back over the LAN's plain HTTP, so signing in would stop working on the iPhone.
+- The server starts without `ANTHROPIC_API_KEY`; only the AI calls fail until it is set. The AI writes translations in the signed-in learner's `learner_language`, taken from the session for each call.
 
 ## 15. Later
 
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Accounts (email or username + password, Google; invite-only; AI switched on per account) and deployment on Vercel + Neon with nightly backups (M12, designed in §17 and §18)
+- The rest of accounts (the AI switch, deleting an account, `user:set-password` and `user:ai`, Google; M12.2–M12.3, designed in §17; sign-in itself is built, §4 Accounts) and deployment on Vercel + Neon with nightly backups (M12.4–M12.5, §18)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
 - Practice modes German → English, articles, plurals, verb forms (M15)
@@ -743,7 +829,7 @@ Recorded here so decisions already made are not lost.
 - **Example sentences from Tatoeba** as a second source.
 - **Starter word lists** (e.g. Goethe A1–B1) as an optional import into a learner's list.
 - **Korean** as learner language (new `word_translations` rows; Korean UI text).
-- **Accounts** and multi-user (M12 settles whether the first deployment has them or one password, see Planned); review of shared `words` rows with `mismatch_kept` before reusing them for other users.
+- **Several learners' shared words:** review of shared `words` rows with `mismatch_kept` before reusing them for other learners.
 - **Phone app** in React Native reusing `server/` and `core/`.
 - **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
 - **Text-to-speech (listening; planned for numbers and time in M19, research kept here):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
@@ -797,6 +883,15 @@ Recorded here so decisions already made are not lost.
     - Several dev origins: `baseURL: { allowedHosts: [...], protocol: "auto", fallback }`; production a static https `baseURL`. Every POST must come from a trusted origin (403 `INVALID_ORIGIN`).
   - **Rate limiting** is on only when `NODE_ENV` is production by default, so set it explicitly: `storage: "database"`, `customRules` per path. The client IP comes from `x-forwarded-for` only for a single address, so set `advanced.ipAddress.ipAddressHeaders` to Vercel's client-IP header (to confirm).
   - **Bundling:** esbuild `--platform=node --format=esm` bundles it cleanly (`node` picks `node:crypto` scrypt instead of a slow JavaScript one); the optional `@opentelemetry/api` import falls back harmlessly. Keep `better-auth` and `@better-auth/*` on one exact version. 1.7.x churned (a column came and went, `requireLocalEmailVerified` is deprecated), and 1.8 is in beta.
+- **Built on 1.7.7 (M12.1, 2026-10-25;** the only release at least 1.7.7 and two weeks old that day), which behaved as the probe found, plus:
+  - **The origin check is skipped when `NODE_ENV=test`** (`advanced.disableOriginCheck` defaults to true there), so it is set to `false`.
+  - **The client address comes from headers only** (Better Auth sees a Fetch request, not the socket). Without one, every client shares one counter per path (and a warning is logged). On the Mac, Vite's proxy adds it (`xfwd`) and loopback is the trusted proxy; production's header is settled in M12.4.
+  - **`databaseHooks.user.create.after` runs after the sign-up's transaction commits** (`queueAfterTransactionHook`), so a write to our own tables there, through our own connection, sees the new user; inside the transaction it would wait on the uncommitted row.
+  - **A `hooks.before` middleware can change the body before the endpoint validates it** (sign-up's `name` set from the username).
+  - **Fields with `input: false` sent by a client are silently left out** (200), not refused.
+  - **Typing:** `additionalFields` with `required: false` come back optional in `getSession`'s types, though the columns are NOT NULL.
+  - **The schema check** (`npx auth@1.7.7 check schema --config <file>`) passed against our Drizzle schema; the same check runs on the first auth request, and a test runs it.
+  - **Fastify:** request hooks added after a `register` run only for routes registered after them, so the test app signs requests in by wrapping `inject` rather than with a hook.
 - **Google sign-in rules (2026-10-25,** Google's OAuth pages):
   - **Return addresses** must be https, except `localhost`. A raw IP is refused, and the host's top-level domain must be on the public suffix list: `.local` isn't, `vercel.app` is. No wildcards, so each Vercel address is registered on its own.
   - **No warning screen for basic data:** asking only for `openid email profile`, any Google account can sign in without a warning or a 7-day expiry, even while the project is in "Testing", and no verification is needed. So the invite check is what keeps strangers out.
@@ -808,76 +903,31 @@ Recorded here so decisions already made are not lost.
   - **Vercel Instant Rollback** on Hobby reaches only the previous deployment.
   - **Used-up Anthropic credit** answers either 400 `invalid_request_error`, "Your credit balance is too low…", or 402 `billing_error`. Reports differ, so both are handled.
 
-## 17. Accounts (M12, designed 2026-10-25, not built yet)
+## 17. Accounts: the steps not built yet (M12.2–M12.4, designed 2026-10-25)
 
-Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). When a step is built, its parts move into the sections above (§2, §4, §5, §9, §10, §12–§14) and this section keeps only what isn't built yet.
+Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). When a step is built, its parts move into the sections above (§2, §4, §5, §9, §10, §12–§14) and this section keeps only what isn't built yet. **M12.1 (sign-in) is built:** accounts, sessions, the invite list, `user:claim` and the `invite:*` scripts are in §4 Accounts, §5 (`users`, Better Auth's tables, `invites`, the cascades), §9.4, §10 screens 17–19, §12 Signing in, §13 and §14. (Its subsections 17.3 and 17.4, signing in and the invite list, moved there; the others keep their numbers.)
 
 ### 17.1 Overview
-- Every learner has an account; without one, only Sign in and Create account work. An account signs in with its **email or username and a password**, or with **Google** (M12.3).
-- **Sign-up is invite-only** for now: an account can only be created for an email on the invite list (§17.4). Open sign-up comes once the email service (verification, password reset) and a privacy page exist (§15).
-- **AI is switched on per account** (`ai_enabled`, §17.5): off for new accounts, on for the developer's own. Later a subscription turns it on (plan, Later: AI for subscribers).
+- **Google** (M12.3): an account also signs in with Google.
+- **AI is switched on per account** (`ai_enabled`, §17.5; M12.2): off for new accounts, on for the developer's own (`user:claim` already sets it). Later a subscription turns it on (plan, Later: AI for subscribers).
+- **Deleting an account** (M12.2, §17.7), and the scripts `user:set-password` and `user:ai` (§17.6).
 - An account holds everything the learner does: words, imports, practice history, AI usage. Later features (statistics, push notifications built on practice behaviour) hang off the same user id.
-- **Library: Better Auth**, running inside our Fastify server, with its tables in our database and its migrations in our drizzle-kit flow. An exact 1.7.x version, at least 1.7.7 (security fixes) and at least two weeks old when installed; `better-auth` and `@better-auth/drizzle-adapter` always on the same version. Plugin: `username`. The web app uses no Better Auth client library: `core/`'s API client calls its endpoints like any other, with Zod schemas for them.
+- **In production** (M12.4, §18): a static https base URL, which is also the one trusted origin; the cookie becomes `Secure`, with the `__Secure-` prefix; the rate limits read the client's address from Vercel's client-IP header (`advanced.ipAddress.ipAddressHeaders`, to confirm then).
 
-### 17.2 Data model
-- **`users`** (existing) is Better Auth's user model (`modelName: "users"`) and gains:
-  - `email` (unique, stored lower-case; null only on user 1 until it is claimed, §17.6);
-  - `email_verified` (default false; true after a Google sign-up and on the claimed developer account);
-  - `username` (unique, lower-case) and `display_username` (as typed);
-  - `image` (Google's picture address, unused for now), `updated_at`;
-  - `ai_enabled` (default false; no client can set it).
-  
-  `name` stays: Better Auth fills it with the username, or Google's name. `learner_language` and `target_language` become Better Auth "additional fields" that default to `en` and `de` and that no client can set.
-- **Better Auth's tables**, prefixed so they aren't confused with practice `sessions`:
-  - `auth_sessions`: one per sign-in (token, expiry, IP, user agent, `user_id`);
-  - `auth_accounts`: one per way to sign in (`credential` with the password hash, or `google` with Google's account id);
-  - `auth_verifications`: unused until the email service;
-  - `auth_rate_limits`: the sign-in attempt counters.
-- **Ids:** Better Auth runs with database-generated integer ids (`advanced.database.generateId: "serial"`), so `users.id` and every `user_id` stay integers. Its endpoints return ids as strings: the server converts them where it reads them, and `core/`'s schemas for Better Auth's answers take strings.
-- **`invites`**: `email` (unique, lower-case), `created_at`, `used_at`, `user_id` (the account it became).
-- **Deleting a user deletes their data in one statement:** `imports`, `user_words`, `sessions` and `ai_usage` reference `users` with `ON DELETE CASCADE`, and `card_results` already cascade from sessions and user words. The shared `words` and `word_translations` rows stay, since they hold no personal data.
-
-### 17.3 Signing up, signing in, sessions
-- **Sign up** (`POST /api/auth/sign-up/email`) takes an email, a username and a password, and signs the learner in straight away:
-  - username: 3–30 letters, digits, `.` and `_`, unique ignoring case (stored lower-case, shown as typed);
-  - password: 8–128 characters;
-  - email: unique.
-- **Sign in:** one field takes the email or the username. With an `@` it goes to `POST /api/auth/sign-in/email`, otherwise to `POST /api/auth/sign-in/username`. A wrong password and an unknown name get the same answer.
-- **Sign out** (`POST /api/auth/sign-out`) ends this sign-in only.
-- **Sessions** are rows in `auth_sessions`, found through a cookie:
-  - The cookie is HttpOnly and `SameSite=Lax`. In production it is also `Secure`, with the `__Secure-` prefix; on the Mac it isn't, so signing in works over the LAN's plain HTTP.
-  - A session lasts 60 days and is extended by each day's use.
-  - The web app calls `GET /api/auth/get-session` when it starts. That keeps the cookie fresh and tells it who is signed in, including `aiEnabled`.
-  - Safari and the Home Screen app keep separate cookies, so each signs in once.
-- **Every API route needs a session,** except `/api/health` and `/api/auth/*`:
-  - A Fastify hook reads the session (`auth.api.getSession`) and hands the route the learner: `id`, `learnerLanguage`, `aiEnabled`. Without a session the answer is 401 `unauthorized`.
-  - `SINGLE_USER_ID` goes. The routes already keep everything per `user_id`, so another learner's ids answer 404 as before (§9).
-  - The AI calls take the learner's language per call, instead of reading it once at startup.
-- **Protection:**
-  - **Trusted origins only:** Better Auth accepts sign-in, sign-up and any POST that carries the cookie only from trusted origins. In production that's its address; on the Mac it's `localhost`, the LAN IP and `.local` names on the dev port.
-  - **Rate limits** on sign-in and sign-up: 5 attempts a minute per IP on each path, then 429. The counts are stored in the database, so every function instance sees them.
-  - **No username lookup:** `/is-username-available` is switched off. The form doesn't need it, and it would reveal usernames.
-- **Errors:** Better Auth's endpoints answer with their own body, `{ code, message }`: `USERNAME_IS_ALREADY_TAKEN`, `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, `INVALID_EMAIL_OR_PASSWORD`, `INVALID_USERNAME_OR_PASSWORD`, `not_invited`… `core/` turns them into `ApiClientError`s like ours, and the screens show their own wording (§17.8).
-- **No password reset by email yet.** A forgotten password is reset by the owner with `user:set-password` (§17.6), and Sign in has no "Forgot password" link until the email service exists.
-
-### 17.4 Invite list
-- **`SIGNUP_MODE`** (`.env`, Vercel) is `invite` (the default) or `open`.
-- **In `invite` mode** an account is only created for an email on the invite list, by password sign-up or by a first Google sign-in:
-  - Better Auth's `user.validateUserInfo` hook checks the list before any user is created and answers `not_invited`: 403 for sign-up, and Google comes back to Sign in with `?error=not_invited`.
-  - When the account is created, the invite is marked used and linked to it.
-  - After that the list doesn't matter: the account signs in normally, and removing its invite doesn't remove it.
-- **`open`** skips the check. It is switched on only once the email service and a privacy page exist (§15).
-- **Editing the list:** scripts on the Mac (§17.6); nothing in the app shows it.
+### 17.2 Google (M12.3)
+- **In `invite` mode** a first Google sign-in goes through the same invite check (`validateUserInfo`); a refused one comes back to Sign in with `?error=not_invited`. After that the account signs in normally.
+- **A username for Google sign-ups:** the username plugin doesn't fill one in. The plan: set it in `databaseHooks.user.create.before` from the part of the email before `@`, made unique with digits. `email_verified` is true after a Google sign-up.
+- **Linking:** an existing account connects Google from Account while signed in (`POST /api/auth/link-social`); Better Auth links automatically only to a verified email, and there is no email verification yet, so a Google sign-in for an existing password account's email answers `account_not_linked`.
 
 ### 17.5 The AI switch
 - **The AI features:** photo and PDF import (Call 1), enrichment (Call 2: example sentences, and forms the dictionary lacks), and Ask AI (Call 3).
 - **Without AI** (`ai_enabled = false`):
-  - **The server refuses** the AI routes with 403 `ai_not_enabled`: `POST /imports` with `source` `photos` or `pdf`, `POST /imports/:id/photos`, `POST /words/describe` and `POST /words/enrich-pending`.
+  - **The server refuses** the AI routes with 403 `ai_not_enabled`: `POST /imports` with `source` `photos` or `pdf`, `POST /imports/:id/photos`, `POST /words/describe` and `POST /words/enrich-pending`. The session hook already hands every route the learner's `aiEnabled` (§4 Accounts).
   - **Typed words** (`POST /words`, `POST /imports/typed`) are saved as now but not enriched:
     - they keep the dictionary's facts;
     - a word whose shared `words` row already has an example sentence, written for someone else, shows it;
     - `detailsPending` counts only for AI accounts, so no "N words without details" banner nags.
-  - **The screens leave AI out:**
+  - **The screens leave AI out** (the web app knows `aiEnabled` from `GET /api/auth/get-session`):
     - New import goes straight to Add words, with no photo drop zone and no PDF pages, and a one-line note: "Importing photos and PDF pages uses AI, which isn't included in your account."
     - Confirm word has no **Ask AI**.
     - Done and Home show no **Add details**.
@@ -890,9 +940,7 @@ Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). When a
   - the attempt is recorded in `ai_usage` like other failures.
 
 ### 17.6 Scripts
-All take `DATABASE_URL` (for Neon: the direct connection, run from the Mac) and print what they changed.
-- **`invite:add <email>`, `invite:list`, `invite:remove <email>`.**
-- **`user:claim <email> <username>`** turns the existing user 1 into the developer account. User 1 is the prototype's single learner, who owns the word list on the Mac. The script gives it the email and username, a password typed at a prompt, `email_verified`, and AI on. It runs once on the Mac's database and once on Neon's fresh one, so the developer account is user 1 in both.
+Like `user:claim` and `invite:*` (§14), they take `DATABASE_URL` (for Neon: the direct connection, run from the Mac) and print what they changed. `user:claim` runs once on the Mac's database and once on Neon's fresh one, so the developer account is user 1 in both.
 - **`user:set-password <email|username>`** sets a new password typed at a prompt, and ends the account's sessions.
 - **`user:ai <email|username> on|off`.**
 
@@ -900,45 +948,24 @@ All take `DATABASE_URL` (for Neon: the direct connection, run from the Mac) and 
 - Settings → Account → **Delete account** (`POST /api/auth/delete-user`).
   - An account with a password confirms with it.
   - A Google-only account needs a sign-in from within the last day (Better Auth's "fresh" session); otherwise it is asked to sign in with Google again.
-- **What goes:** the `users` row, and with it (§17.2) the sign-ins, the sign-in methods, the imports, the words in the list, the practice sessions and answers, and the AI usage. The account's invite is removed too.
+- **What goes:** the `users` row, and with it (the cascades, §5) the sign-ins, the sign-in methods, the imports, the words in the list, the practice sessions and answers, the AI usage and the account's invite.
 - **What stays:** the shared word facts.
 - **Afterwards:** the learner lands on Sign in with "Your account was deleted."
 - **Backups** keep a deleted account for at most 30 days (§18.6).
 
 ### 17.8 Screens
-Numbered on from §10:
-
-17. **Sign in** (`/signin`)
-    - **Layout:** no back button, and the large title "Sign in". One card with **Email or username** (`autocomplete="username"`, no automatic capital) and **Password** (`autocomplete="current-password"`), both 16 px or more. **Sign in** in the action bar (lime).
-    - **Under the card:** **Continue with Google** (M12.3; an outlined button with Google's mark) and the quiet link **Create an account ›**.
-    - **Errors,** in red under the card:
-      - "Wrong email, username or password"
-      - "Too many attempts. Try again in a minute."
-      - "This app is invite-only. Ask for an invite first." (after Google)
-      - "That Google account isn't connected to an account here. Sign in with your password, then connect Google in Settings."
-    - **Signed out:** opening any page signed out leads here, with that page kept in `?next=`; signing in returns to it.
-18. **Create account** (`/signup`)
-    - **Layout:** the round back button (to Sign in), the large title "Create account", and a line "Invite only: use the email your invite was sent to." One card with **Email** (`type="email"`), **Username** ("3–30 letters, digits, . or _") and **Password** ("At least 8 characters", `autocomplete="new-password"`). **Create account** in the action bar.
-    - **Errors:** under their field ("This username is taken", "An account with this email exists. Sign in instead."); "This app is invite-only…" under the card.
-    - **Continue with Google** as on Sign in.
-19. **Account** (`/settings/account`)
-    - **Header:** the round back button (to Settings) and the large title "Account".
-    - **Cards:**
-      - the username (as typed), large, with the email under it;
-      - **Sign-in methods:** Password, and Google with "Connected" or a **Connect** button (M12.3);
-      - **AI features:** "Included: photo and PDF import, Ask AI, example sentences", or "Not included in your account".
-    - **Sign out:** a secondary button.
-    - **Delete account,** at the bottom: soft red with a bin, asking in place like Delete word: "Delete your account and all its words, imports and practice history? This can't be undone." It has a password field for an account with a password, and **Keep** / **Delete**.
-
-**Settings** gets **Account** as its first row, with the username at the right.
+What joins screens 17–19 (§10):
+- **Sign in** (17): **Continue with Google** (M12.3; an outlined button with Google's mark) above the quiet link **Create an account ›**, and two more errors in red under the card: "This app is invite-only. Ask for an invite first." (after Google) and "That Google account isn't connected to an account here. Sign in with your password, then connect Google in Settings."
+- **Create account** (18): **Continue with Google** as on Sign in.
+- **Account** (19):
+  - **Sign-in methods:** Google, with "Connected" or a **Connect** button (M12.3), under Password;
+  - **Delete account,** at the bottom (M12.2): soft red with a bin, asking in place like Delete word: "Delete your account and all its words, imports and practice history? This can't be undone." It has a password field for an account with a password, and **Keep** / **Delete**.
 
 ### 17.9 Errors (to join §12)
 | HTTP | `code` | When |
 |---|---|---|
-| 401 | `unauthorized` | An API route without a valid session ("Sign in to continue"); the web app goes to Sign in |
 | 403 | `ai_not_enabled` | An AI route for an account without AI |
-| 403 | `not_invited` | Sign-up, or a first Google sign-in, with an email not on the invite list (`SIGNUP_MODE=invite`) |
-| 429 | Better Auth's | Too many sign-in or sign-up attempts |
+| — | `not_invited` | A first Google sign-in with an email not on the invite list: back to Sign in with `?error=not_invited` |
 | 503 | `ai_unavailable` | The Anthropic credit has run out |
 
 ## 18. Deployment (M12, designed 2026-10-25, not built yet)

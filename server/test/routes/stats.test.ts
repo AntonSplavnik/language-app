@@ -1,9 +1,8 @@
 import { StatsResponse, type WordStatus } from "@language-app/core";
 import { describe, expect, it } from "vitest";
 import { imports, users, userWords, words } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
 import { buildTestApp } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 
@@ -43,7 +42,7 @@ describe("GET /api/stats", () => {
   });
 
   it("counts learning and learned words, not ignored ones", async () => {
-    await addWords(SINGLE_USER_ID, ["learning", "learning", "learned", "ignored", "ignored"]);
+    await addWords(LEARNER_ID, ["learning", "learning", "learned", "ignored", "ignored"]);
     expect(await getStats()).toMatchObject({ learning: 2, learned: 1 });
   });
 
@@ -62,28 +61,28 @@ describe("GET /api/stats", () => {
     const at = (iso: string) => new Date(iso);
     await db.insert(imports).values([
       {
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         name: "Lesson 3",
         status: "reviewing",
         photoCount: 2,
         createdAt: at("2026-10-09T10:00:00Z"),
       },
       {
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         name: null,
         status: "collecting",
         photoCount: 1,
         createdAt: at("2026-10-11T10:00:00Z"),
       },
       {
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         name: "Finished",
         status: "done",
         photoCount: 3,
         createdAt: at("2026-10-10T10:00:00Z"),
       },
       {
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         name: "Empty",
         status: "collecting",
         photoCount: 0,

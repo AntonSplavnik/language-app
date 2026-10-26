@@ -33,12 +33,14 @@ pnpm --filter server ai:try enrich <words.json> [--save name]  # --save records 
 pnpm --filter server ai:try describe <text> [--entry file] [--save name]  # Ask AI (Call 3) for a typed word
 pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary, ~11 s
 pnpm --filter server dict:lookup <lemma> <pos> [article]       # what the dictionary check sees for a word
-pnpm --filter server demo:import <photo> [--save]            # whole import flow against a running `pnpm dev` (one real AI call)
+pnpm --filter server demo:import <photo> --user <email|username> [--save]  # whole import flow against a running `pnpm dev`, signed in (one real AI call)
+pnpm --filter server user:claim <email> <username>           # once per database: user 1 (the prototype's word list) becomes your account; asks for a password
+pnpm --filter server invite:add <email>                      # sign-up is invite-only (SIGNUP_MODE=invite); also invite:list, invite:remove <email>
 pnpm typecheck
 pnpm check                # Biome lint + format check (`pnpm format` to fix)
 ```
 
-Configuration lives in the repo-root `.env` (copy `.env.example`). iPhone testing: same Wi-Fi, open `http://<Mac IP>:5173`.
+Configuration lives in the repo-root `.env` (copy `.env.example`); the server needs `BETTER_AUTH_SECRET` (`openssl rand -base64 32`). iPhone testing: same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once).
 
 ## Rules
 

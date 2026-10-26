@@ -8,7 +8,6 @@ import { createClaudeAi, FALLBACK_BETA, MAX_TOKENS } from "../../src/ai/claude";
 import { AiError } from "../../src/ai/types";
 import { dbUsageSink } from "../../src/ai/usage";
 import { aiUsage, imports } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
 import {
   apiError,
   asFallback,
@@ -18,7 +17,7 @@ import {
   withStopReason,
   withText,
 } from "../helpers/ai";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 
@@ -28,7 +27,7 @@ const enrichFixture = loadAiFixture("enrich-batch");
 
 const MODEL = "claude-opus-5-5";
 const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]);
-const ctx = { userId: SINGLE_USER_ID, importId: null };
+const ctx = { userId: LEARNER_ID, importId: null, learnerLanguage: "en" };
 
 function setup(...steps: Array<BetaMessage | Error>) {
   return setupWithModel(MODEL, ...steps);
@@ -41,7 +40,6 @@ function setupWithModel(model: string, ...steps: Array<BetaMessage | Error>) {
     recordUsage: dbUsageSink(db),
     models: { extract: model, enrich: model, describe: model },
     effort: "low",
-    learnerLanguage: "en",
   });
   return { ai, requests: replay.requests };
 }
@@ -109,15 +107,15 @@ describe("extractWords (§11.2)", () => {
 
   it("records one ai_usage row with the model that answered, tokens and duration", async () => {
     const lesson = first(
-      await db.insert(imports).values({ userId: SINGLE_USER_ID }).returning({ id: imports.id }),
+      await db.insert(imports).values({ userId: LEARNER_ID }).returning({ id: imports.id }),
     );
     const { ai } = setup(page);
-    await ai.extractWords(jpeg, { userId: SINGLE_USER_ID, importId: lesson.id });
+    await ai.extractWords(jpeg, { ...ctx, importId: lesson.id });
 
     const [row, ...rest] = await usageRows();
     expect(rest).toHaveLength(0);
     expect(row).toMatchObject({
-      userId: SINGLE_USER_ID,
+      userId: LEARNER_ID,
       importId: lesson.id,
       callType: "extract",
       model: page.model,
@@ -258,7 +256,6 @@ describe("describeWord (§11.6)", () => {
       recordUsage: dbUsageSink(db),
       models: { extract: "claude-haiku-5-5", enrich: "claude-haiku-5-5", describe: MODEL },
       effort: "low",
-      learnerLanguage: "en",
     });
     await ai.describeWord({ text: "Regenschrim" }, ctx);
 

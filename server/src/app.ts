@@ -2,6 +2,9 @@ import multipart from "@fastify/multipart";
 import type { HealthResponse } from "@language-app/core";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { AiClient } from "./ai/types";
+import type { Auth } from "./auth/auth";
+import type { Learner } from "./auth/learner";
+import { authRoutes, requireLearner } from "./auth/routes";
 import type { Db } from "./db/client";
 import { dictionaryRoutes } from "./dictionary/routes";
 import { registerErrorHandling } from "./http/errors";
@@ -13,6 +16,7 @@ import { wordRoutes } from "./words/routes";
 export type AppDeps = {
   db: Db;
   ai: AiClient;
+  auth: Auth;
   /** Extract calls allowed per user per day (§11.5). */
   dailyPhotoLimit: number;
   /** Ask AI (describe) calls allowed per user per day (§11.5). */
@@ -27,13 +31,21 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
 
   registerErrorHandling(app);
   app.register(multipart, { limits: { fileSize: MAX_PHOTO_BYTES, files: 1 } });
+  app.decorateRequest("learner", null as unknown as Learner);
 
+  // Open to everyone: the health check, and signing up, in and out.
   app.get("/api/health", async (): Promise<HealthResponse> => ({ status: "ok" }));
-  statsRoutes(app, deps);
-  importRoutes(app, deps);
-  wordRoutes(app, deps);
-  dictionaryRoutes(app, deps);
-  practiceRoutes(app, deps);
+  authRoutes(app, deps.auth);
+
+  // Every other route needs a session and acts for its learner (§17.3).
+  app.register(async (learnerApp) => {
+    learnerApp.addHook("onRequest", requireLearner(deps.auth));
+    statsRoutes(learnerApp, deps);
+    importRoutes(learnerApp, deps);
+    wordRoutes(learnerApp, deps);
+    dictionaryRoutes(learnerApp, deps);
+    practiceRoutes(learnerApp, deps);
+  });
 
   return app;
 }

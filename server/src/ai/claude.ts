@@ -8,7 +8,7 @@ import { type AiCallType, DescribeOutput, EnrichOutput, ExtractOutput } from "@l
 import type { z } from "zod";
 import { describeSystemPrompt, enrichSystemPrompt, extractSystemPrompt } from "./prompts";
 import type { MessageRequest, MessageTransport } from "./transport";
-import { type AiClient, AiError } from "./types";
+import { type AiCallContext, type AiClient, AiError } from "./types";
 import type { UsageSink } from "./usage";
 
 export const MAX_TOKENS = 16_000;
@@ -32,7 +32,6 @@ export type ClaudeAiOptions = {
   recordUsage: UsageSink;
   models: { extract: string; enrich: string; describe: string };
   effort: Effort;
-  learnerLanguage: string;
 };
 
 // JSON Schemas for structured outputs, derived once from the Zod schemas in core.
@@ -52,9 +51,9 @@ type CallSpec<T> = {
 type Outcome<T> = { ok: true; data: T } | { ok: false; error: AiError };
 
 export function createClaudeAi(options: ClaudeAiOptions): AiClient {
-  const { transport, recordUsage, models, effort, learnerLanguage } = options;
+  const { transport, recordUsage, models, effort } = options;
 
-  async function call<T>(spec: CallSpec<T>, ctx: { userId: number; importId: number | null }) {
+  async function call<T>(spec: CallSpec<T>, ctx: AiCallContext) {
     const request: MessageRequest = {
       model: spec.model,
       max_tokens: MAX_TOKENS,
@@ -107,7 +106,7 @@ export function createClaudeAi(options: ClaudeAiOptions): AiClient {
         {
           callType: "extract",
           model: models.extract,
-          system: extractSystemPrompt(learnerLanguage),
+          system: extractSystemPrompt(ctx.learnerLanguage),
           content: [
             {
               type: "image",
@@ -130,7 +129,7 @@ export function createClaudeAi(options: ClaudeAiOptions): AiClient {
         {
           callType: "enrich",
           model: models.enrich,
-          system: enrichSystemPrompt(learnerLanguage),
+          system: enrichSystemPrompt(ctx.learnerLanguage),
           content: [{ type: "text", text: JSON.stringify(words, null, 2) }],
           jsonSchema: enrichSchema,
           output: EnrichOutput,
@@ -143,7 +142,7 @@ export function createClaudeAi(options: ClaudeAiOptions): AiClient {
         {
           callType: "describe",
           model: models.describe,
-          system: describeSystemPrompt(learnerLanguage),
+          system: describeSystemPrompt(ctx.learnerLanguage),
           content: [{ type: "text", text: JSON.stringify(input) }],
           jsonSchema: describeSchema,
           output: DescribeOutput,

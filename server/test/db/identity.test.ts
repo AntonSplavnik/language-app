@@ -2,8 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { pgErrorCode } from "../../src/db/errors";
 import { users, userWords, words } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 
@@ -27,7 +26,7 @@ describe("database constraints (§5)", () => {
     const rows = await db.select().from(users);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      id: SINGLE_USER_ID,
+      id: LEARNER_ID,
       learnerLanguage: "en",
       targetLanguage: "de",
     });
@@ -60,7 +59,7 @@ describe("database constraints (§5)", () => {
         .values(word("Tisch", "noun", "der"))
         .returning({ id: words.id }),
     );
-    const row = { userId: SINGLE_USER_ID, wordId: tisch.id, status: "learning" as const };
+    const row = { userId: LEARNER_ID, wordId: tisch.id, status: "learning" as const };
 
     await db.insert(userWords).values(row);
     expect(await errorCodeOf(db.insert(userWords).values({ ...row, status: "ignored" }))).toBe(

@@ -1,23 +1,16 @@
-import { eq } from "drizzle-orm";
 import { createClaudeAi } from "./ai/claude";
 import { anthropicTransport } from "./ai/transport";
 import { dbUsageSink } from "./ai/usage";
 import { buildApp } from "./app";
-import { loadEnvFile, parseConfig } from "./config";
+import { createAuth } from "./auth/auth";
+import { authSecret, loadEnvFile, parseConfig } from "./config";
 import { createDb } from "./db/client";
-import { users } from "./db/schema";
-import { SINGLE_USER_ID } from "./user";
 
 loadEnvFile();
 const config = parseConfig(process.env);
 const db = createDb(config.DATABASE_URL);
 
-const [learner] = await db
-  .select({ learnerLanguage: users.learnerLanguage })
-  .from(users)
-  .where(eq(users.id, SINGLE_USER_ID));
-if (!learner) throw new Error("The single user is missing; run `pnpm db:migrate`");
-
+// The learner's language comes with each request's session, so the AI client needs none (§17.3).
 const ai = createClaudeAi({
   transport: anthropicTransport(config.ANTHROPIC_API_KEY),
   recordUsage: dbUsageSink(db),
@@ -27,13 +20,20 @@ const ai = createClaudeAi({
     describe: config.AI_MODEL_DESCRIBE,
   },
   effort: config.AI_EFFORT,
-  learnerLanguage: learner.learnerLanguage,
+});
+
+const auth = createAuth({
+  db,
+  secret: authSecret(config),
+  signupMode: config.SIGNUP_MODE,
+  webPort: config.WEB_PORT,
 });
 
 const app = buildApp(
   {
     db,
     ai,
+    auth,
     dailyPhotoLimit: config.DAILY_PHOTO_LIMIT,
     dailyDescribeLimit: config.DAILY_DESCRIBE_LIMIT,
   },

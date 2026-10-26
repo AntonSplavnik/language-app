@@ -21,7 +21,6 @@ import { describeSystemPrompt, enrichSystemPrompt, extractSystemPrompt } from ".
 import { anthropicTransport, type MessageTransport } from "../src/ai/transport";
 import type { UsageRecord } from "../src/ai/usage";
 import { loadEnvFile, parseConfig } from "../src/config";
-import { SINGLE_USER_ID } from "../src/user";
 import { shrinkLikeTheBrowser } from "./shrink-photo";
 
 /** USD per million input / output tokens (docs/design.md §11.4). */
@@ -80,9 +79,9 @@ const ai = createClaudeAi({
   },
   models: MODELS,
   effort: config.AI_EFFORT,
-  learnerLanguage: LEARNER_LANGUAGE,
 });
-const ctx = { userId: SINGLE_USER_ID, importId: null };
+// Usage is printed here, not stored, so the call belongs to no learner.
+const ctx = { userId: 0, importId: null, learnerLanguage: LEARNER_LANGUAGE };
 
 const started = performance.now();
 let result: unknown;

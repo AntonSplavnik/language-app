@@ -10,6 +10,7 @@ import type {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
 import { countCallsToday } from "../ai/usage";
+import type { LearnerRef } from "../auth/learner";
 import type { Db, Executor } from "../db/client";
 import { imports, users, userWords, words, wordTranslations } from "../db/schema";
 import { checkWord } from "../dictionary/check";
@@ -91,10 +92,11 @@ export async function startReview(db: Db, userId: number, id: number): Promise<I
 /** One photo: extract (§11.2), then merge, compare and check the new words (§6.3). */
 export async function addPhoto(
   { db, ai, dailyPhotoLimit }: ImportDeps,
-  userId: number,
+  learner: LearnerRef,
   id: number,
   jpeg: Uint8Array,
 ): Promise<PhotoUploadResponse> {
+  const userId = learner.id;
   const row = await findImport(db, userId, id);
   if (row.status !== "collecting") throw importClosed();
   if ((await countCallsToday(db, userId, "extract")) >= dailyPhotoLimit) {
@@ -104,7 +106,11 @@ export async function addPhoto(
 
   // The slow AI call runs outside any transaction; the merge below locks the import row so that
   // photos uploaded at the same time don't overwrite each other's candidates.
-  const extracted = await ai.extractWords(jpeg, { userId, importId: id });
+  const extracted = await ai.extractWords(jpeg, {
+    userId,
+    importId: id,
+    learnerLanguage: learner.learnerLanguage,
+  });
 
   return db.transaction(async (tx) => {
     const locked = await findImport(tx, userId, id, { forUpdate: true });
@@ -143,12 +149,12 @@ export async function addPhoto(
  */
 export async function saveAndEnrich(
   deps: ImportDeps & { log?: EnrichDeps["log"] },
-  userId: number,
+  learner: LearnerRef,
   id: number,
   decisions: SaveDecision[],
 ): Promise<SaveResponse> {
-  const { added, skipped, addedWordIds } = await saveImport(deps.db, userId, id, decisions);
-  const { pending } = await enrichWords(deps, { userId, importId: id, wordIds: addedWordIds });
+  const { added, skipped, addedWordIds } = await saveImport(deps.db, learner.id, id, decisions);
+  const { pending } = await enrichWords(deps, { learner, importId: id, wordIds: addedWordIds });
   return { added, skipped, detailsPending: pending };
 }
 

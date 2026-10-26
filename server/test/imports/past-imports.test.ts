@@ -2,9 +2,8 @@ import { ImportListResponse, RenameImportResponse, type WordStatus } from "@lang
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { imports, users, userWords, words } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
 import { buildTestApp } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const app = () => buildTestApp(db);
@@ -16,7 +15,7 @@ async function seedImport({
   name = null,
   status = "done",
   completedAt = status === "done" ? daysAgo(1) : null,
-  userId = SINGLE_USER_ID,
+  userId = LEARNER_ID,
 }: {
   name?: string | null;
   status?: "collecting" | "reviewing" | "done";
@@ -35,7 +34,7 @@ async function seedImport({
 async function seedWord(
   lemma: string,
   importId: number | null,
-  { status = "learning", userId = SINGLE_USER_ID }: { status?: WordStatus; userId?: number } = {},
+  { status = "learning", userId = LEARNER_ID }: { status?: WordStatus; userId?: number } = {},
 ) {
   const word = first(
     await db
@@ -113,7 +112,7 @@ describe("GET /api/imports (§9.2)", () => {
       await db
         .insert(imports)
         .values({
-          userId: SINGLE_USER_ID,
+          userId: LEARNER_ID,
           status: "done",
           source: "typed",
           completedAt: daysAgo(1),

@@ -13,7 +13,6 @@ import type { MessageRequest } from "../../src/ai/transport";
 import { dbUsageSink } from "../../src/ai/usage";
 import { userWords, words, wordTranslations } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
-import { SINGLE_USER_ID } from "../../src/user";
 import {
   apiError,
   enrichInputOf,
@@ -24,7 +23,7 @@ import {
   withText,
 } from "../helpers/ai";
 import { buildTestApp, multipartFile } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
@@ -59,7 +58,6 @@ function setup({ enrichFails = false } = {}) {
       describe: "claude-haiku-5-5",
     },
     effort: "medium",
-    learnerLanguage: "en",
   });
   const app = buildTestApp(db, { ai });
   return {
@@ -152,7 +150,7 @@ describe("POST /api/words/enrich-pending", () => {
       await db
         .insert(wordTranslations)
         .values({ wordId: w.id, language: "en", translation: lemma });
-      await db.insert(userWords).values({ userId: SINGLE_USER_ID, wordId: w.id, status });
+      await db.insert(userWords).values({ userId: LEARNER_ID, wordId: w.id, status });
     };
     await add("Eins", "learning");
     await add("Zwei", "learned");

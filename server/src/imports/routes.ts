@@ -9,7 +9,6 @@ import {
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { HttpError } from "../http/errors";
-import { SINGLE_USER_ID } from "../user";
 import { saveTypedWords } from "../words/typed";
 import { listPastImports, renameImport } from "./past";
 import {
@@ -28,34 +27,35 @@ const isJpeg = (data: Uint8Array) => data[0] === 0xff && data[1] === 0xd8 && dat
 
 export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
   const { db } = deps;
-  const userId = SINGLE_USER_ID;
 
   app.get(
     "/api/imports",
-    async (): Promise<ImportListResponse> => ({ imports: await listPastImports(db, userId) }),
+    async (request): Promise<ImportListResponse> => ({
+      imports: await listPastImports(db, request.learner.id),
+    }),
   );
 
   app.post("/api/imports", async (request, reply) => {
     const body = CreateImportRequest.parse(request.body ?? {});
     reply.code(201);
-    return createImport(db, userId, body);
+    return createImport(db, request.learner.id, body);
   });
 
   app.get("/api/imports/:id", async (request) => {
     const { id } = Params.parse(request.params);
-    return getImport(db, userId, id);
+    return getImport(db, request.learner.id, id);
   });
 
   app.patch("/api/imports/:id", async (request) => {
     const { id } = Params.parse(request.params);
     const { name } = RenameImportRequest.parse(request.body);
-    return renameImport(db, userId, id, name);
+    return renameImport(db, request.learner.id, id, name);
   });
 
   /** A typed list, saved as one import (§6.7, §9.3). */
   app.post("/api/imports/typed", async (request): Promise<TypedImportResponse> => {
     const { words } = TypedImportRequest.parse(request.body);
-    return saveTypedWords({ db, ai: deps.ai, log: request.log }, userId, words, {
+    return saveTypedWords({ db, ai: deps.ai, log: request.log }, request.learner, words, {
       asImport: true,
     });
   });
@@ -70,17 +70,17 @@ export function importRoutes(app: FastifyInstance, deps: ImportDeps) {
       throw new HttpError(400, "invalid_request", "Send one photo as multipart field 'photo'");
     const jpeg = await file.toBuffer();
     if (!isJpeg(jpeg)) throw new HttpError(400, "invalid_image", "Couldn't open this image");
-    return addPhoto(deps, userId, id, jpeg);
+    return addPhoto(deps, request.learner, id, jpeg);
   });
 
   app.post("/api/imports/:id/review", async (request) => {
     const { id } = Params.parse(request.params);
-    return startReview(db, userId, id);
+    return startReview(db, request.learner.id, id);
   });
 
   app.post("/api/imports/:id/save", async (request) => {
     const { id } = Params.parse(request.params);
     const { decisions } = SaveRequest.parse(request.body);
-    return saveAndEnrich({ ...deps, log: request.log }, userId, id, decisions);
+    return saveAndEnrich({ ...deps, log: request.log }, request.learner, id, decisions);
   });
 }

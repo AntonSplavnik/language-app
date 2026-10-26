@@ -11,6 +11,7 @@ import type {
 import { and, eq, inArray } from "drizzle-orm";
 import { type AiClient, AiError } from "../ai/types";
 import { countCallsToday } from "../ai/usage";
+import type { LearnerRef } from "../auth/learner";
 import type { Db, Executor } from "../db/client";
 import { dictionaryEntries, imports, userWords, wordTranslations } from "../db/schema";
 import { checkWord } from "../dictionary/check";
@@ -40,11 +41,12 @@ type Planned = WordIdentity & {
  */
 export async function saveTypedWords(
   deps: EnrichDeps,
-  userId: number,
+  learner: LearnerRef,
   typed: TypedWord[],
   { asImport }: { asImport: boolean },
 ): Promise<TypedImportResponse> {
   const { db } = deps;
+  const userId = learner.id;
   const saved = await db.transaction(async (tx) => {
     const planned = await plan(tx, typed);
     const language = await learnerLanguageOf(tx, userId);
@@ -100,7 +102,7 @@ export async function saveTypedWords(
   });
 
   const { pending } = await enrichWords(deps, {
-    userId,
+    learner,
     importId: saved.importId,
     wordIds: saved.added.map((w) => w.wordId),
   });
@@ -241,9 +243,10 @@ const DESCRIBE_ERRORS: Record<AiError["code"], { status: number; code: string; m
  */
 export async function describeWord(
   { db, ai, dailyDescribeLimit }: DescribeDeps,
-  userId: number,
+  learner: LearnerRef,
   { text, entryId }: DescribeRequest,
 ): Promise<DescribeResponse> {
+  const userId = learner.id;
   let entry: DictionaryEntry | undefined;
   if (entryId !== undefined) {
     [entry] = await db.select().from(dictionaryEntries).where(eq(dictionaryEntries.id, entryId));
@@ -269,7 +272,11 @@ export async function describeWord(
 
   let output: DescribeOutput;
   try {
-    output = await ai.describeWord(input, { userId, importId: null });
+    output = await ai.describeWord(input, {
+      userId,
+      importId: null,
+      learnerLanguage: learner.learnerLanguage,
+    });
   } catch (error) {
     if (!(error instanceof AiError)) throw error;
     const mapped = DESCRIBE_ERRORS[error.code];

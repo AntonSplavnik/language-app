@@ -11,7 +11,6 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AiClient } from "../ai/types";
 import type { Db } from "../db/client";
-import { SINGLE_USER_ID } from "../user";
 import { enrichPendingForUser } from "./enrich";
 import { deleteWord, getWordDetail, listWords, updateWord } from "./service";
 import { describeWord, saveTypedWords } from "./typed";
@@ -22,12 +21,10 @@ export function wordRoutes(
   app: FastifyInstance,
   { db, ai, dailyDescribeLimit }: { db: Db; ai: AiClient; dailyDescribeLimit: number },
 ) {
-  const userId = SINGLE_USER_ID;
-
   app.post(
     "/api/words/enrich-pending",
     async (request): Promise<EnrichPendingResponse> =>
-      enrichPendingForUser({ db, ai, log: request.log }, userId),
+      enrichPendingForUser({ db, ai, log: request.log }, request.learner),
   );
 
   /** One typed word: the entries chosen for one typed text, without an import (§9.3). */
@@ -35,7 +32,7 @@ export function wordRoutes(
     const { words } = AddWordsRequest.parse(request.body);
     const { importId: _, ...saved } = await saveTypedWords(
       { db, ai, log: request.log },
-      userId,
+      request.learner,
       words,
       { asImport: false },
     );
@@ -46,25 +43,29 @@ export function wordRoutes(
   app.post(
     "/api/words/describe",
     async (request): Promise<DescribeResponse> =>
-      describeWord({ db, ai, dailyDescribeLimit }, userId, DescribeRequest.parse(request.body)),
+      describeWord(
+        { db, ai, dailyDescribeLimit },
+        request.learner,
+        DescribeRequest.parse(request.body),
+      ),
   );
 
   app.get("/api/words", async (request) =>
-    listWords(db, userId, WordListQuery.parse(request.query)),
+    listWords(db, request.learner.id, WordListQuery.parse(request.query)),
   );
 
   app.get("/api/words/:id", async (request) => {
     const { id } = Params.parse(request.params);
-    return getWordDetail(db, userId, id);
+    return getWordDetail(db, request.learner.id, id);
   });
 
   app.patch("/api/words/:id", async (request) => {
     const { id } = Params.parse(request.params);
-    return updateWord(db, userId, id, UpdateWordRequest.parse(request.body));
+    return updateWord(db, request.learner.id, id, UpdateWordRequest.parse(request.body));
   });
 
   app.delete("/api/words/:id", async (request) => {
     const { id } = Params.parse(request.params);
-    return deleteWord(db, userId, id);
+    return deleteWord(db, request.learner.id, id);
   });
 }

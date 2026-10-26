@@ -347,6 +347,12 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 | M12.4 Deployment | The build script and handler (from the check), `vercel.json`, the Vercel project under its name with its variables; Neon reset (password, migrations, dictionary) and `user:claim` there; the GitHub Actions checks and deploy; production's Google return address. **Check first:** Google sign-in inside the Home Screen app on the iPhone (if it doesn't come back into the app, the Home Screen app offers the password only) | **The M12 demo:** away from home Wi-Fi, the iPhone opens `https://<name>.vercel.app`, signs in, imports a photo and practises its words; Google sign-in there, in Safari and in the Home Screen app |
 | M12.5 Backups | The R2 bucket (30-day rule) and its token, the `age` key pair, the read-only `backup` role, `backup.yml`, `backup:restore` | The first night's backup in R2; a restore into a fresh local database matches Neon's row counts |
 
+- **M12.1 built (2026-10-25)** on Better Auth 1.7.7, as designed; the behaviour moved from `docs/design.md` §17 into §4 Accounts, §5, §9.4, §10 (screens 17–19), §12–§14. Beyond the design:
+  - **The rate limits count per device on the Mac:** Better Auth reads the client's address from headers only, so without one the whole home network would share one count. Vite's proxy now adds it (`xfwd`) and the server trusts the loopback hop.
+  - **The server requires a username on sign-up** (400 `USERNAME_REQUIRED`) and sets `name` from it, rather than relying on the client.
+  - **`invites.user_id` cascades** from `users`, so deleting an account (M12.2) removes its invite, as §17.7 asks.
+  - **`demo:import` signs in first:** `--user <email|username>`, with the password asked for or piped in.
+
 - **Tests first:**
   - **M12.1:**
     - **Auth setup:** Better Auth's schema check passes on the migrated test database (otherwise every auth request fails); the migration adds the columns and tables and leaves user 1's data alone.
@@ -438,7 +444,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 ### Later
 
 In this order, after M21:
-- **Open sign-up** (the user, 2026-10-25): the email service (needs its own domain; verification, password reset), a privacy page (and whether an Impressum is needed), then `SIGNUP_MODE=open` (§17.4).
+- **Open sign-up** (the user, 2026-10-25): the email service (needs its own domain; verification, password reset), a privacy page (and whether an Impressum is needed), then `SIGNUP_MODE=open` (`docs/design.md` §4 Accounts).
 - **Push notifications** built on practice behaviour (the user, 2026-10-25): Home Screen app, HTTPS, a service worker, the learner's consent. Starts with HTTPS on the LAN (mkcert, `docs/design.md` §18.7), so the iPhone is a secure context during development.
 - **Gamification:** points for practice and something to spend them on; builds on M17.
 - **AI for subscribers** (the user, 2026-10-16): the AI features become paid, for subscribers only (which ones exactly, e.g. whether photo import and enrichment too, is open); a subscription turns the account's AI switch on (§17.5). Vercel Pro from then on (Hobby is non-commercial). Price them from real `ai_usage` numbers per learner. The model decides most of it: 50 Ask AI calls a day for 30 days cost ≈ 15¢ on Haiku 5.5 but ≈ $15 on Opus 5.5, and a photo page ≈ 0.2–0.4¢ vs 5–8¢ (§11.4).

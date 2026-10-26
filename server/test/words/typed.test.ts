@@ -16,10 +16,9 @@ import type { MessageRequest } from "../../src/ai/transport";
 import { dbUsageSink } from "../../src/ai/usage";
 import { aiUsage, imports, users, userWords, words, wordTranslations } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
-import { SINGLE_USER_ID } from "../../src/user";
 import { apiError, enrichInputOf, fakeEnrichResponse, respondingTransport } from "../helpers/ai";
 import { buildTestApp } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 // Saving typed words (docs/design.md §6.7, §9.3): one word with POST /words, a list as one import
 // with POST /imports/typed. Enrichment replays a made-up response built from each request.
@@ -44,7 +43,6 @@ function setup(
       describe: "claude-haiku-5-5",
     },
     effort: "medium",
-    learnerLanguage: "en",
   });
   const app = buildTestApp(db, { ai });
   return {
@@ -106,7 +104,7 @@ async function saved(lemma: string, article: TypedWord["article"] = null) {
     })
     .from(words)
     .leftJoin(wordTranslations, eq(wordTranslations.wordId, words.id))
-    .leftJoin(userWords, and(eq(userWords.wordId, words.id), eq(userWords.userId, SINGLE_USER_ID)))
+    .leftJoin(userWords, and(eq(userWords.wordId, words.id), eq(userWords.userId, LEARNER_ID)))
     .where(and(eq(words.lemma, lemma), article === null ? undefined : eq(words.article, article)));
   return row;
 }
@@ -142,7 +140,7 @@ async function inMyList(wordId: number, status: WordStatus, importId: number | n
   return first(
     await db
       .insert(userWords)
-      .values({ userId: SINGLE_USER_ID, wordId, status, importId })
+      .values({ userId: LEARNER_ID, wordId, status, importId })
       .returning({ id: userWords.id }),
   ).id;
 }
@@ -350,7 +348,7 @@ describe("POST /api/imports/typed: a typed list (§6.7, §9.3)", () => {
     const importId = body.importId as number;
     const [row] = await db.select().from(imports).where(eq(imports.id, importId));
     expect(row).toMatchObject({
-      userId: SINGLE_USER_ID,
+      userId: LEARNER_ID,
       status: "done",
       source: "typed",
       photoCount: 0,
@@ -383,7 +381,7 @@ describe("POST /api/imports/typed: a typed list (§6.7, §9.3)", () => {
     const earlier = first(
       await db
         .insert(imports)
-        .values({ userId: SINGLE_USER_ID, status: "done", completedAt: new Date() })
+        .values({ userId: LEARNER_ID, status: "done", completedAt: new Date() })
         .returning({ id: imports.id }),
     ).id;
     await inMyList(tisch, "learning", earlier);

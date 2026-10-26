@@ -43,6 +43,13 @@
       "when": 1792217399797,
       "tag": "0005_typed-words",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792956967215,
+      "tag": "0006_accounts",
+      "breakpoints": true
     }
   ]
 }

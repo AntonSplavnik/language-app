@@ -6,10 +6,9 @@ import { createClaudeAi } from "../../src/ai/claude";
 import { dbUsageSink } from "../../src/ai/usage";
 import { aiUsage } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
-import { SINGLE_USER_ID } from "../../src/user";
 import { apiError, loadAiFixture, replayTransport, withStopReason, withText } from "../helpers/ai";
 import { buildTestApp } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 // Ask AI (Call 3, docs/design.md §9.3, §11.5, §11.6), replaying recorded Claude responses.
 
@@ -36,7 +35,6 @@ function setup(steps: Array<BetaMessage | Error>, dailyDescribeLimit = 200) {
       describe: "claude-haiku-5-5",
     },
     effort: "medium",
-    learnerLanguage: "en",
   });
   const app = buildTestApp(db, { ai, dailyDescribeLimit });
   return {
@@ -133,7 +131,7 @@ describe("POST /api/words/describe (§9.3)", () => {
     await s.describe({ text: "Regenschrim" });
     expect(await db.select().from(aiUsage)).toMatchObject([
       {
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         importId: null,
         callType: "describe",
         model: misspeltNoun.response.model,
@@ -146,8 +144,8 @@ describe("POST /api/words/describe (§9.3)", () => {
     const s = setup([misspeltNoun.response, misspeltNoun.response], 2);
     // Photos have their own limit: extract calls don't count.
     await db.insert(aiUsage).values([
-      { userId: SINGLE_USER_ID, callType: "extract", model: "m", ok: true },
-      { userId: SINGLE_USER_ID, callType: "describe", model: "m", ok: false },
+      { userId: LEARNER_ID, callType: "extract", model: "m", ok: true },
+      { userId: LEARNER_ID, callType: "describe", model: "m", ok: false },
     ]);
     expect((await s.describe({ text: "Regenschrim" })).statusCode).toBe(200);
 

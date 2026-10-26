@@ -23,7 +23,6 @@ import {
   words,
   wordTranslations,
 } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
 import {
   fakeEnrichResponse,
   isExtractRequest,
@@ -32,7 +31,7 @@ import {
   withText,
 } from "../helpers/ai";
 import { buildTestApp, multipartFile } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const app = () => buildTestApp(db);
@@ -64,7 +63,7 @@ async function seedWord(
     customTranslation = null,
     note = null,
     status = "learning",
-    userId = SINGLE_USER_ID,
+    userId = LEARNER_ID,
     timesSeen = 0,
     timesCorrect = 0,
     correctStreak = 0,
@@ -98,7 +97,7 @@ async function seedWord(
   ).id;
 }
 
-async function seedImport(userId = SINGLE_USER_ID) {
+async function seedImport(userId = LEARNER_ID) {
   return first(
     await db
       .insert(imports)
@@ -506,7 +505,7 @@ describe("DELETE /api/words/:id", () => {
     const session = first(
       await db
         .insert(sessions)
-        .values({ userId: SINGLE_USER_ID, source: "not_learned" })
+        .values({ userId: LEARNER_ID, source: "not_learned" })
         .returning({ id: sessions.id }),
     );
     await db.insert(cardResults).values([
@@ -559,7 +558,6 @@ describe("DELETE /api/words/:id", () => {
         describe: "claude-haiku-5-5",
       },
       effort: "medium",
-      learnerLanguage: "en",
     });
     const withAi = buildTestApp(db, { ai });
     const importPage = async () => {

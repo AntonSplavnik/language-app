@@ -2,8 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { asc, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { imports, sessions, users } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 // The migration that adds sessions.import_id also turns the earlier `last_import` sessions into
 // `import` ones (docs/design.md §5). The test database is built from every migration before any
@@ -52,16 +51,16 @@ describe("migration: last_import sessions become import sessions", () => {
         .values({ name: "Other", learnerLanguage: "en", targetLanguage: "de" })
         .returning({ id: users.id }),
     ).id;
-    const morning = await seedImport(SINGLE_USER_ID, at(10));
-    const noon = await seedImport(SINGLE_USER_ID, at(12));
-    await seedImport(SINGLE_USER_ID, null);
+    const morning = await seedImport(LEARNER_ID, at(10));
+    const noon = await seedImport(LEARNER_ID, at(12));
+    await seedImport(LEARNER_ID, null);
     const theirs = await seedImport(other, at(11));
 
-    const beforeAny = await seedOldSession(SINGLE_USER_ID, "last_import", at(9));
-    const afterMorning = await seedOldSession(SINGLE_USER_ID, "last_import", at(11, 30));
-    const atNoon = await seedOldSession(SINGLE_USER_ID, "last_import", at(12));
-    const afternoon = await seedOldSession(SINGLE_USER_ID, "last_import", at(15));
-    const notLearned = await seedOldSession(SINGLE_USER_ID, "not_learned", at(15));
+    const beforeAny = await seedOldSession(LEARNER_ID, "last_import", at(9));
+    const afterMorning = await seedOldSession(LEARNER_ID, "last_import", at(11, 30));
+    const atNoon = await seedOldSession(LEARNER_ID, "last_import", at(12));
+    const afternoon = await seedOldSession(LEARNER_ID, "last_import", at(15));
+    const notLearned = await seedOldSession(LEARNER_ID, "not_learned", at(15));
     const theirSession = await seedOldSession(other, "last_import", at(11, 30));
 
     for (const statement of dataStatements) await db.execute(sql.raw(statement));

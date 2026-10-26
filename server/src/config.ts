@@ -14,6 +14,18 @@ const Config = z.object({
   /** Ask AI calls per user per day (§11.5): a safety net, not a budget. */
   DAILY_DESCRIBE_LIMIT: z.coerce.number().int().positive().default(200),
   SERVER_PORT: z.coerce.number().int().positive().default(3000),
+  /** Vite's port: the address the browser signs in on (§17.3, trusted origins). */
+  WEB_PORT: z.coerce.number().int().positive().default(5173),
+  /**
+   * Signs Better Auth's cookies (§17.3). Optional here so the scripts that don't sign anyone in
+   * run without it; the server and `user:claim` require it (`authSecret`).
+   */
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(32, "BETTER_AUTH_SECRET must be at least 32 characters")
+    .optional(),
+  /** `invite`: only emails on the invite list can create an account (§17.4). */
+  SIGNUP_MODE: z.enum(["invite", "open"]).default("invite"),
 });
 export type Config = z.infer<typeof Config>;
 
@@ -27,4 +39,14 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   // Treat empty strings as unset, so `KEY=` in .env falls back to the default.
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ""));
   return Config.parse(cleaned);
+}
+
+/** The Better Auth secret, which the server can't start without. */
+export function authSecret(config: Config): string {
+  if (!config.BETTER_AUTH_SECRET) {
+    throw new Error(
+      "BETTER_AUTH_SECRET is missing: add one to .env (`openssl rand -base64 32`), see .env.example",
+    );
+  }
+  return config.BETTER_AUTH_SECRET;
 }

@@ -1,0 +1,33 @@
+/* Sign in and Create account (§10 screens 17 and 18): one FormCard of fields, the error under
+   it, and a quiet link to the other screen. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+/* Create account's "Invite only: …" line under the title; body, muted. */
+.lead {
+  margin: -6px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* The quiet link to the other screen, as Import's "or type words". */
+.others {
+  display: flex;
+  justify-content: center;
+}
+
+.other {
+  gap: 4px;
+  font-size: 15px;
+}
+
+.other:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}

@@ -17,9 +17,8 @@ import {
   words,
   wordTranslations,
 } from "../../src/db/schema";
-import { SINGLE_USER_ID } from "../../src/user";
 import { buildTestApp } from "../helpers/app";
-import { first, useTestDb } from "../helpers/db";
+import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const app = () => buildTestApp(db);
@@ -61,7 +60,7 @@ async function seedWord(
     await db
       .insert(userWords)
       .values({
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         wordId: word.id,
         status,
         importId,
@@ -80,7 +79,7 @@ async function seedImport(completedAt: Date | null) {
     await db
       .insert(imports)
       .values({
-        userId: SINGLE_USER_ID,
+        userId: LEARNER_ID,
         status: completedAt ? "done" : "reviewing",
         photoCount: 1,
         completedAt,
@@ -279,7 +278,7 @@ describe("POST /api/sessions (§8.1)", () => {
     expect(
       first(await db.select().from(sessions).where(eq(sessions.id, started.id))),
     ).toMatchObject({
-      userId: SINGLE_USER_ID,
+      userId: LEARNER_ID,
       source: "not_learned",
       importId: null,
       finishedAt: null,

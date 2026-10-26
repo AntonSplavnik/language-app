@@ -12,7 +12,7 @@ import { createClaudeAi } from "../../src/ai/claude";
 import { anthropicTransport } from "../../src/ai/transport";
 import type { UsageRecord } from "../../src/ai/usage";
 import { loadEnvFile, parseConfig } from "../../src/config";
-import { SINGLE_USER_ID } from "../../src/user";
+import { LEARNER_ID } from "../helpers/db";
 
 const photosDir = fileURLToPath(new URL("./photos/", import.meta.url));
 const photos = readdirSync(photosDir)
@@ -20,7 +20,7 @@ const photos = readdirSync(photosDir)
   .sort()
   .slice(0, 2);
 
-const ctx = { userId: SINGLE_USER_ID, importId: null };
+const ctx = { userId: LEARNER_ID, importId: null, learnerLanguage: "en" };
 const usage: UsageRecord[] = [];
 
 function liveAi() {
@@ -37,7 +37,6 @@ function liveAi() {
       describe: config.AI_MODEL_DESCRIBE,
     },
     effort: config.AI_EFFORT,
-    learnerLanguage: "en",
   });
 }
 

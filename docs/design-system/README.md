@@ -51,7 +51,7 @@ A visual version with live previews of every component in both themes is the **G
 - [SourceOption](components/SourceOption.md): A radio choice drawn as a card (Practice setup): icon well, title over description, and the count at the right.
 - [SelectPill](components/SelectPill.md): A native select drawn as a pill with the chosen text and a chevron, the select invisible on top (My words' view menu, Practice setup's Import menu).
 - [StatusSelect](components/StatusSelect.md): The word's status on Word detail: a native `<select>` (Learning / Learned / Ignored) styled as a pill, so the phone's own picker opens.
-- [TextField](components/TextField.md): Text inputs, in two settings:
+- [TextField](components/TextField.md): Text inputs, in three settings: on a card, on the page, and several in a form card (`FormCard`: Sign in, Create account).
 
 ### Lists
 
@@ -81,7 +81,7 @@ A visual version with live previews of every component in both themes is the **G
 
 German Words is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 

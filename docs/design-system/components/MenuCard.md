@@ -1,6 +1,6 @@
 # MenuCard
 
-A card of rows that each open a screen (`web/src/components/MenuCard.tsx`): Settings' sections (Imports), an import's actions (Rename). Later sections and actions join the same card.
+A card of rows that each open a screen (`web/src/components/MenuCard.tsx`): Settings' sections (Account with the username, Imports with their number), an import's actions (Rename). Later sections and actions join the same card.
 
 - The card is `ui.card` (`surface`, 1 px `border`, `radius-card`) holding a list; rows are separated by a 1 px `border` hairline, no gap and no padding around them.
 - A row (`MenuRow`) is min 56 px, padding 8 14 8 18, gap 10: the name in `title-card` (17/700, `text`), then, only when there is one, a short status in `body` (15 px `muted`, tabular numerals: the number of past imports), then a 20 px chevron-right in `muted`. The whole row is the link.

@@ -6,10 +6,14 @@ import type {
   ExtractOutput,
 } from "@language-app/core";
 
-/** Who a call is for, so its cost lands on the right `ai_usage` row. */
+/**
+ * Who a call is for: its cost lands on their `ai_usage` row, and the AI writes in their language
+ * (the signed-in learner's, from the session; §17.3).
+ */
 export type AiCallContext = {
   userId: number;
   importId: number | null;
+  learnerLanguage: string;
 };
 
 /**

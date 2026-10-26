@@ -1,0 +1,39 @@
+/* Several fields on one card (Sign in, Create account). See
+   docs/design-system/components/TextField.md. The label is ui.label, the field ui.input + ui.sunk. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 18px 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* caption */
+.note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.invalid {
+  color: var(--danger);
+}
+
+/* An invalid field keeps the danger colour as its border, focused or not. */
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* body, under the card */
+.error {
+  margin: -4px 4px 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--danger);
+}

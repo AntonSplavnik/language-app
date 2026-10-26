@@ -1,8 +1,9 @@
 import type { EnrichInputWord, EnrichOutput, VerbForms } from "@language-app/core";
 import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
+import type { LearnerRef } from "../auth/learner";
 import type { Db } from "../db/client";
-import { users, userWords, words, wordTranslations } from "../db/schema";
+import { userWords, words, wordTranslations } from "../db/schema";
 import { type DictionaryEntry, entriesForWord, lookupWords, wordKey } from "../dictionary/lookup";
 import { pronunciationOf } from "./pronunciation";
 
@@ -28,19 +29,15 @@ type PendingWord = Awaited<ReturnType<typeof loadPending>>[number];
 export async function enrichWords(
   { db, ai, log }: EnrichDeps,
   {
-    userId,
+    learner,
     importId = null,
     wordIds,
-  }: { userId: number; importId?: number | null; wordIds: number[] },
+  }: { learner: LearnerRef; importId?: number | null; wordIds: number[] },
 ): Promise<EnrichResult> {
   if (wordIds.length === 0) return { enriched: 0, pending: 0 };
 
-  const [user] = await db
-    .select({ learnerLanguage: users.learnerLanguage })
-    .from(users)
-    .where(eq(users.id, userId));
-  if (!user) throw new Error(`user ${userId} not found`);
-  const language = user.learnerLanguage;
+  // Translations and the AI's example translations are in the learner's language (§6.6).
+  const language = learner.learnerLanguage;
 
   const pendingWords = await loadPending(db, wordIds, language);
   if (pendingWords.length === 0) return { enriched: 0, pending: 0 };
@@ -83,7 +80,11 @@ export async function enrichWords(
 
       let output: EnrichOutput;
       try {
-        output = await ai.enrichWords(input, { userId, importId });
+        output = await ai.enrichWords(input, {
+          userId: learner.id,
+          importId,
+          learnerLanguage: language,
+        });
       } catch (error) {
         log?.warn({ err: error }, `Enrichment of ${batch.length} words failed; they stay pending`);
         return;
@@ -134,9 +135,9 @@ export async function enrichWords(
 /** Retries enrichment for every word of the learner that has no details yet (§9). */
 export async function enrichPendingForUser(
   deps: EnrichDeps,
-  userId: number,
+  learner: LearnerRef,
 ): Promise<EnrichResult> {
-  return enrichWords(deps, { userId, wordIds: await pendingWordIds(deps.db, userId) });
+  return enrichWords(deps, { learner, wordIds: await pendingWordIds(deps.db, learner.id) });
 }
 
 /** The learner's words still waiting for details; ignored words never become cards, so not those. */

@@ -15,6 +15,7 @@ import type {
 } from "@language-app/core";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -34,12 +35,105 @@ const timestampTz = () => timestamp({ withTimezone: true });
 const createdAt = () => timestampTz().notNull().defaultNow();
 const emptyArray = sql`'{}'`;
 
+/**
+ * A learner's account, and Better Auth's user model (§5, §17): it reads and writes these columns
+ * by their property names. `name` is the username as typed (or later Google's name).
+ */
 export const users = pgTable("users", {
   id: id(),
   name: text().notNull(),
   learnerLanguage: text().notNull(),
   targetLanguage: text().notNull(),
   createdAt: createdAt(),
+  /** Stored lower-case; null only on user 1 until `user:claim` gives it one. */
+  email: text().unique(),
+  emailVerified: boolean().notNull().default(false),
+  /** Google's picture address (M12.3); unused for now. */
+  image: text(),
+  updatedAt: timestampTz().notNull().defaultNow(),
+  /** Stored lower-case, unique; `displayUsername` keeps it as typed. */
+  username: text().unique(),
+  displayUsername: text(),
+  /** Whether the account may use the AI features (§17.5). No client can set it. */
+  aiEnabled: boolean().notNull().default(false),
+});
+
+// Better Auth's own tables (§5, §17.2), prefixed so they aren't confused with practice `sessions`.
+// It addresses them by these export names (session.modelName etc. in auth/auth.ts).
+
+/** One row per sign-in, found through the session cookie. */
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: id(),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text().notNull().unique(),
+    expiresAt: timestampTz().notNull(),
+    ipAddress: text(),
+    userAgent: text(),
+    createdAt: createdAt(),
+    updatedAt: timestampTz().notNull().defaultNow(),
+  },
+  (t) => [index("auth_sessions_user").on(t.userId)],
+);
+
+/** One row per way to sign in: `credential` with the password hash (later `google`). */
+export const authAccounts = pgTable(
+  "auth_accounts",
+  {
+    id: id(),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text().notNull(),
+    providerId: text().notNull(),
+    accessToken: text(),
+    refreshToken: text(),
+    accessTokenExpiresAt: timestampTz(),
+    refreshTokenExpiresAt: timestampTz(),
+    scope: text(),
+    idToken: text(),
+    password: text(),
+    createdAt: createdAt(),
+    updatedAt: timestampTz().notNull().defaultNow(),
+  },
+  (t) => [index("auth_accounts_user").on(t.userId)],
+);
+
+/** Unused until the email service exists (verification, password reset). */
+export const authVerifications = pgTable(
+  "auth_verifications",
+  {
+    id: id(),
+    identifier: text().notNull(),
+    value: text().notNull(),
+    expiresAt: timestampTz().notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestampTz().notNull().defaultNow(),
+  },
+  (t) => [index("auth_verifications_identifier").on(t.identifier)],
+);
+
+/** Sign-in and sign-up attempts per IP and path, so every server instance sees them (§17.3). */
+export const authRateLimits = pgTable("auth_rate_limits", {
+  id: id(),
+  key: text().notNull().unique(),
+  count: integer().notNull(),
+  /** Milliseconds since the epoch, as Better Auth writes it. */
+  lastRequest: bigint({ mode: "number" }).notNull(),
+});
+
+/** The emails allowed to create an account while `SIGNUP_MODE=invite` (§17.4). */
+export const invites = pgTable("invites", {
+  /** Trimmed and lower-case. */
+  email: text().primaryKey(),
+  createdAt: createdAt(),
+  /** When an account was created for it, and which; the invite doesn't matter after that. */
+  usedAt: timestampTz(),
+  /** Deleting the account removes its invite too (§17.7). */
+  userId: integer().references(() => users.id, { onDelete: "cascade" }),
 });
 
 /** Shared dictionary of word facts; no personal data. */
@@ -88,7 +182,7 @@ export const imports = pgTable(
     id: id(),
     userId: integer()
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     name: text(),
     status: text().$type<ImportStatus>().notNull().default("collecting"),
     photoCount: integer().notNull().default(0),
@@ -108,7 +202,7 @@ export const userWords = pgTable(
     id: id(),
     userId: integer()
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     wordId: integer()
       .notNull()
       .references(() => words.id),
@@ -133,7 +227,7 @@ export const sessions = pgTable("sessions", {
   id: id(),
   userId: integer()
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   source: text().$type<SessionSource>().notNull(),
   /** The import practised, for source `import`; null otherwise (§5). */
   importId: integer().references(() => imports.id, { onDelete: "set null" }),
@@ -207,7 +301,7 @@ export const aiUsage = pgTable(
     id: id(),
     userId: integer()
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     importId: integer().references(() => imports.id, { onDelete: "set null" }),
     callType: text().$type<AiCallType>().notNull(),
     model: text().notNull(),
