@@ -1,3 +1,4 @@
+import { APP_NAME } from "@language-app/core";
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { ACCOUNT_URL, redirectFor, SIGN_IN, SIGN_UP } from "./auth/rules";
 import { useAuth } from "./auth/session";
@@ -33,7 +34,7 @@ export function App() {
   if (state.kind === "loading") return null;
   if (state.kind === "failed") {
     return (
-      <Page largeTitle="German words">
+      <Page largeTitle={APP_NAME}>
         <LoadState loading={state} onRetry={reload} />
       </Page>
     );

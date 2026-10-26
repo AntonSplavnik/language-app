@@ -1,4 +1,4 @@
-import type { StatsResponse } from "@language-app/core";
+import { APP_NAME, type StatsResponse } from "@language-app/core";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
@@ -37,7 +37,7 @@ export function Home() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>German words</h1>
+        <h1 className={styles.title}>{APP_NAME}</h1>
         <Link to="/settings" className={ui.round} aria-label="Settings">
           <GearIcon />
         </Link>

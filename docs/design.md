@@ -517,7 +517,7 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
 **Import labels.** Wherever a past import is listed (Practice setup, My words, Settings) it is shown by its name, or without one by the day it was completed ("13 Oct", with the year when it isn't this year). When several unnamed imports share a day, each of them also shows its time ("11 Oct, 14:32"). Dates and times are the phone's.
 
 1. **Home** — top to bottom:
-   - the title, "German words", with a round **Settings** button (a gear) at the right end of its line;
+   - the title, the app's name (`APP_NAME` in `core/`; the working name is "Dingsda", `docs/plan.md` Part 2 context), with a round **Settings** button (a gear) at the right end of its line;
    - once there are learning or learned words, the **deck card**: how many words are not ignored ("149 words", large), the share of them learned as text ("12% learned", rounded down, so it says 100% only when every word is learned) and as a bar, and the Learning and Learned counts. (Ignored words are not counted here.);
    - only when there is unfinished work, as cards: a banner for each import not yet `done` that has at least one photo ("Continue importing Lesson 4" while collecting, "Finish reviewing Lesson 4" once reviewing; an unnamed import shows its date), and "N words without details yet" + **Add details** when enrichment is pending;
    - **Practice**, the main button (a big lime button with a play circle), once there are learning or learned words, with what it draws from on a second line ("136 words to practise"; "Review learned words" when every word is learned);
@@ -973,7 +973,7 @@ What joins screens 17–19 (§10):
 ### 18.1 Where it runs
 | | Development (the Mac) | Production |
 |---|---|---|
-| Web | Vite, `http://<Mac IP>:5173` on the LAN | Static files on Vercel (Hobby), `https://<name>.vercel.app`; the name is chosen before M12.4 |
+| Web | Vite, `http://<Mac IP>:5173` on the LAN | Static files on Vercel (Hobby), `https://dingsda.vercel.app` (the working name; final after M12) |
 | API | Fastify on 127.0.0.1:3000 (`tsx watch`) | One Vercel Function in Frankfurt (`fra1`), Node 24 |
 | Database | PostgreSQL 17 in Docker: the prototype's word list, with user 1 claimed as the developer account | Neon Free in Frankfurt (`aws-eu-central-1`), PostgreSQL 17, autoscaling capped at 1 CU; starts empty except for the dictionary |
 | AI | The same Anthropic key as production | |

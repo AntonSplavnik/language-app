@@ -200,6 +200,8 @@ The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-1
 
 Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
 
+**Name (the user, 2026-10-25):** the working name is **Dingsda** (German for "thingy", the word you reach for when the real one won't come). It is provisional: it is kept behind one constant (`APP_NAME` in `core/src/app.ts`; a web test holds `index.html` and the manifest to the same value), it stays out of tests, fixtures, database names, environment variables and the Neon project name, and it names the Vercel project (`dingsda.vercel.app`, M12.4). The naming brief and shortlist are in a git stash on the Mac ("naming brief"); the name is finalised after M12 and before anyone but the author gets the address.
+
 | # | Milestone | Demo |
 |---|---|---|
 | M9 | Past imports, date added | In Practice, pick an old import and practise only its words; filter My words to it; name an import on Done and rename it in Settings |
@@ -335,7 +337,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - Vercel Hobby and Neon Free, both in Frankfurt. Neon's autoscaling is capped at 1 CU (set by the user on 2026-10-25).
     - Vercel Pro once the app takes payments.
     - The daily limits count their day in Europe/Berlin.
-  - **Open, to decide before M12.4:** the app's name, which becomes its address (`<name>.vercel.app`). `language-app`, `words-app`, `deutsch-words` and `wortschatz-app` are taken.
+  - **The address:** `dingsda.vercel.app`, from the working name (Part 2 context, Name). `language-app`, `words-app`, `deutsch-words` and `wortschatz-app` were taken; `dingsda` was free on 2026-10-26 and is reserved by creating the Vercel project.
   - **Not in M12:** the email service, open sign-up and the privacy page; push notifications; changing a username; a second, independent backup copy; Neon's paid history.
 - **Steps.** Each has tests first, the checks, its demo, a commit, and the user's review:
 
@@ -344,7 +346,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 | M12.1 Sign-in | Better Auth (password, username), its tables and the new `users` columns, `invites`; the session hook on every route (`SINGLE_USER_ID` goes); the AI client's language per call; Sign in and Create account; Sign out (a first Account screen); `user:claim`, `invite:add` / `list` / `remove`. Tried first on a copy of the dev database (worktree pattern) | On the iPhone over the LAN: signed out, the app shows Sign in; signed in as yourself, your word list; an invited test email creates an empty account in another browser; an email not on the list is refused |
 | M12.2 AI switch and account | `ai_enabled` on the server and in the screens; typed words without AI; the Account screen; deleting an account (cascades); `user:set-password`, `user:ai`; the used-up credit (503 `ai_unavailable`); the daily limits' day in `APP_TIME_ZONE` | The test account sees no photo import and no Ask AI, yours does; the test account is deleted, its data is gone and yours is untouched |
 | M12.3 Google | The Google Cloud project and OAuth client (return address `http://localhost:5173` now, production added in M12.4), the provider, Continue with Google, Connect in Account. Tested in the Mac's own browser on `localhost` (Google refuses LAN addresses, so the iPhone over the LAN keeps the password) | On the Mac: Google sign-in for an invited test email creates its account; Google connected to your account; an email not on the list is refused |
-| M12.4 Deployment | The build script and handler (from the check), `vercel.json`, the Vercel project under its name with its variables; Neon reset (password, migrations, dictionary) and `user:claim` there; the GitHub Actions checks and deploy; production's Google return address. **Check first:** Google sign-in inside the Home Screen app on the iPhone (if it doesn't come back into the app, the Home Screen app offers the password only) | **The M12 demo:** away from home Wi-Fi, the iPhone opens `https://<name>.vercel.app`, signs in, imports a photo and practises its words; Google sign-in there, in Safari and in the Home Screen app |
+| M12.4 Deployment | The build script and handler (from the check), `vercel.json`, the Vercel project under its name with its variables; Neon reset (password, migrations, dictionary) and `user:claim` there; the GitHub Actions checks and deploy; production's Google return address. **Check first:** Google sign-in inside the Home Screen app on the iPhone (if it doesn't come back into the app, the Home Screen app offers the password only) | **The M12 demo:** away from home Wi-Fi, the iPhone opens `https://dingsda.vercel.app`, signs in, imports a photo and practises its words; Google sign-in there, in Safari and in the Home Screen app |
 | M12.5 Backups | The R2 bucket (30-day rule) and its token, the `age` key pair, the read-only `backup` role, `backup.yml`, `backup:restore` | The first night's backup in R2; a restore into a fresh local database matches Neon's row counts |
 
 - **M12.1 built (2026-10-25)** on Better Auth 1.7.7, as designed; the behaviour moved from `docs/design.md` §17 into §4 Accounts, §5, §9.4, §10 (screens 17–19), §12–§14. Beyond the design:
