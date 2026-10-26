@@ -26,16 +26,35 @@ export const canConfirmDelete = ({
   password: string;
 }) => !needsPassword || password.length > 0;
 
-/** What a failed deletion says, under the password field. */
-export function deleteAccountError(error: unknown): string {
+/** An account without a password whose sign-in is more than a day old (Better Auth's "fresh"). */
+const isExpired = (error: unknown) =>
+  error instanceof ApiClientError && error.code === "SESSION_EXPIRED";
+
+/**
+ * Whether the failure asks for a fresh sign-in that Google can give here: the confirmation then
+ * offers Sign in with Google, coming back to Account.
+ */
+export const needsGoogleAgain = (error: unknown, googleOffered: boolean) =>
+  googleOffered && isExpired(error);
+
+/**
+ * What a failed deletion says, under the password field. A day-old sign-in of an account without
+ * a password: sign in with Google again where it is offered, otherwise sign out and in again.
+ */
+export function deleteAccountError(
+  error: unknown,
+  { googleOffered = false }: { googleOffered?: boolean } = {},
+): string {
+  if (isExpired(error)) {
+    return googleOffered
+      ? "Your last sign-in was more than a day ago. Sign in with Google again, then delete the account."
+      : "Sign out and in again, then delete the account.";
+  }
   switch (error instanceof ApiClientError ? error.code : null) {
     case "INVALID_PASSWORD":
       return "Wrong password";
     case "PASSWORD_REQUIRED":
       return "Enter your password";
-    // An account without a password whose sign-in is more than a day old (Better Auth's "fresh").
-    case "SESSION_EXPIRED":
-      return "Sign out and in again, then delete the account.";
     case "too_many_requests":
       return TOO_MANY;
     default:

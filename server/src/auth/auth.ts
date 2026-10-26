@@ -6,11 +6,14 @@ import { username } from "better-auth/plugins";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
 import { isInvited, markInviteUsed, removeInvite } from "./invites";
+import { uniqueUsername } from "./usernames";
 
 // Accounts with Better Auth, inside our own server (docs/design.md §17.3, §16 Better Auth). Its
 // tables are ours (db/schema.ts); the web app calls its endpoints under /api/auth like any other.
 
 export type SignupMode = "invite" | "open";
+
+export type GoogleClient = { clientId: string; clientSecret: string };
 
 export type AuthOptions = {
   db: Db;
@@ -21,6 +24,8 @@ export type AuthOptions = {
   webPort: number;
   /** The sign-in and sign-up limits (§17.3). Off only in tests that sign in many times. */
   rateLimit?: boolean;
+  /** The Google OAuth client (GOOGLE_CLIENT_ID / _SECRET); without it Google isn't offered. */
+  google?: GoogleClient;
   /** Silences Better Auth's own log lines (tests, where refusals are expected). */
   quiet?: boolean;
 };
@@ -29,6 +34,8 @@ const SIXTY_DAYS = 60 * 24 * 60 * 60;
 const ONE_DAY = 24 * 60 * 60;
 /** Attempts per IP on each sign-in and sign-up path, per minute (§17.3). */
 const ATTEMPTS = { window: 60, max: 5 };
+/** Continue with Google per IP, per minute: each makes a state row, none checks a password. */
+const GOOGLE_STARTS = { window: 60, max: 10 };
 /** Vite's proxy, the way in to the server on the Mac. */
 const LOOPBACK = ["127.0.0.1", "::1"];
 
@@ -53,6 +60,7 @@ export function createAuth({
   signupMode,
   webPort,
   rateLimit = true,
+  google,
   quiet = false,
 }: AuthOptions) {
   const hosts = devHosts(webPort);
@@ -89,9 +97,12 @@ export function createAuth({
         targetLanguage: { type: "string", required: false, defaultValue: "de", input: false },
         aiEnabled: { type: "boolean", required: false, defaultValue: false, input: false },
       },
-      // Runs before any user is created, by password sign-up or (M12.3) a first Google sign-in.
+      // Runs before a user is created ("create-user": a password sign-up or a first Google
+      // sign-in), and also when Google signs in again ("sign-in") or is linked to an existing
+      // account ("link-account": Connect, or the developer account's verified email). Only a new
+      // account needs an invite; once it exists, the list doesn't matter.
       validateUserInfo: async ({ user, source }) => {
-        if (signupMode === "open" || source.action === "sign-in") return;
+        if (signupMode === "open" || source.action !== "create-user") return;
         const email = typeof user.email === "string" ? user.email : "";
         if (!email || !(await isInvited(db, email))) {
           return { error: "not_invited", errorDescription: "This email is not on the invite list" };
@@ -119,6 +130,14 @@ export function createAuth({
     databaseHooks: {
       user: {
         create: {
+          // Google gives no username (the username plugin's own hook, which runs first, leaves
+          // it out), so an account made with Google gets one from its email, unique, and `name`
+          // is that username, as on a password sign-up.
+          before: async (user) => {
+            if (typeof user.username === "string" && user.username !== "") return;
+            const name = await uniqueUsername(db, String(user.email ?? ""));
+            return { data: { ...user, username: name, displayUsername: name, name } };
+          },
           // Runs once the sign-up's transaction has committed, so the user row exists.
           after: async (user, context) => {
             try {
@@ -151,6 +170,9 @@ export function createAuth({
         "/sign-up/email": ATTEMPTS,
         // It checks a password too.
         "/delete-user": ATTEMPTS,
+        // Continue with Google checks no password; Better Auth's rule for every /sign-in path
+        // (3 per 10 s) would trip over a few tries in a row, from the Mac's one shared count.
+        "/sign-in/social": GOOGLE_STARTS,
       },
     },
     emailAndPassword: {
@@ -160,6 +182,18 @@ export function createAuth({
       // Keep: with it off, a refused sign-up would answer with a fake success.
       autoSignIn: true,
     },
+    // Continue with Google and Connect (§4 Accounts), with Google's default scopes only
+    // (openid, email, profile: no warning screen, no verification). Google's account chooser
+    // every time, so another Google account can be picked after a refusal.
+    socialProviders: google
+      ? {
+          google: {
+            clientId: google.clientId,
+            clientSecret: google.clientSecret,
+            prompt: "select_account",
+          },
+        }
+      : {},
     plugins: [username({ minUsernameLength: USERNAME_MIN, maxUsernameLength: USERNAME_MAX })],
     // It would reveal usernames, and the form doesn't need it.
     disabledPaths: ["/is-username-available"],
@@ -182,6 +216,9 @@ export function createAuth({
 }
 
 export type Auth = ReturnType<typeof createAuth>;
+
+/** Whether the server offers Google: it was started with the Google pair. */
+export const offersGoogle = (auth: Auth) => auth.options.socialProviders.google !== undefined;
 
 type MiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authSecret, parseConfig } from "../src/config";
+import { authSecret, googleCredentials, parseConfig } from "../src/config";
 
 describe("parseConfig", () => {
   it("fills defaults for a bare environment", () => {
@@ -59,5 +59,36 @@ describe("APP_TIME_ZONE (§11.5)", () => {
 
   it.each(["Mars/Olympus_Mons", "Berlin", "+02:00", "CEST+2"])("refuses %s", (zone) => {
     expect(() => parseConfig({ APP_TIME_ZONE: zone })).toThrow(/APP_TIME_ZONE/);
+  });
+});
+
+describe("the Google pair (§4 Accounts, §14)", () => {
+  const pair = {
+    GOOGLE_CLIENT_ID: "123-abc.apps.googleusercontent.com",
+    GOOGLE_CLIENT_SECRET: "a-client-secret",
+  };
+
+  it("is optional: without it Google isn't offered", () => {
+    expect(googleCredentials(parseConfig({}))).toBeNull();
+    // Empty values count as unset, as everywhere in .env.
+    expect(
+      googleCredentials(parseConfig({ GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "" })),
+    ).toBeNull();
+  });
+
+  it("with both set, gives the client id and secret", () => {
+    expect(googleCredentials(parseConfig(pair))).toEqual({
+      clientId: pair.GOOGLE_CLIENT_ID,
+      clientSecret: pair.GOOGLE_CLIENT_SECRET,
+    });
+  });
+
+  it("refuses one without the other", () => {
+    expect(() => parseConfig({ GOOGLE_CLIENT_ID: pair.GOOGLE_CLIENT_ID })).toThrow(
+      /GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET/,
+    );
+    expect(() => parseConfig({ GOOGLE_CLIENT_SECRET: pair.GOOGLE_CLIENT_SECRET })).toThrow(
+      /GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET/,
+    );
   });
 });

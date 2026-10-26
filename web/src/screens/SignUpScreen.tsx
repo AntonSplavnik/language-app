@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { useLocation } from "react-router";
 import { api } from "../api";
+import { CONTINUE_WITH_GOOGLE, continueWithGoogle, googleStartError } from "../auth/google";
 import {
   type FieldErrors,
   PASSWORD_HINT,
@@ -12,14 +13,17 @@ import {
   USERNAME_HINT,
 } from "../auth/rules";
 import { useAuth } from "../auth/session";
+import { useGoogleRedirect } from "../auth/useGoogle";
 import { FormCard, FormError, FormField } from "../components/FormCard";
+import { GoogleButton } from "../components/GoogleButton";
 import { Page } from "../components/Page";
 import ui from "../styles/ui.module.css";
 import styles from "./AuthScreens.module.css";
 
 /**
- * Create account (§10 screen 18): email, username and password, for an email on the invite list.
- * The new account is signed in at once; the app's gate then returns to `?next=`.
+ * Create account (§10 screen 18): email, username and password, for an email on the invite list,
+ * or Continue with Google where Google can work. The new account is signed in at once; the app's
+ * gate then returns to `?next=`.
  */
 export function SignUpScreen() {
   const { search } = useLocation();
@@ -29,6 +33,16 @@ export function SignUpScreen() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const google = useGoogleRedirect();
+
+  // The invite check is the same for Google; a refusal comes back to Sign in (§10 screen 17).
+  const continueGoogle = () => {
+    setFormError(null);
+    google.go(
+      () => api.signInSocial(continueWithGoogle(search)),
+      (failure) => setFormError(googleStartError(failure)),
+    );
+  };
 
   // Typing in a field takes its error away.
   const change = (field: SignUpField) => (event: { target: { value: string } }) => {
@@ -70,7 +84,7 @@ export function SignUpScreen() {
           type="submit"
           form={formId}
           className={`${ui.button} ${ui.primary} ${ui.cta}`}
-          disabled={busy}
+          disabled={busy || google.busy}
         >
           {busy && <span className={ui.spinner} />}
           {busy ? "Creating account…" : "Create account"}
@@ -127,6 +141,14 @@ export function SignUpScreen() {
         </FormCard>
         {formError && <FormError>{formError}</FormError>}
       </form>
+      {auth.googleOffered && (
+        <GoogleButton
+          label={CONTINUE_WITH_GOOGLE}
+          onClick={continueGoogle}
+          busy={google.busy}
+          disabled={busy}
+        />
+      )}
     </Page>
   );
 }

@@ -48,7 +48,7 @@ export const users = pgTable("users", {
   /** Stored lower-case; null only on user 1 until `user:claim` gives it one. */
   email: text().unique(),
   emailVerified: boolean().notNull().default(false),
-  /** Google's picture address (M12.3); unused for now. */
+  /** Google's picture address, from a Google sign-up; unused for now. */
   image: text(),
   updatedAt: timestampTz().notNull().defaultNow(),
   /** Stored lower-case, unique; `displayUsername` keeps it as typed. */
@@ -58,7 +58,7 @@ export const users = pgTable("users", {
   aiEnabled: boolean().notNull().default(false),
 });
 
-// Better Auth's own tables (§5, §17.2), prefixed so they aren't confused with practice `sessions`.
+// Better Auth's own tables (§5), prefixed so they aren't confused with practice `sessions`.
 // It addresses them by these export names (session.modelName etc. in auth/auth.ts).
 
 /** One row per sign-in, found through the session cookie. */
@@ -79,7 +79,7 @@ export const authSessions = pgTable(
   (t) => [index("auth_sessions_user").on(t.userId)],
 );
 
-/** One row per way to sign in: `credential` with the password hash (later `google`). */
+/** One row per way to sign in: `credential` with the password hash, `google` with Google's id. */
 export const authAccounts = pgTable(
   "auth_accounts",
   {

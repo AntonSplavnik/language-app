@@ -23,6 +23,7 @@ A visual version with live previews of every component in both themes is the **G
 - [AnswerButtons](components/AnswerButtons.md): The three answers under a flashcard, in a 3-column grid (gap 10): **Didn't know**, **Skip**, **Knew it**. Each is 64 px, `radius-xl`, a 22 px icon over a 12/700 label.
 - [BigAction](components/BigAction.md): Home's main action: a full-width lime block (`radius-hero`, min 120 px) with a big label, a second line and a dark circle holding the play icon.
 - [Button](components/Button.md): The app's buttons: `ui.button` plus one variant from `web/src/styles/ui.module.css`. Pick by role, not by look.
+- [GoogleButton](components/GoogleButton.md): Continue with Google / Sign in with Google: full width, 48 px, in Google's own light or dark button colours (`google-*`) with its standard-colour "G"; only where Google can work.
 - [RoundButton](components/RoundButton.md): A 44 px circle (`ui.round`) for the header's icon-only actions: Back (chevron-left), Word detail's Edit (pencil), Flashcards' End practice (close).
 - [SpeakerButton](components/SpeakerButton.md): Plays a word's Wiktionary recording on tap, never by itself (`web/src/components/SpeakerButton.tsx`).
 
@@ -81,7 +82,7 @@ A visual version with live previews of every component in both themes is the **G
 
 The app (working name "Dingsda", kept behind `APP_NAME` in `core/`; "German Words" stays the name of this design system) is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.lead`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `ConfirmDelete`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.lead`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `ConfirmDelete`, `GoogleButton`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 
@@ -106,6 +107,7 @@ The app follows the system's light or dark setting; both themes are designed, da
 - **Gender colours are content, not decoration:** `der` blue, `die` red-pink, `das` teal, as text on the article (and its example word), or as text on its `-soft` chip. Never use them for anything else except Home's Learning dot (`der`).
 - **States:** `danger` for didn't know, delete and errors (`danger-soft` grounds, `on-danger` on fills); `warning` for the article-mismatch strip and poor photos; `success` only for Add details done.
 - **Disabled:** a disabled primary is **grey, not faded lime** (`surface-raised` ground, `muted` text, full opacity). Every other disabled control fades to 0.45.
+- **Google's colours are Google's:** the `google-*` tokens (white or near-black fill, a grey outline) belong to GoogleButton alone, because Google's branding rules allow its standard-colour "G" only on Google's own button. Nothing else uses them.
 
 ## Type
 
@@ -133,7 +135,7 @@ Use the named styles (`display-hero` … `badge`) and nothing between them. Inpu
 
 ## Iconography
 
-Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stroke="currentColor"`, round caps and joins, stroke 2 (1.8 for the book, camera, calendar, target and gear; 1.9 for the trash), drawn at 20 px by default (16 px inside small text, 22 px in answer buttons, 24–32 px in big wells). They inherit the text colour of their control and are always `aria-hidden`: the button around them carries the `aria-label`. The only filled icon is Play. Add a new icon to `icons.tsx` in the same style rather than importing an icon set. The SVG files in the Icons asset group are copies for reference, drawn in a fixed grey ink (`#85848f`); in the app they take the text colour.
+Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stroke="currentColor"`, round caps and joins, stroke 2 (1.8 for the book, camera, calendar, target and gear; 1.9 for the trash), drawn at 20 px by default (16 px inside small text, 22 px in answer buttons, 24–32 px in big wells). They inherit the text colour of their control and are always `aria-hidden`: the button around them carries the `aria-label`. The only filled icon is Play. Add a new icon to `icons.tsx` in the same style rather than importing an icon set. The one logo, Google's "G" on GoogleButton, is not an icon: it keeps Google's four colours and lives in `GoogleButton.tsx`. The SVG files in the Icons asset group are copies for reference, drawn in a fixed grey ink (`#85848f`); in the app they take the text colour.
 
 ## Accessibility rules
 

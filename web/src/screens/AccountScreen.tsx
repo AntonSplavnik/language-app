@@ -8,10 +8,21 @@ import {
   DELETE_WARNING,
   deleteAccountError,
   hasPassword,
+  needsGoogleAgain,
 } from "../auth/deleteAccount";
+import {
+  CONNECT_GOOGLE,
+  googleAccountError,
+  googleRow,
+  googleStartError,
+  SIGN_IN_WITH_GOOGLE,
+  signInWithGoogleAgain,
+} from "../auth/google";
 import { useAuth, useSignedInUser } from "../auth/session";
+import { useCallbackError, useGoogleRedirect } from "../auth/useGoogle";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { FormField } from "../components/FormCard";
+import { GoogleButton } from "../components/GoogleButton";
 import { CheckIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { errorMessage, useToast } from "../lib/toast";
@@ -19,8 +30,9 @@ import ui from "../styles/ui.module.css";
 import styles from "./AccountScreen.module.css";
 
 /**
- * Account (§10 screen 19): who is signed in, how they sign in, whether the AI features are
- * included, Sign out, and Delete account at the bottom. (Google comes with M12.3.)
+ * Account (§10 screen 19): who is signed in, how they sign in (Password, Google with Connect),
+ * whether the AI features are included, Sign out, and Delete account at the bottom. Connect, and
+ * signing in with Google again before deleting, come back here (with `?error=` on a failure).
  */
 export function AccountScreen() {
   const user = useSignedInUser();
@@ -31,7 +43,14 @@ export function AccountScreen() {
   const [methods, setMethods] = useState<SignInMethods | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // What deleting failed with, kept as the error itself: Sign in with Google depends on it.
+  const [deleteFailure, setDeleteFailure] = useState<{ error: unknown } | null>(null);
+  // Why Google didn't connect (or sign in again): from its return, or from asking for its address.
+  const googleCode = useCallbackError();
+  const [googleError, setGoogleError] = useState<string | null>(() =>
+    googleCode ? googleAccountError(googleCode, user.email) : null,
+  );
+  const google = useGoogleRedirect();
 
   useEffect(() => {
     let current = true;
@@ -46,6 +65,29 @@ export function AccountScreen() {
   }, []);
 
   const needsPassword = hasPassword(methods);
+  const googleState = googleRow(methods, auth.googleOffered);
+  const deleteError = deleteFailure
+    ? deleteAccountError(deleteFailure.error, { googleOffered: auth.googleOffered })
+    : null;
+  // A Google-only account whose sign-in is a day old: Sign in with Google, back to Account.
+  const googleAgain =
+    deleteFailure !== null && needsGoogleAgain(deleteFailure.error, auth.googleOffered);
+  const anyBusy = busy !== null || google.busy;
+
+  const connect = () => {
+    setGoogleError(null);
+    google.go(
+      () => api.linkSocial(CONNECT_GOOGLE),
+      (error) => setGoogleError(googleStartError(error)),
+    );
+  };
+
+  // Its failure (no answer from the server) is a toast: the confirmation keeps its message.
+  const signInAgain = () =>
+    google.go(
+      () => api.signInSocial(signInWithGoogleAgain(user.email)),
+      (error) => toast.show(googleStartError(error)),
+    );
 
   const signOut = async () => {
     setBusy("signOut");
@@ -61,13 +103,13 @@ export function AccountScreen() {
 
   const deleteAccount = async () => {
     setBusy("delete");
-    setDeleteError(null);
+    setDeleteFailure(null);
     try {
       await api.deleteAccount(needsPassword ? { password } : {});
       // Sign in, saying the account was deleted; nothing of it is left to go back to.
       auth.accountDeleted();
     } catch (error) {
-      setDeleteError(deleteAccountError(error));
+      setDeleteFailure({ error });
       setBusy(null);
     }
   };
@@ -75,7 +117,7 @@ export function AccountScreen() {
   const keep = () => {
     setConfirming(false);
     setPassword("");
-    setDeleteError(null);
+    setDeleteFailure(null);
   };
 
   return (
@@ -97,7 +139,36 @@ export function AccountScreen() {
               <span className={ui.srOnly}>(in use)</span>
             </li>
           )}
+          {googleState === "connected" && (
+            <li className={styles.method}>
+              Google
+              <span className={styles.connected}>
+                Connected
+                <CheckIcon className={styles.check} />
+              </span>
+            </li>
+          )}
+          {googleState === "connect" && (
+            <li className={styles.method}>
+              Google
+              <button
+                type="button"
+                className={`${ui.button} ${ui.secondary} ${ui.small}`}
+                disabled={anyBusy}
+                aria-busy={google.busy || undefined}
+                onClick={connect}
+              >
+                {google.busy && <span className={ui.spinner} />}
+                {google.busy ? "Connecting…" : "Connect"}
+              </button>
+            </li>
+          )}
         </ul>
+        {googleError && (
+          <p className={styles.error} role="alert">
+            {googleError}
+          </p>
+        )}
       </section>
 
       <section className={`${ui.card} ${styles.section}`} aria-labelledby="ai-features">
@@ -112,7 +183,7 @@ export function AccountScreen() {
       <button
         type="button"
         className={`${ui.button} ${ui.secondary} ${ui.large} ${ui.block}`}
-        disabled={busy !== null}
+        disabled={anyBusy}
         onClick={signOut}
       >
         {busy === "signOut" && <span className={ui.spinner} />}
@@ -127,7 +198,7 @@ export function AccountScreen() {
         onKeep={keep}
         onDelete={deleteAccount}
         deleting={busy === "delete"}
-        disabled={busy !== null}
+        disabled={anyBusy}
         ready={canConfirmDelete({ needsPassword, password })}
         fields={
           needsPassword ? (
@@ -141,14 +212,24 @@ export function AccountScreen() {
               error={deleteError}
               onChange={(event) => {
                 setPassword(event.target.value);
-                setDeleteError(null);
+                setDeleteFailure(null);
               }}
             />
           ) : (
             deleteError && (
-              <p className={styles.deleteError} role="alert">
-                {deleteError}
-              </p>
+              <>
+                <p className={styles.error} role="alert">
+                  {deleteError}
+                </p>
+                {googleAgain && (
+                  <GoogleButton
+                    label={SIGN_IN_WITH_GOOGLE}
+                    busy={google.busy}
+                    disabled={busy !== null}
+                    onClick={signInAgain}
+                  />
+                )}
+              </>
             )
           )
         }

@@ -7,7 +7,8 @@ import { buildTestApp } from "../helpers/app";
 import { getWith, signUp } from "../helpers/auth";
 import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
-// Every API route needs a session, except /api/health and /api/auth/* (docs/design.md §17.3).
+// Every API route needs a session, except /api/health, /api/sign-in-options and /api/auth/*
+// (docs/design.md §4 Accounts, §9).
 
 const db = useTestDb();
 
@@ -24,7 +25,8 @@ async function routesOf(app: ReturnType<typeof buildTestApp>) {
   return routes;
 }
 
-const isOpen = (url: string) => url === "/api/health" || url.startsWith("/api/auth/");
+const OPEN = ["/api/health", "/api/sign-in-options"];
+const isOpen = (url: string) => OPEN.includes(url) || url.startsWith("/api/auth/");
 /** A path for the route: its parameters filled in. */
 const pathOf = (url: string) => url.replace(/:[a-zA-Z]+/g, "1");
 
@@ -38,6 +40,7 @@ describe("without a session", async () => {
     // hook that collects these, so they aren't in it.)
     expect(protectedRoutes.length).toBeGreaterThanOrEqual(20);
     expect(signedOut.hasRoute({ method: "GET", url: "/api/health" })).toBe(true);
+    expect(signedOut.hasRoute({ method: "GET", url: "/api/sign-in-options" })).toBe(true);
     expect(signedOut.hasRoute({ method: "POST", url: "/api/auth/*" })).toBe(true);
   });
 
@@ -58,6 +61,11 @@ describe("without a session", async () => {
 
   it("the health check answers", async () => {
     const res = await signedOut.inject({ method: "GET", url: "/api/health" });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("so does the question whether Google is offered (Sign in asks it)", async () => {
+    const res = await signedOut.inject({ method: "GET", url: "/api/sign-in-options" });
     expect(res.statusCode).toBe(200);
   });
 

@@ -49,6 +49,11 @@
   --die-soft: #fbe4e1;
   --das: #0f6e63;
   --das-soft: #d9f3ef;
+  /* Continue with Google only (GoogleButton): Google's own button colours, as its branding rules
+     ask for the standard-colour G. Not for anything else. Text 16.5:1 on the fill. */
+  --google-fill: #ffffff;
+  --google-stroke: #747775;
+  --google-text: #1f1f1f;
   /* Small controls; cards, tiles and lists; Home's deck card, Practice and Word detail's top. */
   --radius: 14px;
   --radius-card: 24px;
@@ -113,6 +118,10 @@
     --die-soft: rgb(255 143 163 / 0.14);
     --das: #5ed6c4;
     --das-soft: rgb(94 214 196 / 0.14);
+    /* Google's dark button. Text 14.5:1 on the fill. */
+    --google-fill: #131314;
+    --google-stroke: #8e918f;
+    --google-text: #e3e3e3;
     --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
     --shadow-card: 0 24px 60px rgb(0 0 0 / 0.45);
   }

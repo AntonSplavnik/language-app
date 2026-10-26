@@ -7,7 +7,7 @@ The app's buttons: `ui.button` plus one variant from `web/src/styles/ui.module.c
 - **`ui.secondary`** (+ `ui.large` in a footer, 56 px, `radius-lg`, 700): the alternative next to or under the main action (Import more pages, Home on Summary, Keep).
 - **`ui.quiet`**: a text action in `accent-ink` (empty-state links like "2 in Ignored ›"). On Done the quiet Home is `muted`, so the only lime is Practice these now.
 - **`ui.danger`**: the confirming Delete inside the delete confirmation only.
-- **`ui.small`**: 36 px, 14 px, for inline actions in errors and banners.
+- **`ui.small`**: 36 px, 14 px, for inline actions in errors and banners, and with `ui.secondary` in a row (Account's Google **Connect**).
 - **`ui.pill`** + **`ui.pillPrimary`** / **`ui.pillSecondary`**: 40 px fully round pills, 15 px, for Save and Cancel next to a field or in a sheet header (Edit word's and Rename import's headers, Done's Name this import). Save (`pillPrimary`) is lime when there is something to save and grey (`surface-raised` + `muted`) when not; Cancel (`pillSecondary`) is `surface` + `border`, 600.
 
 Rules:

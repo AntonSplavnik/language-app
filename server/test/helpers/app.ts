@@ -18,20 +18,27 @@ export const TEST_WEB_PORT = 5173;
 /** Where the web app runs in tests: a trusted origin (§17.3). */
 export const TRUSTED_ORIGIN = `http://localhost:${TEST_WEB_PORT}`;
 
-type TestAuthOptions = { signupMode?: SignupMode; rateLimit?: boolean };
+/** The OAuth client the test server has when Google is on (`testAuth(db, { google: true })`). */
+export const TEST_GOOGLE = {
+  clientId: "test-client-id.apps.googleusercontent.com",
+  clientSecret: "test-client-secret",
+};
+
+type TestAuthOptions = { signupMode?: SignupMode; rateLimit?: boolean; google?: boolean };
 
 const auths = new WeakMap<Db, Map<string, Auth>>();
 
 /**
  * Better Auth as the server runs it, on the test database. Rate limiting is off unless asked for:
- * the tests share one address and sign in far more often than 5 times a minute. One instance per
- * database and options, since some test files build an app per request.
+ * the tests share one address and sign in far more often than 5 times a minute. Google is off
+ * unless asked for, as on a server without the Google pair. One instance per database and
+ * options, since some test files build an app per request.
  */
 export function testAuth(
   db: Db,
-  { signupMode = "invite", rateLimit = false }: TestAuthOptions = {},
+  { signupMode = "invite", rateLimit = false, google = false }: TestAuthOptions = {},
 ) {
-  const key = `${signupMode}:${rateLimit}`;
+  const key = `${signupMode}:${rateLimit}:${google}`;
   const forDb = auths.get(db) ?? new Map<string, Auth>();
   auths.set(db, forDb);
   let auth = forDb.get(key);
@@ -42,6 +49,7 @@ export function testAuth(
       signupMode,
       webPort: TEST_WEB_PORT,
       rateLimit,
+      google: google ? TEST_GOOGLE : undefined,
       quiet: true,
     });
     forDb.set(key, auth);

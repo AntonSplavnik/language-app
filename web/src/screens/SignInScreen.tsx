@@ -2,17 +2,27 @@ import { useId, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { api } from "../api";
 import { ACCOUNT_DELETED } from "../auth/deleteAccount";
+import {
+  CONTINUE_WITH_GOOGLE,
+  continueWithGoogle,
+  googleSignInError,
+  googleStartError,
+} from "../auth/google";
 import { SIGN_UP, signInError, signInMethod } from "../auth/rules";
 import { useAuth } from "../auth/session";
+import { useCallbackError, useGoogleRedirect } from "../auth/useGoogle";
 import { FormCard, FormError, FormField } from "../components/FormCard";
+import { GoogleButton } from "../components/GoogleButton";
 import { CheckIcon, ChevronRightIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import ui from "../styles/ui.module.css";
 import styles from "./AuthScreens.module.css";
 
 /**
- * Sign in (§10 screen 17): one field for the email or the username, and the password. Signing in
- * returns to the page kept in `?next=` (the app's gate does that once the account is known).
+ * Sign in (§10 screen 17): one field for the email or the username, and the password, or Continue
+ * with Google where Google can work. Signing in returns to the page kept in `?next=` (the app's
+ * gate does that once the account is known); Google comes back here with `?error=` when it
+ * didn't sign in.
  */
 export function SignInScreen() {
   const { search } = useLocation();
@@ -22,8 +32,20 @@ export function SignInScreen() {
   const formId = useId();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const googleCode = useCallbackError();
+  const [error, setError] = useState<string | null>(() =>
+    googleCode ? googleSignInError(googleCode) : null,
+  );
   const [busy, setBusy] = useState(false);
+  const google = useGoogleRedirect();
+
+  const continueGoogle = () => {
+    setError(null);
+    google.go(
+      () => api.signInSocial(continueWithGoogle(search)),
+      (failure) => setError(googleStartError(failure)),
+    );
+  };
 
   const signIn = async () => {
     const name = login.trim();
@@ -50,7 +72,7 @@ export function SignInScreen() {
           type="submit"
           form={formId}
           className={`${ui.button} ${ui.primary} ${ui.cta}`}
-          disabled={busy || !login.trim() || !password}
+          disabled={busy || google.busy || !login.trim() || !password}
         >
           {busy && <span className={ui.spinner} />}
           {busy ? "Signing in…" : "Sign in"}
@@ -95,6 +117,14 @@ export function SignInScreen() {
         </FormCard>
         {error && <FormError>{error}</FormError>}
       </form>
+      {auth.googleOffered && (
+        <GoogleButton
+          label={CONTINUE_WITH_GOOGLE}
+          onClick={continueGoogle}
+          busy={google.busy}
+          disabled={busy}
+        />
+      )}
       <nav className={styles.others} aria-label="No account yet">
         <Link to={`${SIGN_UP}${search}`} className={`${ui.button} ${ui.quiet} ${styles.other}`}>
           Create an account

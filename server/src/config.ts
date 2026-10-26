@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-const Config = z.object({
+const Fields = z.object({
   DATABASE_URL: z.url().default("postgres://app:app@localhost:5432/language_app"),
   TEST_DATABASE_URL: z.url().default("postgres://app:app@localhost:5432/language_app_test"),
   ANTHROPIC_API_KEY: z.string().default(""),
@@ -34,7 +34,18 @@ const Config = z.object({
     .string()
     .default("Europe/Berlin")
     .refine(isTimeZone, "APP_TIME_ZONE must be an IANA time zone, such as Europe/Berlin"),
+  /**
+   * The Google OAuth client (§4 Accounts, §14): both or neither. Without them the server starts
+   * as before and Google isn't offered.
+   */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
+const Config = Fields.refine(
+  ({ GOOGLE_CLIENT_ID: id, GOOGLE_CLIENT_SECRET: secret }) =>
+    (id === undefined) === (secret === undefined),
+  { message: "Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither" },
+);
 export type Config = z.infer<typeof Config>;
 
 /**
@@ -61,6 +72,14 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   // Treat empty strings as unset, so `KEY=` in .env falls back to the default.
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ""));
   return Config.parse(cleaned);
+}
+
+/** The Google OAuth client, or null when the server has none (Google isn't offered then). */
+export function googleCredentials(
+  config: Config,
+): { clientId: string; clientSecret: string } | null {
+  const { GOOGLE_CLIENT_ID: clientId, GOOGLE_CLIENT_SECRET: clientSecret } = config;
+  return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
 /** The Better Auth secret, which the server can't start without. */

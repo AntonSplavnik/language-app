@@ -4,12 +4,16 @@ import {
   AuthSession,
   type DeleteAccountRequest,
   DeleteAccountResponse,
+  type LinkSocialRequest,
   SignedInResponse,
   type SignInEmailRequest,
   SignInMethods,
+  SignInOptions,
   type SignInUsernameRequest,
   SignOutResponse,
   type SignUpRequest,
+  SocialRedirectResponse,
+  type SocialSignInRequest,
 } from "./schemas/auth";
 import { ApiError } from "./schemas/common";
 import { HealthResponse } from "./schemas/health";
@@ -142,9 +146,20 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
       postJson(SignedInResponse, "/auth/sign-in/email", body),
     signInUsername: (body: SignInUsernameRequest) =>
       postJson(SignedInResponse, "/auth/sign-in/username", body),
+    /**
+     * Continue with Google: Google's address, for the browser to open. Google sends it back to
+     * the server, which redirects to `callbackURL`, or to `errorCallbackURL?error=<code>` (§9.4).
+     */
+    signInSocial: (body: SocialSignInRequest) =>
+      postJson(SocialRedirectResponse, "/auth/sign-in/social", body),
+    /** Connect Google to the signed-in account, the same way round (§9.4). */
+    linkSocial: (body: LinkSocialRequest) =>
+      postJson(SocialRedirectResponse, "/auth/link-social", body),
+    /** Whether the server offers Google (it has the Google pair). Open to everyone. */
+    signInOptions: () => request(SignInOptions, "/sign-in-options"),
     /** Ends this sign-in only. */
     signOut: () => postJson(SignOutResponse, "/auth/sign-out"),
-    /** How the account signs in: a password (`credential`), later Google (§9.4). */
+    /** How the account signs in: a password (`credential`), Google (`google`) (§9.4). */
     listAccounts: () => request(SignInMethods, "/auth/list-accounts"),
     /** Deletes the account and all its data; with its password when it has one (§9.4). */
     deleteAccount: (body: DeleteAccountRequest) =>

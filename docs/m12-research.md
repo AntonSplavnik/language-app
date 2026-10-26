@@ -172,7 +172,7 @@ await ctx.internalAdapter.linkAccount({ userId: "1", providerId: "credential", a
 | — | `NODE_ENV=production` with a dynamic baseURL | cookie `__Secure-better-auth.session_token; Secure` |
 
 ### Still to work out in the build
-- **A username for Google sign-ups:** the username plugin doesn't fill one in. The plan: set it in `databaseHooks.user.create.before` from the part of the email before `@`, made unique with digits. Not tried.
+- **A username for Google sign-ups:** done in M12.3 as planned (`databaseHooks.user.create.before`, `server/src/auth/usernames.ts`; the rule is in `docs/design.md` §4 Accounts).
 - **Vercel's client-IP header** for the rate limits (`advanced.ipAddress.ipAddressHeaders`); without one, all users share one counter per path.
 - **A future phone app:** `@better-auth/expo`, or the `bearer` plugin (the `set-auth-token` header, then `Authorization: Bearer`).
 

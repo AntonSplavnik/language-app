@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Accounts (docs/design.md §17.3). The endpoints are Better Auth's, under /api/auth: their answers
+// Accounts (docs/design.md §4 Accounts, §9.4). The endpoints are Better Auth's, under /api/auth: their answers
 // carry ids as strings, and their errors are `{ code, message }` rather than our `{ error }`.
 
 /** Usernames: 3–30 letters, digits, `.` and `_`; unique ignoring case (stored lower-case). */
@@ -80,10 +80,51 @@ export type DeleteAccountResponse = z.infer<typeof DeleteAccountResponse>;
 
 /**
  * `GET /api/auth/list-accounts`: the account's ways to sign in, `credential` (a password) and
- * later `google`. Better Auth sends more; the schema keeps these.
+ * `google`. Better Auth sends more; the schema keeps these.
  */
 export const SignInMethods = z.array(z.object({ id: z.string(), providerId: z.string() }));
 export type SignInMethods = z.infer<typeof SignInMethods>;
+
+/**
+ * A page of this app to return to after Google: a path from the root, never another site
+ * (`//x.example`, `https://…`). Better Auth checks it again.
+ */
+const AppPath = z
+  .string()
+  .regex(/^\/(?![/\\])/, "A path of this app, starting with one /")
+  .max(2000);
+
+/**
+ * Continue with Google (`POST /api/auth/sign-in/social`, §9.4): where the browser returns when
+ * signed in, and where it returns with `?error=<code>` when not. `loginHint` preselects a Google
+ * account (Account's "Sign in with Google" before deleting).
+ */
+export const SocialSignInRequest = z.object({
+  provider: z.literal("google"),
+  callbackURL: AppPath,
+  errorCallbackURL: AppPath,
+  loginHint: z.string().max(320).optional(),
+});
+export type SocialSignInRequest = z.infer<typeof SocialSignInRequest>;
+
+/** Connect on Account (`POST /api/auth/link-social`), while signed in. */
+export const LinkSocialRequest = z.object({
+  provider: z.literal("google"),
+  callbackURL: AppPath,
+  errorCallbackURL: AppPath,
+});
+export type LinkSocialRequest = z.infer<typeof LinkSocialRequest>;
+
+/** Both answer with Google's address, which the web app opens (`location.href`). */
+export const SocialRedirectResponse = z.object({ url: z.url() });
+export type SocialRedirectResponse = z.infer<typeof SocialRedirectResponse>;
+
+/**
+ * `GET /api/sign-in-options` (ours, open to everyone): whether the server has the Google pair,
+ * so the screens offer Google only where it can work (§10).
+ */
+export const SignInOptions = z.object({ google: z.boolean() });
+export type SignInOptions = z.infer<typeof SignInOptions>;
 
 /** Better Auth's error body. The rate limiter's 429 has no code, only a message. */
 export const AuthErrorBody = z.object({ code: z.string().optional(), message: z.string() });

@@ -4,7 +4,9 @@ import {
   AuthSession,
   createApiClient,
   DeleteAccountRequest,
+  SignInOptions,
   SignUpRequest,
+  SocialSignInRequest,
 } from "../src";
 
 // Accounts (docs/design.md §17.3): Better Auth's endpoints under /api/auth, called like any other.
@@ -252,5 +254,86 @@ describe("SignUpRequest (§17.3)", () => {
     expect(ok("12345678")).toBe(true);
     expect(ok("x".repeat(128))).toBe(true);
     expect(ok("x".repeat(129))).toBe(false);
+  });
+});
+
+describe("Google (§9.4)", () => {
+  const googleUrl =
+    "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=x&state=s";
+
+  it("signInSocial posts the provider and both return addresses, and reads Google's address", async () => {
+    const { api, calls } = recording(200, { url: googleUrl, redirect: true });
+    const answer = await api.signInSocial({
+      provider: "google",
+      callbackURL: "/words",
+      errorCallbackURL: "/signin?next=%2Fwords",
+    });
+    expect(answer).toEqual({ url: googleUrl });
+    expect(calls).toEqual([
+      {
+        url: "/api/auth/sign-in/social",
+        method: "POST",
+        body: {
+          provider: "google",
+          callbackURL: "/words",
+          errorCallbackURL: "/signin?next=%2Fwords",
+        },
+      },
+    ]);
+  });
+
+  it("signInSocial can name the Google account to preselect (signing in again)", async () => {
+    const { api, calls } = recording(200, { url: googleUrl, redirect: true });
+    await api.signInSocial({
+      provider: "google",
+      callbackURL: "/settings/account",
+      errorCallbackURL: "/settings/account",
+      loginHint: "anna@gmail.com",
+    });
+    expect(calls[0]?.body).toMatchObject({ loginHint: "anna@gmail.com" });
+  });
+
+  it("linkSocial posts to link-social", async () => {
+    const { api, calls } = recording(200, { url: googleUrl, redirect: true });
+    expect(
+      await api.linkSocial({
+        provider: "google",
+        callbackURL: "/settings/account",
+        errorCallbackURL: "/settings/account",
+      }),
+    ).toEqual({ url: googleUrl });
+    expect(calls[0]).toMatchObject({ url: "/api/auth/link-social", method: "POST" });
+  });
+
+  it("an answer without an address is unexpected", async () => {
+    const { api } = recording(200, { redirect: true });
+    await expect(
+      api.signInSocial({ provider: "google", callbackURL: "/", errorCallbackURL: "/signin" }),
+    ).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("Better Auth's error body becomes an ApiClientError (no Google on the server)", async () => {
+    const api = createApiClient({
+      fetch: json(404, { code: "PROVIDER_NOT_FOUND", message: "Provider not found" }),
+    });
+    await expect(
+      api.signInSocial({ provider: "google", callbackURL: "/", errorCallbackURL: "/signin" }),
+    ).rejects.toMatchObject({ code: "PROVIDER_NOT_FOUND", status: 404 });
+  });
+
+  it("only Google, and only addresses of this app", () => {
+    const body = { provider: "google", callbackURL: "/", errorCallbackURL: "/signin" };
+    const ok = (change: object) => SocialSignInRequest.safeParse({ ...body, ...change }).success;
+    expect(ok({})).toBe(true);
+    expect(ok({ provider: "github" })).toBe(false);
+    expect(ok({ callbackURL: "https://x.example/" })).toBe(false);
+    expect(ok({ errorCallbackURL: "//x.example" })).toBe(false);
+  });
+
+  it("signInOptions reads whether the server offers Google", async () => {
+    const { api, calls } = recording(200, { google: true });
+    expect(await api.signInOptions()).toEqual({ google: true });
+    expect(calls).toEqual([{ url: "/api/sign-in-options", method: "GET", body: undefined }]);
+    expect(SignInOptions.safeParse({}).success).toBe(false);
   });
 });

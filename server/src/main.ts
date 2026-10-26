@@ -3,7 +3,7 @@ import { anthropicTransport } from "./ai/transport";
 import { dbUsageSink } from "./ai/usage";
 import { buildApp } from "./app";
 import { createAuth } from "./auth/auth";
-import { authSecret, loadEnvFile, parseConfig } from "./config";
+import { authSecret, googleCredentials, loadEnvFile, parseConfig } from "./config";
 import { createDb } from "./db/client";
 
 loadEnvFile();
@@ -27,6 +27,8 @@ const auth = createAuth({
   secret: authSecret(config),
   signupMode: config.SIGNUP_MODE,
   webPort: config.WEB_PORT,
+  // Continue with Google and Connect, only with the Google pair in .env (§14).
+  google: googleCredentials(config) ?? undefined,
 });
 
 const app = buildApp(

@@ -1,0 +1,30 @@
+/* Continue with Google (§10 screens 17–19): Google's web button scaled from 40 to 48 px, in
+   Google's own colours (--google-*), since its branding rules allow the standard-colour G only on
+   its light or dark button. See docs/design-system/components/GoogleButton.md. */
+
+.google {
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--google-stroke);
+  background: var(--google-fill);
+  color: var(--google-text);
+  font-size: 17px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.google:not(:disabled):active {
+  background: color-mix(in srgb, var(--google-fill) 88%, var(--google-text));
+}
+
+.google:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* 20 px on Google's 40 px button, so 24 px here. */
+.mark {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}

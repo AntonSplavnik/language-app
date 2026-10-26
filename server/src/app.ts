@@ -1,8 +1,8 @@
 import multipart from "@fastify/multipart";
-import type { HealthResponse } from "@language-app/core";
+import type { HealthResponse, SignInOptions } from "@language-app/core";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { AiClient } from "./ai/types";
-import type { Auth } from "./auth/auth";
+import { type Auth, offersGoogle } from "./auth/auth";
 import type { Learner } from "./auth/learner";
 import { authRoutes, requireLearner } from "./auth/routes";
 import type { Db } from "./db/client";
@@ -37,8 +37,13 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   app.register(multipart, { limits: { fileSize: MAX_PHOTO_BYTES, files: 1 } });
   app.decorateRequest("learner", null as unknown as Learner);
 
-  // Open to everyone: the health check, and signing up, in and out.
+  // Open to everyone: the health check, whether Google is offered (Sign in asks before anyone is
+  // signed in), and signing up, in and out.
   app.get("/api/health", async (): Promise<HealthResponse> => ({ status: "ok" }));
+  app.get(
+    "/api/sign-in-options",
+    async (): Promise<SignInOptions> => ({ google: offersGoogle(deps.auth) }),
+  );
   authRoutes(app, deps.auth);
 
   // Every other route needs a session and acts for its learner (§4 Accounts).
