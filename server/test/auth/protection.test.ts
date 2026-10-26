@@ -6,7 +6,7 @@ import { buildTestApp, TEST_WEB_PORT, testAuth } from "../helpers/app";
 import { authPost, cookieOf, getWith, PASSWORD, signUp } from "../helpers/auth";
 import { first, useTestDb } from "../helpers/db";
 
-// Trusted origins and rate limits (docs/design.md §17.3).
+// Trusted origins and rate limits (docs/design.md §4 Accounts).
 
 const db = useTestDb();
 const app = () => buildTestApp(db, { learner: null });

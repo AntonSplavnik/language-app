@@ -1,5 +1,7 @@
 # Redesign hand-off: Home, My words, Word detail
 
+> **A historical record (note of 2026-10-26):** this hand-off was built in `39f5616` and is not a task any more. The look as it is now is in `docs/design-system/`, the screens in `docs/design.md` §10.
+
 You are implementing a visual redesign of the web app (`web/`). The mockups are in
 `docs/redesign/mockups/` (`Home.html`, `MyWords.html`, `WordDetail.html`). They are design-tool
 source files (390 × 844 phone frames, inline styles, `{{…}}` template holes, a `support.js` that

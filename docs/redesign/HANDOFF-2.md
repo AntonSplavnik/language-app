@@ -1,5 +1,7 @@
 # Redesign hand-off, part 2: every other screen
 
+> **A historical record (note of 2026-10-26):** this hand-off was built in `a0dc94d` and is not a task any more. The look as it is now is in `docs/design-system/`, the screens in `docs/design.md` §10.
+
 Part 1 (`docs/redesign/HANDOFF.md`, commit `39f5616`) restyled Home, My words and Word detail and
 introduced the tokens, fonts, `Page` `largeTitle`, `ui.card`, `ui.round`, `Headword` and
 `icons.tsx`. This part brings the remaining screens to the same look. **Build on what part 1

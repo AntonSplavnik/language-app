@@ -14,7 +14,7 @@ import { buildTestApp, multipartFile } from "../helpers/app";
 import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 // The AI writes in the signed-in learner's language, taken from the session for each call, not
-// read once at startup (docs/design.md §17.3). One AI client serves two learners here.
+// read once at startup (docs/design.md §4 Accounts). One AI client serves two learners here.
 
 const db = useTestDb();
 const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]);

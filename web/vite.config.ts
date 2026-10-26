@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         // xfwd: the server learns each device's address (x-forwarded-for), so the sign-in limits
-        // count per device rather than for the whole home network at once (§17.3).
+        // count per device rather than for the whole home network at once (§4 Accounts, Rate limits).
         "/api": { target: `http://127.0.0.1:${serverPort}`, xfwd: true },
       },
     },

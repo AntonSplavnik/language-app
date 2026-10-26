@@ -17,7 +17,7 @@ export const Username = z
   .regex(USERNAME_PATTERN, "Only letters, digits, . and _");
 export const Password = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX);
 
-/** Create account: Better Auth's username is optional, ours isn't (§17.3). */
+/** Create account: Better Auth's username is optional, ours isn't (§9.4). */
 export const SignUpRequest = z.object({
   email: z.email(),
   username: Username,

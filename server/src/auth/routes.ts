@@ -5,7 +5,7 @@ import type { Auth } from "./auth";
 import type { Learner } from "./learner";
 
 /**
- * Better Auth's endpoints under `/api/auth/*` (docs/design.md §17.3): each request is handed to
+ * Better Auth's endpoints under `/api/auth/*` (docs/design.md §9.4): each request is handed to
  * its Fetch handler, and its answer, both Set-Cookie headers included, goes back as it is.
  */
 export function authRoutes(app: FastifyInstance, auth: Auth) {

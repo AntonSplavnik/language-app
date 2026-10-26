@@ -1,10 +1,14 @@
 # M12 research: working examples and commands
 
-Kept so the M12 build doesn't redo the research of 2026-10-24 and 2026-10-25. The decisions are in `docs/plan.md` (M12) and `docs/design.md` §17–§18; §16 summarises what was found. This file holds the code that was actually tried and the commands for the steps that come later. Everything here was a throwaway probe: rewrite it to the repo's standards rather than copying it as is.
+Kept so the M12 build doesn't redo the research of 2026-10-24 and 2026-10-25. The decisions are in `docs/plan.md` (M12) and `docs/design.md` (accounts in §4 Accounts and the sections §17 lists, deployment in §18); §16 summarises what was found. This file holds the code that was actually tried and the commands for the steps that come later. Everything here was a throwaway probe: rewrite it to the repo's standards rather than copying it as is.
+
+**Status (2026-10-26;** a bare § here is a section of this file):
+- **Built and confirmed:** §1 in M12.1–M12.3b (on Better Auth 1.7.7; what the build found beyond the probe is in `docs/design.md` §16, "Built on 1.7.7" and "Found in M12.2" to "Found in M12.3b"); §2 and §3's checks and deploy in M12.4, live since 2026-10-26 (`docs/design.md` §18, "How going live went" in §18.8).
+- **Still to come:** §3's nightly backup and Neon's read-only role (M12.5); §4, Web Push (Later, push notifications); §1's phone-app note.
 
 ## 1. Better Auth probe (M12.1–M12.3)
 
-Better Auth 1.7.13 with `@better-auth/drizzle-adapter` 1.7.13, drizzle-orm 0.45.3 (`casing: "snake_case"`), Fastify 5.12.5, bundled with esbuild 0.28.2 (`--bundle --platform=node --format=esm`) and run against PGlite, an in-memory Postgres. **Not** tried: node-postgres against a real database, Vercel's client-IP header, scrypt time on Vercel.
+Better Auth 1.7.13 with `@better-auth/drizzle-adapter` 1.7.13, drizzle-orm 0.45.3 (`casing: "snake_case"`), Fastify 5.12.5, bundled with esbuild 0.28.2 (`--bundle --platform=node --format=esm`) and run against PGlite, an in-memory Postgres. **Not** tried: node-postgres against a real database, Vercel's client-IP header, scrypt time on Vercel. (The first two were settled by the build: node-postgres with Better Auth from M12.1 on the Mac's database and from M12.4 on Neon, the header in M12.4, below.)
 
 ### Schema (Drizzle)
 The existing `users` table plus Better Auth's columns, and its tables with explicit names (our practice `sessions` must not clash):
@@ -173,8 +177,8 @@ await ctx.internalAdapter.linkAccount({ userId: "1", providerId: "credential", a
 
 ### Still to work out in the build
 - **A username for Google sign-ups:** done in M12.3 as planned (`databaseHooks.user.create.before`, `server/src/auth/usernames.ts`; the rule is in `docs/design.md` §4 Accounts).
-- **Vercel's client-IP header** for the rate limits (`advanced.ipAddress.ipAddressHeaders`); without one, all users share one counter per path.
-- **A future phone app:** `@better-auth/expo`, or the `bearer` plugin (the `set-auth-token` header, then `Authorization: Bearer`).
+- **Vercel's client-IP header** for the rate limits (`advanced.ipAddress.ipAddressHeaders`); without one, all users share one counter per path. Done in M12.4: `x-vercel-forwarded-for`, which Vercel sets and overwrites when a client forges it (checked going live, `docs/design.md` §16 and §18.8).
+- **A future phone app:** `@better-auth/expo`, or the `bearer` plugin (the `set-auth-token` header, then `Authorization: Bearer`). Not built (no phone app yet).
 
 ## 2. Vercel deploy probe (M12.4)
 
@@ -252,6 +256,8 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
 ## 3. GitHub Actions, R2 and age (M12.4, M12.5)
 
 ### Checks and deploy
+**Built in M12.4** as `.github/workflows/ci.yml` (`docs/design.md` §18.4), live since 2026-10-26; the notes below are as researched.
+
 - pnpm 11: `pnpm/action-setup` reads `packageManager` from `package.json` (or `corepack enable`); Node 24 with `actions/setup-node`.
 - PostgreSQL for the tests:
   ```yaml
@@ -268,6 +274,8 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
 - Schedules are in UTC unless `timezone:` is set, can run late at busy times (avoid minute 0), and may be dropped under load.
 
 ### The nightly backup
+**Not built yet** (M12.5, `docs/design.md` §18.6).
+
 - `pg_dump` 17: `ubuntu-latest` has PostgreSQL 16, and `pg_dump` refuses newer servers. Install the 17 client from PGDG (`sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y`, then `sudo apt-get install -y postgresql-client-17`, binaries in `/usr/lib/postgresql/17/bin`) or run it in the image: `docker run --rm postgres:17 pg_dump …`.
 - Dump: `pg_dump -Fc --exclude-table-data=dictionary_entries --exclude-table-data=dictionary_forms -d "$NEON_BACKUP_URL" -f backup.dump` (the direct connection, never the `-pooler` one).
 - `age`: `sudo apt-get install -y age`; encrypt `age -r "$AGE_RECIPIENT" -o "$(date +%F).dump.age" backup.dump`. The key pair is made once on the Mac with `age-keygen -o key.txt` (it prints the public key `age1…`); `key.txt` goes to the password manager, never to GitHub. Decrypt: `age --decrypt -i key.txt file.dump.age > backup.dump`.
@@ -290,4 +298,6 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
 Neon suggests `connectionTimeoutMillis: 10000` for node-postgres; with Vercel's Fluid compute, a `Pool` plus `attachDatabasePool(pool)` from `@vercel/functions` on the pooled (`-pooler`) string. Its strings carry `sslmode=require&channel_binding=require` (node-postgres warns that `require` is treated as `verify-full`).
 
 ## 4. Web Push on iOS (the push-notification milestone)
+**Not built yet** (`docs/plan.md`, Later: push notifications).
+
 WebKit and Apple: Web Push works for Home Screen web apps from iOS 16.4 (a manifest with `display: standalone`); permission can only be asked in direct response to a tap, and the subscribe call must run straight from that gesture's handler; the server must be able to reach `https://*.push.apple.com`; no Apple Developer account is needed. It uses a service worker, so it needs HTTPS (on the LAN: `docs/design.md` §18.7).

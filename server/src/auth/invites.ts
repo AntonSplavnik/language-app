@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { invites } from "../db/schema";
 
-// The invite list (docs/design.md §17.4): while SIGNUP_MODE=invite, only these emails can create
+// The invite list (docs/design.md §4 Accounts): while SIGNUP_MODE=invite, only these emails can create
 // an account. Edited with the invite:* scripts; nothing in the app shows it.
 
 /** How emails are stored and compared: trimmed and lower-case, as Better Auth stores them. */
@@ -33,7 +33,7 @@ export async function listInvites(db: Db): Promise<Invite[]> {
   return db.select().from(invites).orderBy(asc(invites.createdAt), asc(invites.email));
 }
 
-/** Removes an email from the list. An account made from it stays (§17.4). */
+/** Removes an email from the list. An account made from it stays (§4 Accounts). */
 export async function removeInvite(db: Db, email: string): Promise<boolean> {
   const removed = await db
     .delete(invites)

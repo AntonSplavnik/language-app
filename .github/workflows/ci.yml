@@ -1,11 +1,19 @@
 # The checks on every push to main and on every pull request; on main, once they pass, the deploy
 # to production (docs/design.md §18.4). Actions are pinned to a release's commit, its tag beside it.
+# A push or pull request that changes only docs runs nothing: no code reads them, and Biome skips
+# docs/. One that also changes anything else runs everything.
 name: CI
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
 
 permissions:
   contents: read

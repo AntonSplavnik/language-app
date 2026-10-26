@@ -12,7 +12,7 @@ describe("parseConfig", () => {
     // Ask AI (§11.5, §11.6).
     expect(config.AI_MODEL_DESCRIBE).toBe("claude-haiku-5-5");
     expect(config.DAILY_DESCRIBE_LIMIT).toBe(200);
-    // Accounts (§17.4): invite-only unless switched to open.
+    // Accounts (§4 Accounts): invite-only unless switched to open.
     expect(config.SIGNUP_MODE).toBe("invite");
     expect(config.WEB_PORT).toBe(5173);
     // The daily limits' day (§11.5).

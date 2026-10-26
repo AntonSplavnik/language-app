@@ -15,7 +15,7 @@ import { TEST_SECRET, testAuth } from "../helpers/app";
 import { first, useTestDb } from "../helpers/db";
 import { testDatabaseUrl } from "../helpers/env";
 
-// Better Auth on our schema, and the migration that adds accounts (docs/design.md §5, §17.2).
+// Better Auth on our schema, and the migration that adds accounts (docs/design.md §5).
 // That a sign-up and a session read work on the migrated test database is shown in
 // sign-up.test.ts.
 

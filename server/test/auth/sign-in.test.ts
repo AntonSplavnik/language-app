@@ -5,7 +5,7 @@ import { buildTestApp } from "../helpers/app";
 import { authPost, cookieOf, getWith, PASSWORD, signUp } from "../helpers/auth";
 import { useTestDb } from "../helpers/db";
 
-// Sign in by email or username, sign out (docs/design.md §17.3).
+// Sign in by email or username, sign out (docs/design.md §9.4).
 
 const db = useTestDb();
 const app = () => buildTestApp(db, { learner: null });

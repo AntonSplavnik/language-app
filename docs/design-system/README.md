@@ -65,6 +65,7 @@ A visual version with live previews of every component in both themes is the **G
 - [Banner](components/Banner.md): A card on Home for unfinished work, with a chevron or an action at the right.
 - [ConfirmDelete](components/ConfirmDelete.md): Deleting asks in place, never with a browser dialog (Edit word's Delete word, Account's Delete account with its password).
 - [EmptyState](components/EmptyState.md): What an empty list says (My words tabs, a search with no match): centred, a 64 px rounded icon square (`surface` + `border`, book icon in `muted`), a bold first line in `text`, the explanation in 15 px `muted`, then any action.
+- [LoadState](components/LoadState.md): A screen about one thing until it is there: "Loading…", gone (the reason and a link to its list), or failed with **Try again** (Word detail, Edit word, an import's page, Rename import, the app's start).
 - [Toast](components/Toast.md): A short confirmation near the bottom edge (`web/src/lib/toast.tsx`): "Moved to Learned", "Saved", "“der Tisch” deleted", or an error message.
 
 ### Practice
@@ -80,7 +81,7 @@ A visual version with live previews of every component in both themes is the **G
 
 ## Brand book
 
-The app (working name "Dingsda", kept behind `APP_NAME` in `core/`; "German Words" stays the name of this design system) is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone over the home network and on desktop. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
+The app (working name "Dingsda", kept behind `APP_NAME` in `core/`; "German Words" stays the name of this design system) is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone and on desktop, at its production address (`https://dingsda.vercel.app`) and, in development, over the home network. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
 This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.lead`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `ConfirmDelete`, `GoogleButton`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
@@ -142,7 +143,7 @@ Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stro
 - Real elements even for custom looks: `<button>`, `<a href>`, `<input>` with a `<label>`, native `<select>`, visually hidden radios behind source cards, `aria-pressed` on Review's and Confirm word's toggle cards and the gloss chips, `aria-current` on tabs, `aria-expanded` on the known-words and hand-form toggles.
 - Icon-only buttons have an `aria-label` ("Back", "Edit word", "End practice", "Remove photo", "Listen to “der Anruf”").
 - Progress drawn as dots, bars or segments also exists as screen-reader text ("1 of 3 right in a row").
-- Nothing in the web code may need a secure context (the iPhone opens the app over plain HTTP).
+- Nothing in the web code may need a secure context (in development the iPhone opens the app over plain HTTP; production is HTTPS, but the same code runs on both).
 
 ## Intentional additions
 

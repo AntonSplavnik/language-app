@@ -7,7 +7,7 @@ import { buildTestApp, testAuth } from "../helpers/app";
 import { authPost, cookieOf, getWith, PASSWORD, setCookies } from "../helpers/auth";
 import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
-// Create account (docs/design.md §17.3, §17.4): email, username and password, invite-only.
+// Create account (docs/design.md §4 Accounts, §9.4): email, username and password, invite-only.
 
 const db = useTestDb();
 const app = () => buildTestApp(db, { learner: null });
@@ -67,7 +67,7 @@ describe("sign-up of an invited email", () => {
     expect(cookie).toMatch(/; HttpOnly/i);
     expect(cookie).toMatch(/; SameSite=Lax/i);
     expect(cookie).not.toMatch(/Secure/i);
-    // 60 days (§17.3).
+    // 60 days (§4 Accounts, Sessions).
     expect(cookie).toMatch(/; Max-Age=5184000/);
   });
 

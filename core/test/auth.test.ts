@@ -10,7 +10,7 @@ import {
   UnlinkAccountRequest,
 } from "../src";
 
-// Accounts (docs/design.md §17.3): Better Auth's endpoints under /api/auth, called like any other.
+// Accounts (docs/design.md §9.4): Better Auth's endpoints under /api/auth, called like any other.
 
 const json = (status: number, body: unknown) => async () =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -45,7 +45,7 @@ function recording(status: number, body: unknown) {
   return { calls, api: createApiClient({ fetch }) };
 }
 
-describe("auth endpoints (§17.3)", () => {
+describe("auth endpoints (§9.4)", () => {
   it("getSession reads the account, its ids as strings, and only the fields the app uses", async () => {
     const { api, calls } = recording(200, {
       session: { id: "5", userId: "2", token: "t", expiresAt: "2026-12-24T10:00:00.000Z" },
@@ -265,7 +265,7 @@ describe("auth errors", () => {
   });
 });
 
-describe("SignUpRequest (§17.3)", () => {
+describe("SignUpRequest (§9.4)", () => {
   const valid = { email: "new@example.com", username: "New.User_1", password: "12345678" };
 
   it("needs an email, a username and a password", () => {

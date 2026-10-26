@@ -8,7 +8,7 @@ import type {
 
 /**
  * Who a call is for: its cost lands on their `ai_usage` row, and the AI writes in their language
- * (the signed-in learner's, from the session; §17.3).
+ * (the signed-in learner's, from the session; §4 Accounts).
  */
 export type AiCallContext = {
   userId: number;

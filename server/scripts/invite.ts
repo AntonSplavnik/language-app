@@ -1,4 +1,4 @@
-// The invite list (docs/design.md §17.4, §17.6): while SIGNUP_MODE=invite, only these emails can
+// The invite list (docs/design.md §4 Accounts, §14): while SIGNUP_MODE=invite, only these emails can
 // create an account. Emails are trimmed and lower-cased; adding one twice changes nothing.
 //
 //   pnpm --filter server invite:add <email>

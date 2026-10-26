@@ -13,7 +13,7 @@ import * as schema from "../db/schema";
 import { isInvited, markInviteUsed, removeInvite } from "./invites";
 import { uniqueUsername } from "./usernames";
 
-// Accounts with Better Auth, inside our own server (docs/design.md §17.3, §16 Better Auth). Its
+// Accounts with Better Auth, inside our own server (docs/design.md §4 Accounts, §16 Better Auth). Its
 // tables are ours (db/schema.ts); the web app calls its endpoints under /api/auth like any other.
 
 export type SignupMode = "invite" | "open";
@@ -33,7 +33,7 @@ export type AuthOptions = {
    * addresses on `webPort`.
    */
   baseUrl?: string;
-  /** The sign-in and sign-up limits (§17.3). Off only in tests that sign in many times. */
+  /** The sign-in and sign-up limits (§4 Accounts). Off only in tests that sign in many times. */
   rateLimit?: boolean;
   /** The Google OAuth client (GOOGLE_CLIENT_ID / _SECRET); without it Google isn't offered. */
   google?: GoogleClient;
@@ -43,7 +43,7 @@ export type AuthOptions = {
 
 const SIXTY_DAYS = 60 * 24 * 60 * 60;
 const ONE_DAY = 24 * 60 * 60;
-/** Attempts per IP on each sign-in and sign-up path, per minute (§17.3). */
+/** Attempts per IP on each sign-in and sign-up path, per minute (§4 Accounts). */
 const ATTEMPTS = { window: 60, max: 5 };
 /** Continue with Google per IP, per minute: each makes a state row, none checks a password. */
 const GOOGLE_STARTS = { window: 60, max: 10 };
@@ -51,8 +51,8 @@ const GOOGLE_STARTS = { window: 60, max: 10 };
 const LOOPBACK = ["127.0.0.1", "::1"];
 /**
  * The client's address on Vercel (§16): Vercel's edge sets it to the same address as
- * `x-forwarded-for`, which it overwrites "to prevent IP spoofing". That a forged one is replaced
- * too is checked going live (§18.8); `x-real-ip` is the other candidate.
+ * `x-forwarded-for`, which it overwrites "to prevent IP spoofing". Going live showed that it
+ * replaces a forged one too (§18.8), so `x-real-ip`, the other candidate, isn't needed.
  */
 const VERCEL_CLIENT_IP = "x-vercel-forwarded-for";
 

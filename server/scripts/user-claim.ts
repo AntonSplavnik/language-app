@@ -1,5 +1,5 @@
 // Turns user 1, the prototype's single learner who owns the word list, into the developer account
-// (docs/design.md §17.6): its email, username, a password typed at the prompt, email verified and
+// (docs/design.md §14): its email, username, a password typed at the prompt, email verified and
 // AI on. Runs once per database; refuses a user 1 that already has an email.
 //
 //   pnpm --filter server user:claim <email> <username>

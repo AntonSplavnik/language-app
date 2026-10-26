@@ -31,7 +31,8 @@ pnpm test:live            # real Claude API calls (~1¢ on Haiku, the default; ~
 pnpm --filter server ai:try extract <photo> [--save name]      # one real call: words, tokens, time, cost
 pnpm --filter server ai:try enrich <words.json> [--save name]  # --save records a fixture in server/test/fixtures/ai/
 pnpm --filter server ai:try describe <text> [--entry file] [--save name]  # Ask AI (Call 3) for a typed word
-pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary, ~11 s
+pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary, ~14 s
+pnpm --filter server backfill:pronunciation                    # IPA and recordings for words saved before pronunciation existed; safe to rerun
 pnpm --filter server dict:lookup <lemma> <pos> [article]       # what the dictionary check sees for a word
 pnpm --filter server demo:import <photo> --user <email|username> [--save]  # whole import flow against a running `pnpm dev`, signed in (one real AI call)
 pnpm --filter server user:claim <email> <username>           # once per database: user 1 (the prototype's word list) becomes your account; asks for a password
@@ -47,9 +48,9 @@ pnpm --filter server serve:vercel [port]   # serve the built function with plain
 ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm db:migrate )   # likewise invite:*, user:*, import:wiktionary
 ```
 
-**Production is live** at `https://dingsda.vercel.app` (Vercel + Neon, docs/design.md §18): a push to `main` deploys it, so push only what has passed its milestone's review. CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`) on every push and pull request; on `main`, then Neon's migrations and the Vercel deploy. The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).
+**Production is live** at `https://dingsda.vercel.app` (Vercel + Neon, docs/design.md §18): a push to `main` deploys it, so push only what has passed its milestone's review. CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`) on every push to `main` and every pull request; on `main`, then Neon's migrations and the Vercel deploy. A push or pull request that changes only `*.md` files or `docs/` runs nothing (`paths-ignore`, docs/design.md §18.4). The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).
 
-Configuration lives in the repo-root `.env` (copy `.env.example`); the server needs `BETTER_AUTH_SECRET` (`openssl rand -base64 32`). iPhone testing: same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once).
+Configuration lives in the repo-root `.env` (copy `.env.example`); the server needs `BETTER_AUTH_SECRET` (`openssl rand -base64 32`). iPhone testing in development: same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once).
 
 ## Rules
 
@@ -57,4 +58,4 @@ Configuration lives in the repo-root `.env` (copy `.env.example`); the server ne
 - `pnpm test` must never call Claude: server tests use recorded responses in `server/test/fixtures/ai/`.
 - **Load the `claude-api` skill before touching `server/src/ai/`.**
 - Real textbook photos stay out of git (`server/test/live/photos/` is ignored).
-- The iPhone opens the app over plain HTTP on the home network, which is **not a secure context**: no `crypto.randomUUID()`, `crypto.subtle`, clipboard, camera/microphone streams or service workers in web code. Testing on desktop `localhost` hides this, so check on the phone.
+- In development the iPhone opens the app over plain HTTP on the home network, which is **not a secure context** (production's HTTPS is, but the same code runs on both, docs/design.md §18.1): no `crypto.randomUUID()`, `crypto.subtle`, clipboard, camera/microphone streams or service workers in web code. Testing on desktop `localhost` hides this, so check on the phone.

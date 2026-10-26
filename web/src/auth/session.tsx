@@ -12,7 +12,7 @@ import { api, onUnauthorized } from "../api";
 import { errorMessage } from "../lib/toast";
 import { googleOffered } from "./google";
 
-/** Who is signed in on this device, as the app knows it (§17.3). */
+/** Who is signed in on this device, as the app knows it (§10, Signed in or not). */
 export type AuthState =
   | { kind: "loading" }
   | { kind: "failed"; message: string }

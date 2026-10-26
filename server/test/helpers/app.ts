@@ -15,7 +15,7 @@ export const unusedAi: AiClient = {
 
 export const TEST_SECRET = "a-test-secret-of-at-least-32-characters";
 export const TEST_WEB_PORT = 5173;
-/** Where the web app runs in tests: a trusted origin (§17.3). */
+/** Where the web app runs in tests: a trusted origin (§4 Accounts). */
 export const TRUSTED_ORIGIN = `http://localhost:${TEST_WEB_PORT}`;
 
 /** The OAuth client the test server has when Google is on (`testAuth(db, { google: true })`). */

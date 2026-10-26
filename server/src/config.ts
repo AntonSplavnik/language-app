@@ -14,10 +14,10 @@ const Fields = z.object({
   /** Ask AI calls per user per day (§11.5): a safety net, not a budget. */
   DAILY_DESCRIBE_LIMIT: z.coerce.number().int().positive().default(200),
   SERVER_PORT: z.coerce.number().int().positive().default(3000),
-  /** Vite's port: the address the browser signs in on (§17.3, trusted origins). */
+  /** Vite's port: the address the browser signs in on (§4 Accounts, the trusted origins). */
   WEB_PORT: z.coerce.number().int().positive().default(5173),
   /**
-   * Signs Better Auth's cookies (§17.3). Optional here so the scripts that don't sign anyone in
+   * Signs Better Auth's cookies (§4 Accounts). Optional here so the scripts that don't sign anyone in
    * run without it; the server and `user:claim` require it (`authSecret`).
    */
   BETTER_AUTH_SECRET: z

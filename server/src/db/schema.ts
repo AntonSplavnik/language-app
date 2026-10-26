@@ -36,8 +36,9 @@ const createdAt = () => timestampTz().notNull().defaultNow();
 const emptyArray = sql`'{}'`;
 
 /**
- * A learner's account, and Better Auth's user model (§5, §17): it reads and writes these columns
- * by their property names. `name` is the username as typed (or later Google's name).
+ * A learner's account, and Better Auth's user model (§5, §4 Accounts): it reads and writes these
+ * columns by their property names. `name` is the username as typed (for a Google sign-up, the one
+ * made from the email).
  */
 export const users = pgTable("users", {
   id: id(),
@@ -116,7 +117,7 @@ export const authVerifications = pgTable(
   (t) => [index("auth_verifications_identifier").on(t.identifier)],
 );
 
-/** Sign-in and sign-up attempts per IP and path, so every server instance sees them (§17.3). */
+/** Sign-in and sign-up attempts per IP and path, so every server instance sees them (§4 Accounts). */
 export const authRateLimits = pgTable("auth_rate_limits", {
   id: id(),
   key: text().notNull().unique(),
@@ -125,7 +126,7 @@ export const authRateLimits = pgTable("auth_rate_limits", {
   lastRequest: bigint({ mode: "number" }).notNull(),
 });
 
-/** The emails allowed to create an account while `SIGNUP_MODE=invite` (§17.4). */
+/** The emails allowed to create an account while `SIGNUP_MODE=invite` (§4 Accounts). */
 export const invites = pgTable("invites", {
   /** Trimmed and lower-case. */
   email: text().primaryKey(),

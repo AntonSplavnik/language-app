@@ -103,7 +103,7 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
       if (error.success) {
         throw new ApiClientError(error.data.error.code, error.data.error.message, res.status);
       }
-      // Better Auth's endpoints answer `{ code, message }` instead (§17.3).
+      // Better Auth's endpoints answer `{ code, message }` instead (§12).
       const authError = AuthErrorBody.safeParse(body);
       if (authError.success) {
         const { code, message } = authError.data;
@@ -140,9 +140,9 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
   return {
     health: () => request(HealthResponse, "/health"),
 
-    /** The signed-in account, or null; also keeps the session cookie fresh (§17.3). */
+    /** The signed-in account, or null; also keeps the session cookie fresh (§4 Accounts, Sessions). */
     getSession: () => request(AuthSession, "/auth/get-session"),
-    /** Create account: signs the new account in (§17.3). */
+    /** Create account: signs the new account in (§9.4). */
     signUp: (body: SignUpRequest) => postJson(SignedInResponse, "/auth/sign-up/email", body),
     signInEmail: (body: SignInEmailRequest) =>
       postJson(SignedInResponse, "/auth/sign-in/email", body),
@@ -225,7 +225,7 @@ export type ApiClient = ReturnType<typeof createApiClient>;
 
 /**
  * The code of an error answer without a body we can read: any 401 means the session is gone, and
- * Better Auth's rate limiter answers 429 with only a message (§17.3).
+ * Better Auth's rate limiter answers 429 with only a message (§12).
  */
 function codeForStatus(status: number): string {
   if (status === 401) return "unauthorized";

@@ -1,13 +1,15 @@
-# Language App — Prototype Design
+# Language App — Design
 
 **Date:** 2026-10-11, last updated 2026-10-26
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in); kept in sync with the code.
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18); kept in sync with the code. Next: M12.5, the nightly backups (§18.6).
 
 ## 1. Purpose
 
 A companion app for learning German from any book. After each study session the learner photographs the pages they worked through; the app extracts the new words, checks them against the words the learner already has, lets the learner confirm them, and turns them into flashcard practice.
 
 **Goal of the prototype:** solve the author's own problem — remember the vocabulary from their German book. If it works well, it may later become a product, so the data model and code structure must not block multiple users, more languages, or a phone app.
+
+**Since M12** the app has accounts (invite-only, §4 Accounts) and runs in production at `https://dingsda.vercel.app` on Vercel and Neon (§18), deployed by CI; the Mac keeps `pnpm dev` and its own databases for development (§14).
 
 **Success criteria for the prototype**
 - Photographing a textbook page on an iPhone and getting a correct, reviewable list of new words takes under a minute.
@@ -17,8 +19,9 @@ A companion app for learning German from any book. After each study session the 
 
 ## 2. Scope
 
-### In the prototype
-- Photo import → AI extraction → comparison with the learner's words → Wiktionary check → review → save → AI enrichment
+### In the app
+- Photo import → AI extraction → comparison with the learner's words → Wiktionary check → review → save → AI enrichment; pages of a PDF imported like photos (M11, §6.8); words typed by hand, with dictionary suggestions and **Ask AI** (M10, §6.7)
+- Past imports: practise, filter, name and rename them (M9)
 - Shared word dictionary + per-learner word list with statuses (`learning` / `learned` / `ignored`)
 - Flashcard practice (one mode) with three session sources
 - Word pronunciation from Wiktionary: IPA, and recordings from Wikimedia Commons played on tap
@@ -26,9 +29,10 @@ A companion app for learning German from any book. After each study session the 
 - "My words" list with edit, status change and delete
 - AI usage tracking (tokens and time per call, from which the cost is worked out) and a daily photo limit
 - Accounts (M12.1–M12.3b): sign-in by email or username and a password, or with Google (connected and disconnected on Account; Google's tokens not kept); invite-only sign-up; the AI features switched on per account; deleting an account with all its data; English as the learner language; German as the target language
+- Production (M12.4, §18): the web app and the API on Vercel, the database on Neon, both in Frankfurt, deployed by CI (§18.4)
 
-### Not in the prototype (see §15 Later)
-Grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
+### Not in the app yet (see §15 Later)
+Nightly backups (M12.5, §18.6), open sign-up (the email service, password reset by email, a privacy page), grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
 
 ## 3. Key decisions
 
@@ -45,6 +49,8 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Grading | Learner self-grades by swipe; time to flip and time to answer are recorded |
 | Learned rule | 3 "knew it" in a row → `learned` |
 | Platform | Web app (React), structured so a React Native app can reuse server and core later |
+| Accounts | Better Auth inside our own server; invite-only sign-up, password or Google; the AI features switched on per account (§4 Accounts) |
+| Hosting | Vercel Hobby (the web app as static files, the API as one function) and Neon Free (PostgreSQL 17), both in Frankfurt; deployed only by GitHub Actions (§18) |
 | AI model | Claude Haiku 5.5 at `medium` effort everywhere (Opus 5.5 at `low` until 2026-10-25), configurable per call |
 
 ## 4. Architecture
@@ -93,18 +99,20 @@ Grammar topics, levels and placement test, other practice modes (fill-in-the-bla
 | Web | React + Vite, React Router, CSS Modules, `@use-gesture/react` for swipes, pdf.js (`pdfjs-dist`, its legacy build, §6.8) to render PDF pages |
 | Server | Fastify, `@fastify/multipart` for photo upload |
 | Accounts | Better Auth 1.7.7 (`better-auth` and `@better-auth/drizzle-adapter`, always the same exact version) with its `username` plugin and its Google provider, inside the server; the web app uses no Better Auth client library |
-| Database | PostgreSQL 17 in Docker, Drizzle ORM + drizzle-kit migrations |
+| Database | PostgreSQL 17 (in Docker on the Mac, Neon in production, §18), Drizzle ORM + drizzle-kit migrations |
 | Validation | Zod (shared in `core/`) |
 | AI | Anthropic TypeScript SDK (`@anthropic-ai/sdk`), structured outputs |
 | Tests | Vitest |
 | Lint / format | Biome |
+| Hosting | Vercel (the web build as static files, the API bundled with esbuild into one Vercel Function, §18.2) and Neon (§18.5) |
+| CI / deploys | GitHub Actions (`.github/workflows/ci.yml`, §18.4) |
 
 ### Accounts
 Every learner has an account and signs in with their email or username and a password (M12.1), or with Google (M12.3, below). Better Auth runs inside our Fastify server, with its tables in our database (§5) and its migrations in our drizzle-kit flow.
 - **Sign-up is invite-only** while `SIGNUP_MODE=invite` (the default): an account can only be created for an email on the invite list (`invites`, edited with `invite:*`, §14), by password or with Google. Better Auth's `user.validateUserInfo` checks the list before any user is created (its `source.action` `create-user`; not when Google signs in again or is linked to an existing account) and answers 403 `not_invited`; once the account exists, a database hook (`databaseHooks.user.create.after`, which Better Auth runs after the sign-up's transaction commits) marks the invite used and links it. After that the list doesn't matter: removing an invite doesn't remove its account. `SIGNUP_MODE=open` skips the check (only once the email service and a privacy page exist, §15).
 - **Every API route needs a session,** except `/api/health`, `/api/sign-in-options` (whether Google is offered, asked before anyone signs in) and `/api/auth/*`. An `onRequest` hook in front of them reads the session cookie (`auth.api.getSession`, without extending the session) and hands the route the learner, `{ id, learnerLanguage, aiEnabled }`; without a session it answers 401 `unauthorized`. Routes keep everything per `user_id`, so another learner's ids answer 404 (§9).
 - **The AI's language** is the signed-in learner's, passed to every AI call (§11) from the session; the AI client is created once without one.
-- **User 1** is the prototype's single learner, created by the seed migration (`0001_seed-single-user.sql`), who owns the word list on the Mac. It has no email or password until `user:claim` (§14) makes it the developer account, with AI on.
+- **User 1** is the prototype's single learner, created by the seed migration (`0001_seed-single-user.sql`), who owns the word list on the Mac. It has no email or password until `user:claim` (§14) makes it the developer account, with AI on. In production `user:claim` ran on Neon's fresh database, so the developer account is user 1 there too (§18.8).
 - **Sessions** are rows in `auth_sessions`, found through the cookie `better-auth.session_token` (HttpOnly, `SameSite=Lax`, signed with `BETTER_AUTH_SECRET`). A session lasts 60 days and is extended by each day's use: the web app calls `GET /api/auth/get-session` when it starts, which refreshes it and its cookie (§10). On the Mac the cookie is never `Secure` (`advanced.useSecureCookies: false`), so signing in works over the LAN's plain HTTP; Safari and the Home Screen app keep separate cookies, so each signs in once. **In production** (M12.4, §18) the cookies are `Secure` and carry the `__Secure-` prefix (`__Secure-better-auth.session_token`, `__Secure-better-auth.state`; `useSecureCookies: true`), with the same lifetime and attributes.
 - **Addresses on the Mac:** the base URL follows the request's host among `localhost`, `127.0.0.1`, `192.168.*.*`, `10.*.*.*` and `*.local` on `WEB_PORT` (Better Auth's `baseURL.allowedHosts`, `protocol: "auto"`, falling back to `http://localhost:<WEB_PORT>` for the scripts), and the same addresses are the trusted origins: a sign-in, a sign-up, or any POST to `/api/auth/*` that carries the cookie must come from one of them (403 `INVALID_ORIGIN`). Better Auth skips this check when `NODE_ENV=test`; ours sets `advanced.disableOriginCheck: false`, so it always runs. A browser's sign-in is checked even before it has a cookie: Better Auth does so for `/sign-in/email` and `/sign-up/email` (`formCsrfMiddleware`: any `Origin`, `Referer` or `Sec-Fetch-*` header must name a trusted origin, and a cross-site navigation is refused), and our `hooks.before` runs the same check on the username plugin's `/sign-in/username`, which lacks it (found in M12.4). A client that sends none of those headers, such as `demo:import`, isn't a browser and passes.
 - **Addresses in production** (M12.4, §18): one static base URL, `BETTER_AUTH_URL` (`https://dingsda.vercel.app`), which is also the only trusted origin; a deployment's own `*.vercel.app` address, the Mac's and the LAN's are refused (403 `INVALID_ORIGIN`), and Google's return address is always production's, whatever host a request came in on. The server takes its production behaviour from `BETTER_AUTH_URL` and nothing else: config accepts only an https address with nothing after the host, the Vercel Function refuses to start without it, and the Mac's server refuses to start with it (§14).
@@ -141,7 +149,7 @@ Every learner has an account and signs in with their email or username and a pas
 - **What goes:** Better Auth deletes the account's sign-ins and sign-in methods, then the `users` row, and our cascades (§5) take the imports, the words in the list, the practice sessions and answers, the AI usage and the account's invite with it. An `afterDelete` hook also removes any invite for the account's email that was never linked to it (one added again after the account existed), so the email can't sign up again unless it is invited again. It isn't one transaction (Better Auth's endpoint isn't), but every step only deletes.
 - **What stays:** the shared word facts (`words`, `word_translations`) and the dictionary; other learners are untouched.
 - **Afterwards** the cookie is cleared and the learner lands on Sign in with "Your account was deleted." (§10).
-- **Backups** keep a deleted account for at most 30 days (§18.6).
+- **Backups:** Neon's history keeps a deleted account for 6 hours (§18.5); the nightly backups, once built (M12.5, §18.6), will keep it for at most 30 days.
 
 ## 5. Data model
 
@@ -887,8 +895,9 @@ Fixtures are created by running a few real photos through Claude once and saving
 - `pnpm dev` migrates the dev database, then starts the server (127.0.0.1:3000) and Vite (all interfaces, port 5173, `strictPort`). Vite proxies `/api` to the server, so the browser needs only one address; it keeps the browser's `Host` (the address the app was opened on) and adds the device's address to `x-forwarded-for` (`xfwd`).
 - The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`. A database with words saved before pronunciation existed then needs `pnpm --filter server backfill:pronunciation` once (§6.6). One loaded before M10 needs the import run once more, for the forms table (§7).
 - Checks: `pnpm test` (never calls Claude), `pnpm typecheck`, `pnpm check` (Biome; `pnpm format` fixes formatting). `ai:try` and `pnpm test:live` shrink photos with macOS `sips`.
-- **The Vercel build** (§18.2): `pnpm build:vercel` writes `.vercel/output` (git-ignored, as all of `.vercel/`); `pnpm test:bundle` builds and then tests the output and the bundled function against the test database (§13); `pnpm --filter server serve:vercel [port]` serves the built function with plain Node on 127.0.0.1, reading only the environment (no `.env`), for trying it by hand. GitHub Actions runs all the checks on every push (§18.4).
-- **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173`. Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Words", without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS — not needed for the prototype.)
+- **The Vercel build** (§18.2): `pnpm build:vercel` writes `.vercel/output` (git-ignored, as all of `.vercel/`); `pnpm test:bundle` builds and then tests the output and the bundled function against the test database (§13); `pnpm --filter server serve:vercel [port]` serves the built function with plain Node on 127.0.0.1, reading only the environment (no `.env`), for trying it by hand. GitHub Actions runs all the checks on every push to `main` and every pull request, except those that change only docs (§18.4).
+- **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once). Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Dingsda" (`APP_NAME`), without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS: production has it, the LAN would need §18.7.)
+- **Production** is `https://dingsda.vercel.app` (§18). It is deployed by CI, never by hand (only the first deployment came from the Mac, §18.8): a push to `main` deploys it (§18.4), so push only what has passed its milestone's review. The account scripts, `pnpm db:migrate` and `import:wiktionary` reach Neon from the Mac as described under Accounts on the Mac, below.
 - Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `DAILY_DESCRIBE_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173; the server also uses it for the addresses it trusts, §4 Accounts), `BETTER_AUTH_SECRET` (signs the session cookie, at least 32 characters, `openssl rand -base64 32`; the server, `user:claim` and `user:set-password` refuse to start without it; never in git), `SIGNUP_MODE` (`invite`, the default, or `open`), `APP_TIME_ZONE` (the daily limits' day, §11.5; default `Europe/Berlin`; the server refuses a name that isn't an IANA time zone) and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (the Google OAuth client, below; both or neither; the secret never in git). `BETTER_AUTH_URL` is production's address (§18.3) and stays unset on the Mac (commented out in `.env.example`).
 - **Accounts on the Mac** (§4 Accounts): the migration that adds them leaves the word list with user 1, which has no email or password yet. `pnpm --filter server user:claim <email> <username>` asks for a password (typed hidden, twice; or piped in) and makes user 1 the developer account: that email, the username (stored lower-case, shown as typed), the password, `email_verified` and AI on. It refuses a user 1 that already has an email, and prints what it changed. The invite list: `invite:add <email>` (trimmed and lower-cased; adding one twice is harmless), `invite:list` (each email, and when and by which account it was used), `invite:remove <email>` (an account made from it stays).
   - **`user:set-password <email|username>`** (the account found as Sign in finds it: an email with an `@`, else a username, either in any case) asks for the new password the same way (8–128 characters), sets it through Better Auth's `internalAdapter` (`ctx.password.hash`, then `updatePassword`, or `linkAccount` for an account without one, which then has a password), and ends all the account's sign-ins, so every device signs in again. It prints the account and how many sign-ins it ended. The way to reset a forgotten password until the email service exists.
@@ -916,6 +925,7 @@ Recorded here so decisions already made are not lost.
 - Spaced repetition (M16); progress over time: daily goal, streak, history (M17)
 - Basics: the alphabet (M18), numbers (M20) and time (M21), each an explanation and its own practice; text-to-speech (M19)
 - After M21: gamification; opening sign-up to everyone (the email service with its own domain, for verification and password reset, and a privacy page; then `SIGNUP_MODE=open`); push notifications built on practice behaviour (Home Screen app, HTTPS, a service worker, the learner's consent)
+- Small open items left by the milestones built so far (rough edges, follow-ups, renewing the Vercel token) are listed in `docs/plan.md`, Later
 
 **Not planned yet:**
 - **Grammar:** fixed topic list per level, tagging imports with topics, grammar exercises. Basics (M18) builds the topic structure they can reuse.
@@ -929,7 +939,7 @@ Recorded here so decisions already made are not lost.
 - **Korean** as learner language (new `word_translations` rows; Korean UI text).
 - **Several learners' shared words:** review of shared `words` rows with `mismatch_kept` before reusing them for other learners.
 - **Phone app** in React Native reusing `server/` and `core/`.
-- **Cheaper models:** compare Opus 5.5 with Haiku 5.5 (`medium` effort, see §11.4 for the first measurements) using the AI quality test; the Wiktionary check guards a smaller model's grammar facts.
+- **The model, measured:** Haiku 5.5 at `medium` became the default on 2026-10-25 from the first measurements (§11.4); the AI quality test (§13, not built) would compare it with Opus 5.5 on hand-checked pages. The Wiktionary check guards a smaller model's grammar facts.
 - **Text-to-speech (listening; planned for numbers and time in M19, research kept here):** Azure Neural TTS, audio generated once per word/sentence and stored; slow version via SSML speaking rate. Free tier covers an A1–A2 deck. Alternatives: Google Chirp 3 HD, ElevenLabs (premium). Words already have Wiktionary recordings (§7, §8.2); TTS remains for example sentences and for the words without a recording (≈ a quarter of the dictionary, mostly long compounds and rare words).
 - **Speech (speaking):** the learner says the German word or sentence and the app checks whether word form, grammar and word order are right; pronunciation is out of scope. Speech-to-text turns the answer into text, then Claude checks it like a typed answer, ignoring what speech cannot carry (capitals, punctuation, spelling-only pairs such as *das/dass*). Transcriber: **ElevenLabs Scribe v2** (`scribe_v2`, `language_code=de`, verbatim, $0.22 per audio hour), which kept the most learner mistakes in a test (§16). Every transcriber silently fixes some mistakes, mostly endings that sound close to the right form (*sprecht* → "spricht", *arbeite* → "arbeiten"), so:
   - the answer screen shows "I heard: …" before the verdict;
@@ -1038,26 +1048,27 @@ Recorded here so decisions already made are not lost.
 
 ## 17. Accounts: where the steps went (M12.1–M12.4, all built)
 
-Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). As each step was built, its parts moved into the sections above (§2, §4, §5, §9, §10, §12–§14); this section only records where they went.
+Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). As each step was built, its parts moved into the sections above (§2, §4, §5, §9, §10, §12–§14); this section only records where they went. Its old subsection numbers (17.1–17.9) are given for older references (commits, notes); none is left.
 - **M12.1 (sign-in) is built:** accounts, sessions, the invite list, `user:claim` and the `invite:*` scripts are in §4 Accounts, §5 (`users`, Better Auth's tables, `invites`, the cascades), §9.4, §10 screens 17–19, §12 Signing in, §13 and §14. (Its subsections 17.3 and 17.4 moved there.)
-- **M12.2 is built (2026-10-26):** the AI switch (17.5) is in §4 Accounts (the AI switch), §6.6–§6.7 (saving without AI), §9 and §10 (Without AI); the used-up credit in §11.1 and §12; the daily limits' day in §11.5; the scripts (17.6) in §14; deleting an account (17.7) in §4 Accounts, §5 and §9.4; Account's Delete account (from 17.8) in §10 screen 19 and Sign in's "Your account was deleted." in screen 17; the `ai_not_enabled` and `ai_unavailable` rows of 17.9 in §12. The others keep their numbers.
-- **M12.3 is built (2026-10-26):** Google (17.2, and Google in 17.1) is in §4 Accounts (Google; deleting a Google-only account), §5 (`users`, `auth_accounts`, `auth_verifications`), §9 and §9.4 (`/sign-in-options`, `sign-in/social`, `link-social`, the callback), §12 (Google's errors, with the `not_invited` row of 17.9), §13, §14 (the Google OAuth client) and §16 (what Better Auth does); its screens (17.8) in §10 screens 17–19 and the design system's `GoogleButton`. 17.2, 17.8 and 17.9 are gone; only the production part of 17.1 is left.
+- **M12.2 is built (2026-10-26):** the AI switch (17.5) is in §4 Accounts (the AI switch), §6.6–§6.7 (saving without AI), §9 and §10 (Without AI); the used-up credit in §11.1 and §12; the daily limits' day in §11.5; the scripts (17.6) in §14; deleting an account (17.7) in §4 Accounts, §5 and §9.4; Account's Delete account (from 17.8) in §10 screen 19 and Sign in's "Your account was deleted." in screen 17; the `ai_not_enabled` and `ai_unavailable` rows of 17.9 in §12.
+- **M12.3 is built (2026-10-26):** Google (17.2, and Google in 17.1) is in §4 Accounts (Google; deleting a Google-only account), §5 (`users`, `auth_accounts`, `auth_verifications`), §9 and §9.4 (`/sign-in-options`, `sign-in/social`, `link-social`, the callback), §12 (Google's errors, with the `not_invited` row of 17.9), §13, §14 (the Google OAuth client) and §16 (what Better Auth does); its screens (17.8) in §10 screens 17–19 and the design system's `GoogleButton`.
 - **M12.3b is built (2026-10-26),** a follow-up decided after M12.3's demo and never in this section: Google's tokens not kept, Disconnect, and implicit linking kept, in §4 Accounts (Google), §5 (`auth_accounts`), §9.4 (`unlink-account`, the switched-off endpoints), §10 screen 19, §12, §13 and §16.
 - **M12.4's code is built (2026-10-26):** production's static https base URL as the one trusted origin, the `Secure` cookies with the `__Secure-` prefix and the client's address from `x-vercel-forwarded-for` are in §4 Accounts (Sessions, Addresses in production, Rate limits), §13, §14 and §16.
-- **M12.4 went live (2026-10-26, §18.8):** `user:claim` ran on Neon's fresh database, so the developer account is user 1 there as on the Mac; the account scripts (§14) run from the Mac on Neon's direct connection. Google has production's return address on the same OAuth client (§14) and the Google pair in Vercel's variables (§18.3), and works in Safari and in the Home Screen app (§16); on https the screens offer it everywhere (§4 Accounts). 17.1 is gone.
+- **M12.4 went live (2026-10-26, §18.8):** `user:claim` ran on Neon's fresh database, so the developer account is user 1 there as on the Mac; the account scripts (§14) run from the Mac on Neon's direct connection. Google has production's return address on the same OAuth client (§14) and the Google pair in Vercel's variables (§18.3), and works in Safari and in the Home Screen app (§16); on https the screens offer it everywhere (§4 Accounts); this was the production part of 17.1.
 
 ## 18. Deployment (M12, designed 2026-10-25; M12.4 built and live 2026-10-26)
 
-M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main`. The backups (18.6) are M12.5.
+M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main` but a docs-only one (§18.4). The backups (18.6) are M12.5.
 
 ### 18.1 Where it runs
 | | Development (the Mac) | Production |
 |---|---|---|
 | Web | Vite, `http://<Mac IP>:5173` on the LAN | Static files on Vercel (Hobby), `https://dingsda.vercel.app` (the working name; final after M12) |
 | API | Fastify on 127.0.0.1:3000 (`tsx watch`) | One Vercel Function in Frankfurt (`fra1`), Node 24 |
-| Database | PostgreSQL 17 in Docker: the prototype's word list, with user 1 claimed as the developer account | Neon Free in Frankfurt (`aws-eu-central-1`), PostgreSQL 17, autoscaling capped at 1 CU; starts empty except for the dictionary |
-| AI | The same Anthropic key as production | |
-| Sign-in | Cookies without `Secure`; Google only in the Mac's own browser on `localhost` (the iPhone over the LAN signs in with a password) | `Secure` cookies; Google on the production address |
+| Database | PostgreSQL 17 in Docker: the prototype's word list, with user 1 claimed as the developer account | Neon Free in Frankfurt (`aws-eu-central-1`), PostgreSQL 17, autoscaling capped at 1 CU; started fresh with only the dictionary and the developer account (user 1, claimed there, §18.8) |
+| AI | The same Anthropic key as production | The same key: €5 of prepaid credit, no auto top-up (§18.8 step 4) |
+| Sign-in | Cookies without `Secure`; Google only in the Mac's own browser on `localhost` (the iPhone over the LAN signs in with a password) | `Secure` cookies; Google on the production address, in Safari and in the Home Screen app (§16) |
+| Deploys | None: `pnpm dev` runs the working tree | GitHub Actions on every push to `main` that changes more than docs (§18.4) |
 
 - **Production starts fresh:** the Mac's word list stays on the Mac (the user, 2026-10-24).
 - **A secure context:** the deployed app runs on HTTPS, so the browser APIs CLAUDE.md rules out work there. The rule stays for the LAN.
@@ -1087,14 +1098,15 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
   Secrets (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`) are stored as "sensitive" variables, which can't be read back; the others as plain ones. `NODE_ENV` isn't set: production's behaviour comes from `BETTER_AUTH_URL` alone, and `TZ` is reserved (§11.5).
 - **The Mac's `.env`** gains `BETTER_AUTH_SECRET`, `APP_TIME_ZONE` and `SIGNUP_MODE`, and from M12.3 the Google pair (one Google client with both return addresses: `http://localhost:5173/api/auth/callback/google` for the Mac's own browser, §14, and `https://dingsda.vercel.app/api/auth/callback/google` from M12.4). Never `BETTER_AUTH_URL`: the Mac's server refuses to start with it.
 - **GitHub Actions** (§18.4, §18.6):
-  - secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner), `NEON_BACKUP_URL` (direct, read-only role), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`;
-  - a plain variable: `AGE_RECIPIENT`, the backups' public key.
+  - secrets, set going live (§18.8): `VERCEL_TOKEN` (valid until ≈2027-10-26), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner);
+  - for the backups (M12.5, not set yet): the secrets `NEON_BACKUP_URL` (direct, read-only role), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and a plain variable, `AGE_RECIPIENT`, the backups' public key.
 - **Going live's secrets** sat in `deploy.env` at the repo root (git-ignored, values single-quoted) while §18.8 was under way, and the commands read them from there, so none was typed, shown or pasted into a chat; it was deleted afterwards. A later script on Neon gets a new `deploy.env` with `NEON_DIRECT_URL='…'` from Neon's console.
 - **Deployment protection:** Vercel Authentication with Standard Protection: every deployment's own address needs a Vercel login, the production domain doesn't (§16). So Vercel's own login stays off for production: the app's sign-in protects it, and Vercel's would also lock out the iPhone. There are no preview deployments (every deploy is `--prod`).
 
 ### 18.4 Deploys (GitHub Actions)
 `.github/workflows/ci.yml`, built in M12.4; it runs from the push that brings it (§18.8):
-- **Checks:** on every push to `main` and on pull requests, on `ubuntu-24.04` with Node 24 and the pnpm of `packageManager` (its store cached): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm check`, `pnpm test` and `pnpm test:bundle`, against a `postgres:17` service with user `app` and the database `language_app_test`, as `docker/initdb` makes it on the Mac (the tests rebuild its schema, `pg_trgm` included, themselves). `pnpm test:live` stays manual, since it costs money. The suite also passes with the process in UTC and the C locale, as on the runner.
+- **Docs-only changes run nothing** (added after going live; the user, 2026-10-26: docs updates shouldn't trigger CI): `push` and `pull_request` both have `paths-ignore: ["**.md", "docs/**"]`, so a push or pull request that changes only markdown files or files under `docs/` runs neither the checks nor the deploy; one that also changes anything else runs everything. It is safe because no code or test reads the docs, and Biome's `files.includes` already leaves `docs` out.
+- **Checks:** on every push to `main` and on pull requests (except docs-only ones, above), on `ubuntu-24.04` with Node 24 and the pnpm of `packageManager` (its store cached): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm check`, `pnpm test` and `pnpm test:bundle`, against a `postgres:17` service with user `app` and the database `language_app_test`, as `docker/initdb` makes it on the Mac (the tests rebuild its schema, `pg_trgm` included, themselves). `pnpm test:live` stays manual, since it costs money. The suite also passes with the process in UTC and the C locale, as on the runner.
 - **Deploy:** on `main` only (a push, not a pull request), and only when the checks pass (`needs: checks`), one at a time (`concurrency: deploy-production`; a newer run waits for the running one rather than cancelling it):
   1. `vercel pull --yes --environment=production`, then `vercel build --prod`, which runs `vercel.json`'s build command (§18.2), with Vercel CLI 63.1.2 and `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`;
   2. `pnpm db:migrate` against Neon (`NEON_MIGRATE_URL`), once the build is ready, so a failed build leaves Neon alone;
@@ -1120,6 +1132,7 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **History:** Neon Free keeps 6 hours, so any moment in the last 6 hours can be restored from the console.
 
 ### 18.6 Backups
+**Not built yet** (M12.5): until then, Neon's 6 hours of history (§18.5) is the only backup. The design:
 - **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`timezone: Europe/Berlin`):
   1. installs the PostgreSQL 17 client and `age`;
   2. runs `pg_dump` (custom format) on the direct connection as `backup`, leaving out the dictionary tables' data (`--exclude-table-data`; their schema stays);
