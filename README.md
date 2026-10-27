@@ -150,7 +150,7 @@ Every call writes a row to the `ai_usage` table (account, model, tokens, time), 
 
 ## Development
 
-The server tests and scripts need the Docker database running.
+The everyday commands are in the cheat sheet, [docs/commands.md](docs/commands.md). The server tests and scripts need the Docker database running.
 
 ```sh
 pnpm test          # all unit and server tests; never calls Claude
@@ -209,6 +209,7 @@ pnpm --filter server serve:vercel [port]                         # serve the bui
 - [docs/plan.md](docs/plan.md): the build plan: Part 1, M0–M8 (the prototype); Part 2, M9 onward, in build order.
 - [docs/design-system/](docs/design-system/README.md): how the UI looks: the brand book, the tokens and a guideline per component.
 - [docs/m12-research.md](docs/m12-research.md): the code tried and the commands found while researching accounts and deployment.
+- [docs/commands.md](docs/commands.md): a cheat sheet of the everyday commands: start and stop, accounts on the Mac and in production, checks, deploys.
 - [CLAUDE.md](CLAUDE.md): commands and repo rules.
 
 **Status (2026-10-26):** the prototype (M0–M8), past imports (M9), typed words (M10), PDF pages (M11), and accounts and deployment (M12.1–M12.4) are done, and the app is live.

@@ -198,7 +198,7 @@ Verified environment:
 
 The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. On 2026-10-23 deployment was added as M12, right after M11, and the milestones after it were renumbered (themes M12 → M13 … time M20 → M21). Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
 
-**Status (2026-10-26):** M9, M10, M11 and M12.1–M12.4 are built; the app is live at `https://dingsda.vercel.app` (M12.4). Next: M12.5 (backups), then M13.
+**Status (2026-10-26):** M9, M10, M11 and M12.1–M12.4 are built; the app is live at `https://dingsda.vercel.app` (M12.4). Next: M12.5 (backups), M12.6 (account scripts `user:list` and `user:delete`), then M13.
 
 Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
 
@@ -296,7 +296,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
 
 #### M12: Accounts and deployment (Vercel + Neon)
-**Status (2026-10-26):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app` (notes after the steps table); M12.5 (backups) is next. The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
+**Status (2026-10-26):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app` (notes after the steps table); M12.5 (backups) is next, then M12.6 (account scripts). The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
 
 - **Decided (the user, 2026-10-23; database changed 2026-10-24):** the app is deployed on **Vercel** (Hobby; the web app as static files, the API as one Vercel Function) with the database on **Neon** (Free, PostgreSQL 17), both in Frankfurt, right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
 - **Compared on 2026-10-24** (the providers' own pages; Supabase was the first choice):
@@ -352,6 +352,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 | M12.3 Google | The Google Cloud project and OAuth client (return address `http://localhost:5173` now, production added in M12.4), the provider, Continue with Google, Connect in Account. Tested in the Mac's own browser on `localhost` (Google refuses LAN addresses, so the iPhone over the LAN keeps the password) | On the Mac: Google sign-in for an invited test email creates its account; Google connected to your account; an email not on the list is refused |
 | M12.4 Deployment | The build script and handler (from the check), `vercel.json`, the Vercel project under its name with its variables; Neon reset (password, migrations, dictionary) and `user:claim` there; the GitHub Actions checks and deploy; production's Google return address. **Check first:** Google sign-in inside the Home Screen app on the iPhone (if it doesn't come back into the app, the Home Screen app offers the password only) | **The M12 demo:** away from home Wi-Fi, the iPhone opens `https://dingsda.vercel.app`, signs in, imports a photo and practises its words; Google sign-in there, in Safari and in the Home Screen app |
 | M12.5 Backups | The R2 bucket (30-day rule) and its token, the `age` key pair, the read-only `backup` role, `backup.yml`, `backup:restore` | The first night's backup in R2; a restore into a fresh local database matches Neon's row counts |
+| M12.6 Account scripts | `user:list`: every account with its id, username, email, sign-in methods (password, Google), AI on or off, words in its list, created and last signed in. `user:delete <email\|username>`: deletes an account and all its data by script, with the same cascades as Delete account (§4 Accounts) and its invite. Both print the database first, like the other account scripts, and run on the Mac and on Neon | On the Mac, then on Neon: `user:list` shows the accounts; a test account deleted with `user:delete` is gone with all its rows, and yours is untouched |
 
 - **M12.1 built (2026-10-25)** on Better Auth 1.7.7, as designed; the behaviour moved from `docs/design.md` §17 into §4 Accounts, §5, §9.4, §10 (screens 17–19), §12–§14. Beyond the design:
   - **The rate limits count per device on the Mac:** Better Auth reads the client's address from headers only, so without one the whole home network would share one count. Vite's proxy now adds it (`xfwd`) and the server trusts the loopback hop.
@@ -451,6 +452,9 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - A 500's message carries `x-vercel-id` when present.
     - The CI workflow is green on a clean push, and a failing check stops the deploy (tried once on a branch).
   - **M12.5:** the restore drill (the demo); `backup:restore` refuses a database that isn't empty.
+  - **M12.6** (asked for by the user on 2026-10-27; open questions to settle when it starts: whether `user:delete` refuses user 1, the developer account, without an extra flag; how it confirms, e.g. typing the username back, and whether a flag skips that for scripts; which columns `user:list` shows and whether it filters):
+    - `user:list` shows every account, including one with no email (user 1 before `user:claim`), and never a password hash or token.
+    - `user:delete` removes the account's imports, words in the list, sessions, answers, AI usage, sign-ins, sign-in methods and invite; shared words, the dictionary and other accounts stay. An unknown account is an error (exit code 1) and deletes nothing; a refused confirmation deletes nothing.
 
 #### M13: Themes and own groups
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.

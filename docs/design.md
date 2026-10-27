@@ -919,6 +919,7 @@ Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
 - Nightly backups (M12.5, §18.6; accounts are built, §4 Accounts, and the app is live on Vercel + Neon since 2026-10-26, §18)
+- Account scripts `user:list` and `user:delete` beside the other account scripts of §14 (M12.6, `docs/plan.md`)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
 - Practice modes German → English, articles, plurals, verb forms (M15)
