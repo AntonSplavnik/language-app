@@ -1133,18 +1133,26 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **History:** Neon Free keeps 6 hours, so any moment in the last 6 hours can be restored from the console.
 
 ### 18.6 Backups
-**Not built yet** (M12.5): until then, Neon's 6 hours of history (§18.5) is the only backup. The design:
-- **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`timezone: Europe/Berlin`):
+**Not built yet** (M12.5; the bucket, the sign-in data and the lock settled with the user on 2026-10-27): until then, Neon's 6 hours of history (§18.5) is the only backup. The design:
+- **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`schedule` with `timezone: Europe/Berlin`), and by hand when needed (`workflow_dispatch`: the restore drill, or before something risky):
   1. installs the PostgreSQL 17 client and `age`;
-  2. runs `pg_dump` (custom format) on the direct connection as `backup`, leaving out the dictionary tables' data (`--exclude-table-data`; their schema stays);
+  2. runs `pg_dump` (custom format) on the direct connection as `backup`, leaving out the data of these tables (`--exclude-table-data`; the tables themselves stay):
+     - the dictionary, `dictionary_entries` and `dictionary_forms`, which `import:wiktionary` rebuilds;
+     - the sign-ins, `auth_sessions`, `auth_verifications` and `auth_rate_limits` (the user, 2026-10-27), so a backup holds no session token that still works. After a restore everyone signs in again; passwords and Google links (`auth_accounts`) are kept.
   3. encrypts the file to the user's `age` public key;
-  4. uploads it to the Cloudflare R2 bucket as `YYYY-MM-DD.dump.age`, with the AWS CLI and R2's endpoint, using a token limited to that bucket with object read & write only.
-- **30 days:** an R2 lifecycle rule deletes files after 30 days, so there are about 30 backups. R2's free tier is 10 GB-month, and a backup is a few MB.
+  4. uploads it to the R2 bucket as `YYYY-MM-DD-HHMM.dump.age` (Berlin time, so a run by hand on the day of a nightly one gets a name of its own), with the AWS CLI and the bucket's EU endpoint, using a token limited to that bucket with object read & write only.
+- **The bucket** (the user, 2026-10-27): `dingsda-app-backups` on Cloudflare R2, in the **EU jurisdiction**, so the files stay in the EU. Its endpoint is `https://<account id>.eu.r2.cloudflarestorage.com`, its token is made for that jurisdiction, and the jurisdiction can't be changed later. R2 needs a payment method even within its free tier.
+- **30 days, locked:**
+  - a **bucket lock** rule (the user, 2026-10-27) refuses to delete or overwrite a file younger than 30 days, whoever asks, GitHub's token included; only the Cloudflare login can remove the rule;
+  - a lifecycle rule deletes files after 30 days (R2 lets a lock override it), so there are about 30 backups, plus any run by hand. R2's free tier is 10 GB-month, and a backup is a few MB;
+  - the cost: no backup can be deleted early, a mistaken one included. A deleted account stays in backups for at most 30 days either way (§4 Accounts).
 - **The private `age` key** is kept only by the user, in a password manager. GitHub and R2 hold only encrypted files.
 - **Restore** (`pnpm --filter server backup:restore <file.age> <DATABASE_URL>`):
-  - It decrypts the file with the private key, restores it into an empty database with `pg_restore`, then loads the dictionary with `import:wiktionary`.
-  - It is tried once (M12.5) into a fresh local database, comparing the row count of every table with Neon.
-- **Failures:** a failed run emails the user.
+  - The file is downloaded from R2's dashboard. The script asks for the private key at a hidden prompt (pasted from the password manager, never written to disk), decrypts the file, restores it with PostgreSQL 17's `pg_restore` into an empty database (it refuses one that isn't), then loads the dictionary with `import:wiktionary`.
+  - On the Mac it needs `age` (`brew install age`). Homebrew's `libpq` is PostgreSQL 18, so the 17 client comes from elsewhere (Docker's `postgres:17` image or Homebrew's `postgresql@17`; the build decides).
+  - It is tried once (M12.5) into a fresh local database, from a backup run by hand just before, comparing the row count of every table with Neon's at that moment (the left-out tables aside).
+  - Restoring production into Neon after a disaster is a written procedure in the runbook, not drilled.
+- **Failures:** a failed run emails the user (the notification setting of §18.8 step 7).
 - **Later:** once there are other people's data or payments, an independent copy or Neon's paid 7-day history is considered (§15).
 
 ### 18.7 HTTPS on the LAN (with push notifications, §15)
