@@ -1,7 +1,7 @@
 # Language App — Design
 
 **Date:** 2026-10-11, last updated 2026-10-26
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18; M12.5: the nightly backups, built 2026-10-27 and going live with §18.9); kept in sync with the code. Next: M12.5 going live (§18.9), then M12.6.
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18; M12.5: the nightly backups, live since 2026-10-28, §18.6); kept in sync with the code. Next: M12.6, the account scripts.
 
 ## 1. Purpose
 
@@ -32,7 +32,7 @@ A companion app for learning German from any book. After each study session the 
 - Production (M12.4, §18): the web app and the API on Vercel, the database on Neon, both in Frankfurt, deployed by CI (§18.4)
 
 ### Not in the app yet (see §15 Later)
-Nightly backups until they go live (M12.5 is built, §18.6; going live §18.9), open sign-up (the email service, password reset by email, a privacy page), grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
+Open sign-up (the email service, password reset by email, a privacy page), grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
 
 ## 3. Key decisions
 
@@ -149,7 +149,7 @@ Every learner has an account and signs in with their email or username and a pas
 - **What goes:** Better Auth deletes the account's sign-ins and sign-in methods, then the `users` row, and our cascades (§5) take the imports, the words in the list, the practice sessions and answers, the AI usage and the account's invite with it. An `afterDelete` hook also removes any invite for the account's email that was never linked to it (one added again after the account existed), so the email can't sign up again unless it is invited again. It isn't one transaction (Better Auth's endpoint isn't), but every step only deletes.
 - **What stays:** the shared word facts (`words`, `word_translations`) and the dictionary; other learners are untouched.
 - **Afterwards** the cookie is cleared and the learner lands on Sign in with "Your account was deleted." (§10).
-- **Backups:** Neon's history keeps a deleted account for 6 hours (§18.5); the nightly backups (M12.5, §18.6, live once §18.9 is done) keep it for at most 30 days, the bucket's lock and lifecycle rule. They hold no sign-ins (§18.6).
+- **Backups:** Neon's history keeps a deleted account for 6 hours (§18.5); the nightly backups (M12.5, §18.6, live since 2026-10-28) keep it for at most 30 days, the bucket's lock and lifecycle rule. They hold no sign-ins (§18.6).
 
 ## 5. Data model
 
@@ -920,7 +920,6 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Nightly backups going live (M12.5: built 2026-10-27, §18.6; the going-live steps are §18.9)
 - Account scripts `user:list` and `user:delete` beside the other account scripts of §14 (M12.6, `docs/plan.md`)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
@@ -1068,9 +1067,9 @@ Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). As eac
 - **M12.4's code is built (2026-10-26):** production's static https base URL as the one trusted origin, the `Secure` cookies with the `__Secure-` prefix and the client's address from `x-vercel-forwarded-for` are in §4 Accounts (Sessions, Addresses in production, Rate limits), §13, §14 and §16.
 - **M12.4 went live (2026-10-26, §18.8):** `user:claim` ran on Neon's fresh database, so the developer account is user 1 there as on the Mac; the account scripts (§14) run from the Mac on Neon's direct connection. Google has production's return address on the same OAuth client (§14) and the Google pair in Vercel's variables (§18.3), and works in Safari and in the Home Screen app (§16); on https the screens offer it everywhere (§4 Accounts); this was the production part of 17.1.
 
-## 18. Deployment (M12, designed 2026-10-25; M12.4 built and live 2026-10-26; M12.5 built 2026-10-27)
+## 18. Deployment (M12, designed 2026-10-25; M12.4 built and live 2026-10-26; M12.5 built 2026-10-27, live 2026-10-28)
 
-M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main` but a docs-only one (§18.4). The backups (18.6, M12.5) are built; they go live with §18.9.
+M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main` but a docs-only one (§18.4). The backups (18.6, M12.5) went live on 2026-10-28 (18.9).
 
 ### 18.1 Where it runs
 | | Development (the Mac) | Production |
@@ -1111,7 +1110,7 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **The Mac's `.env`** gains `BETTER_AUTH_SECRET`, `APP_TIME_ZONE` and `SIGNUP_MODE`, and from M12.3 the Google pair (one Google client with both return addresses: `http://localhost:5173/api/auth/callback/google` for the Mac's own browser, §14, and `https://dingsda.vercel.app/api/auth/callback/google` from M12.4). Never `BETTER_AUTH_URL`: the Mac's server refuses to start with it.
 - **GitHub Actions** (§18.4, §18.6):
   - secrets, set going live (§18.8): `VERCEL_TOKEN` (valid until ≈2027-10-26), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner);
-  - for the backups (M12.5, set going live, §18.9 step 5): the secrets `NEON_BACKUP_URL` (direct, the read-only `backup` role, `sslmode=verify-full`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (the bucket's token), and a repository variable, `AGE_RECIPIENT`, the backups' public key (`age1…`).
+  - for the backups (M12.5, set 2026-10-28, §18.9 step 5): the secrets `NEON_BACKUP_URL` (direct, the read-only `backup` role, `sslmode=verify-full`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (the bucket's token), and a repository variable, `AGE_RECIPIENT`, the backups' public key (`age1…`).
 - **Going live's secrets** sat in `deploy.env` at the repo root (git-ignored, values single-quoted) while §18.8 was under way, and the commands read them from there, so none was typed, shown or pasted into a chat; it was deleted afterwards. A later script on Neon gets a new `deploy.env` with `NEON_DIRECT_URL='…'` from Neon's console.
 - **Deployment protection:** Vercel Authentication with Standard Protection: every deployment's own address needs a Vercel login, the production domain doesn't (§16). So Vercel's own login stays off for production: the app's sign-in protects it, and Vercel's would also lock out the iPhone. There are no preview deployments (every deploy is `--prod`).
 
@@ -1144,7 +1143,7 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **History:** Neon Free keeps 6 hours, so any moment in the last 6 hours can be restored from the console.
 
 ### 18.6 Backups
-**Built** (M12.5 code, 2026-10-27; settled with the user on 2026-10-27: the bucket, the sign-in data, the lock), **not live yet**: going live is §18.9. Until then, Neon's 6 hours of history (§18.5) is the only backup.
+**Built** (M12.5 code, 2026-10-27; settled with the user on 2026-10-27: the bucket, the sign-in data, the lock), and **live since 2026-10-28** (§18.9): the first backup was run by hand that day and restored in the drill. Neon's 6 hours of history (§18.5) stays beside it.
 - **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`schedule` with `timezone: Europe/Berlin`; 03:17 is never skipped or repeated when the clocks change), and by hand when needed (`workflow_dispatch`: the restore drill, or before something risky). One run at a time (`concurrency: backup`, a second waits), 15 minutes at most, `contents: read` only. Its steps:
   1. checks out the repo (for the dump script; no dependency is installed, so no package's code runs beside the secrets);
   2. installs the PostgreSQL 17 client (`postgresql-client-17` from PostgreSQL's apt repository, added by the runner's own `apt.postgresql.org.sh`; the runner's 16 refuses Neon's 17) and `age` (Ubuntu's, 1.1.1);
@@ -1306,7 +1305,7 @@ The steps in order, done once by the user and Claude together. **You** marks wha
 - **Confirmed** on the Mac: the build and its output, `vercel build` keeping our output (offline, §16), `deploy --prebuilt` needing nothing more than `.vercel/output` (the CLI's source), the bundled function with production's variables (`pnpm test:bundle` and the rehearsal), the migrations and dictionary on a fresh database and after the reset, the workflow's syntax (`actionlint`).
 - **Going live:** the token's access for `pull`, `build` and `deploy` (a project-scoped token isn't documented for them on Hobby; a team-scoped one works), Vercel setting `x-vercel-forwarded-for` and overwriting a forged one (step 6), Neon taking `DROP SCHEMA public` from `neondb_owner`, the protection setting, Google's new return address, the Home Screen app's Google sign-in, and the workflow itself (steps 8 and 9).
 
-### 18.9 Going live with backups (M12.5)
+### 18.9 Going live with backups (M12.5, done 2026-10-28)
 The steps in order, done once by the user and Claude together, as in §18.8: **You** marks what the user does by hand (a console, the key, a paste, a GitHub secret); **Claude** marks commands the session can run in the main checkout's root, which print no secret.
 - **Secrets** live only in `deploy.env` at the repo root (git-ignored, readable only by you, values single-quoted, read in a subshell `( set -a; . ./deploy.env; set +a; … )`), in GitHub's secrets and, for the private key, in the password manager. Nobody types, prints or pastes a secret into the chat. The private key never touches a file or the session: only the user sees it, and only the public key is shared.
 - **The Mac's prerequisites:** `brew install age postgresql@17` (done during the build, 2026-10-27: age 1.3.2, PostgreSQL 17.11, keg-only; never start its server). `gh` is installed and signed in (§18.8).
@@ -1388,7 +1387,7 @@ The steps in order, done once by the user and Claude together, as in §18.8: **Y
      ```
    - You: the bucket → **Objects**: the file is there with that size. Its delete must be refused (the dashboard disables or refuses it for a locked object): try it once.
 8. **The drill** (the M12.5 demo):
-   1. You: download the file from the bucket's Objects into `~/Downloads`.
+   1. You: download the file from the bucket's Objects into `~/Downloads`. The dashboard may save it under another name (`R2 Object Storage Oct 28 2026.dump.age` on 2026-10-28): rename it to the object's name, or use the name it has.
    2. Claude: a new, empty database on the Mac:
       ```sh
       docker exec language-app-db-1 createdb -U app language_app_drill
@@ -1431,6 +1430,18 @@ The steps in order, done once by the user and Claude together, as in §18.8: **Y
 
 **What a restore loses:** everything after the backup's time (at most about a day of practice, imports and new accounts), and every sign-in: every device signs in again, with passwords and Google links kept. The rate limits start again from zero. The developer account and every other keep their ids, so nothing else changes.
 
+**How going live went (2026-10-28),** where it differed from the steps above, and what it confirmed:
+- **The key pair** was made by the user as step 2 says; the private key is only in the password manager, checked with `age-keygen -y`. `AGE_RECIPIENT` is `age1v7enrset0wljnkk3wpdq6v8wgvc2ct3usd975aarkzr9atu5cs8s2jykcp`.
+- **Cloudflare:** the bucket in the EU jurisdiction, the lock rule `keep-30-days`, the lifecycle rule `delete-after-30-days`, and the token (Object Read & Write on the bucket, TTL **Forever**, the user's choice). The user ran the clipboard appends of steps 3.5, 3.6 and 4.1 in their own terminal, which saves a round trip per value. Before GitHub, Claude tried the token with a read-only listing of the bucket on the EU endpoint, the keys going to curl through stdin (`printf 'user = "%s:%s"\n' … | curl -K - --aws-sigv4 "aws:amz:auto:s3" "https://$R2_ACCOUNT_ID.eu.r2.cloudflarestorage.com/dingsda-app-backups?list-type=2"`): 200.
+- **Neon:** the owner's direct string was copied again from the console (M12.4's `deploy.env` was deleted, and Vercel and GitHub can't read secrets back). `backup:role` as `neondb_owner`: `Role backup: created`, so Neon takes `CREATE ROLE` and the grants from it. As `backup`, `db:counts` (node-postgres) and `pg_dump --schema-only` (libpq, `PGSSLROOTCERT=system`, `verify-full`) both worked.
+- **GitHub:** the four secrets and `AGE_RECIPIENT` set by the user with `gh` from their terminal, as step 5 says.
+- **The push** (`a04abf0`): Checks 2 min 56 s, the PostgreSQL 17 client and age installed and `pnpm test:backup` green on the runner; Deploy 1 min 8 s.
+- **The backup by hand** (run 40671392730, under a minute): `Dumped: 57294 bytes in 16 s` (Neon waking up; 0.5 s on the Mac), `Checked: 11 tables with data`, `Encrypted: 57494 bytes`, `Uploaded: dingsda-app-backups/2026-10-28-1121.dump.age`, its size and ETag checked. The dashboard refused to delete it.
+- **The drill:** the downloaded file was named `R2 Object Storage Oct 28 2026.dump.age` (renamed; step 8.1 says so now). The user ran `backup:restore` in their own terminal: the hidden prompt needs a terminal, and the private key never passes through the session. Every table's count equals Neon's taken right after the backup, apart from `auth_sessions` (1) and `auth_rate_limits` (7), which are 0; the dictionary was reloaded (98,308 entries and 249,020 forms); `db:migrate` up to date. Beyond the runbook, an `md5` of each backed-up table's rows as text was identical on Neon and the restore.
+- **Comparing Neon with the Mac:** Neon's `neondb` sorts text as `C.UTF-8`, the Mac's Docker databases as `en_US.utf8`, which order `_` differently (`user_words` before or after `users`). Anything that compares sorted text or sorted lines between the two must sort with `COLLATE "C"`. A first checksum comparison didn't, and its lines paired the wrong tables. Neon's sessions default to `GMT`, the Mac's to `Etc/UTC`; the values print the same.
+- **Afterwards:** `deploy.env`, the downloaded file and `language_app_drill` deleted.
+- **Still to check:** the first scheduled run, 2026-10-29 at about 03:17 (step 9).
+
 **Confirmed before going live, and what only going live confirms:**
 - **Confirmed** on the Mac (2026-10-27): the role's SQL as a non-superuser owner and `pg_dump` as the role it makes (every table locked and read, a table made later too); `backup-dump.sh` with its check and encryption; `backup:restore` from a piped key into an empty database, as the Mac's `app` and as a non-superuser owner after §18.8's reset; the counts equal but for the sign-in tables; `db:migrate` up to date afterwards; the workflow's syntax and its shell (`actionlint` 1.7.12 with shellcheck).
-- **Only going live:** the install step on the runner (CI's backup test proves it on the push, step 6); Neon taking `CREATE ROLE` and the grants from `neondb_owner`, and `pg_dump` as `backup` finding nothing it can't read (step 4.4); libpq's `verify-full` against Neon with `PGSSLROOTCERT=system` (step 4.4 on the Mac, step 7 on the runner); the token's access to the EU bucket, the upload with `Content-MD5` and the ETag check (step 7); the lock refusing a delete (step 7); the schedule's time zone (step 9); and the restore into Neon itself, which stays written, not drilled.
+- **Only going live:** the install step on the runner (CI's backup test proves it on the push, step 6); Neon taking `CREATE ROLE` and the grants from `neondb_owner`, and `pg_dump` as `backup` finding nothing it can't read (step 4.4); libpq's `verify-full` against Neon with `PGSSLROOTCERT=system` (step 4.4 on the Mac, step 7 on the runner); the token's access to the EU bucket, the upload with `Content-MD5` and the ETag check (step 7); the lock refusing a delete (step 7); the schedule's time zone (step 9); and the restore into Neon itself, which stays written, not drilled. All but the schedule's time zone were confirmed on 2026-10-28 (above).

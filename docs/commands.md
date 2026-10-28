@@ -179,6 +179,7 @@ gh run list --workflow backup.yml --repo AntonSplavnik/language-app --limit 5
 The files themselves are in Cloudflare's dashboard → R2 → `dingsda-app-backups` → Objects, named `YYYY-MM-DD-HHMM.dump.age`.
 
 ### Restore a backup on the Mac, to look at it (download the file from R2 first)
+Cloudflare's download may get another name, such as `R2 Object Storage Oct 28 2026.dump.age`: use the name it has in `~/Downloads`.
 
 #### 1. Make an empty database for it
 ```sh

@@ -3,7 +3,7 @@
 Kept so the M12 build doesn't redo the research of 2026-10-24 and 2026-10-25. The decisions are in `docs/plan.md` (M12) and `docs/design.md` (accounts in §4 Accounts and the sections §17 lists, deployment in §18); §16 summarises what was found. This file holds the code that was actually tried and the commands for the steps that come later. Everything here was a throwaway probe: rewrite it to the repo's standards rather than copying it as is.
 
 **Status (2026-10-27;** a bare § here is a section of this file):
-- **Built and confirmed:** §1 in M12.1–M12.3b (on Better Auth 1.7.7; what the build found beyond the probe is in `docs/design.md` §16, "Built on 1.7.7" and "Found in M12.2" to "Found in M12.3b"); §2 and §3's checks and deploy in M12.4, live since 2026-10-26 (`docs/design.md` §18, "How going live went" in §18.8); §3's nightly backup and Neon's read-only role built in M12.5 (2026-10-27, `docs/design.md` §18.6; what differs from the notes below is there and in §16, "Backups (M12.5)"), going live with §18.9.
+- **Built and confirmed:** §1 in M12.1–M12.3b (on Better Auth 1.7.7; what the build found beyond the probe is in `docs/design.md` §16, "Built on 1.7.7" and "Found in M12.2" to "Found in M12.3b"); §2 and §3's checks and deploy in M12.4, live since 2026-10-26 (`docs/design.md` §18, "How going live went" in §18.8); §3's nightly backup and Neon's read-only role built in M12.5 (2026-10-27, `docs/design.md` §18.6; what differs from the notes below is there and in §16, "Backups (M12.5)"), live since 2026-10-28 (§18.9).
 - **Still to come:** §4, Web Push (Later, push notifications); §1's phone-app note.
 
 ## 1. Better Auth probe (M12.1–M12.3)
@@ -274,7 +274,7 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
 - Schedules are in UTC unless `timezone:` is set, can run late at busy times (avoid minute 0), and may be dropped under load.
 
 ### The nightly backup
-**Built in M12.5** (2026-10-27) as `.github/workflows/backup.yml`, `server/scripts/backup-dump.sh` and `backup:role` / `backup:restore` / `db:counts` (`docs/design.md` §18.6, going live §18.9); the notes below are as researched. The build differs: the dump is checked before it is encrypted; the role also gets `drizzle`'s default privileges; libpq needs `PGSSLROOTCERT=system` for `verify-full`; the restore streams `age --identity -` into `pg_restore` rather than decrypting to a file.
+**Built in M12.5** (2026-10-27) as `.github/workflows/backup.yml`, `server/scripts/backup-dump.sh` and `backup:role` / `backup:restore` / `db:counts` (`docs/design.md` §18.6, live since 2026-10-28, §18.9); the notes below are as researched. The build differs: the dump is checked before it is encrypted; the role also gets `drizzle`'s default privileges; libpq needs `PGSSLROOTCERT=system` for `verify-full`; the restore streams `age --identity -` into `pg_restore` rather than decrypting to a file.
 
 - `pg_dump` 17: `ubuntu-latest` has PostgreSQL 16, and `pg_dump` refuses newer servers. Install the 17 client from PGDG (`sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y`, then `sudo apt-get install -y postgresql-client-17`, binaries in `/usr/lib/postgresql/17/bin`) or run it in the image: `docker run --rm postgres:17 pg_dump …`.
 - Dump: `pg_dump -Fc --exclude-table-data=dictionary_entries --exclude-table-data=dictionary_forms -d "$NEON_BACKUP_URL" -f backup.dump` (the direct connection, never the `-pooler` one).
