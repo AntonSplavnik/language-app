@@ -198,7 +198,7 @@ Verified environment:
 
 The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. On 2026-10-23 deployment was added as M12, right after M11, and the milestones after it were renumbered (themes M12 → M13 … time M20 → M21). Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
 
-**Status (2026-10-28):** M9, M10, M11 and M12.1–M12.5 are built; the app is live at `https://dingsda.vercel.app` (M12.4), with nightly backups since 2026-10-28 (M12.5; the first scheduled run is checked on 2026-10-29). M12.6 (account scripts `user:list` and `user:delete`) is built and demoed on Neon (2026-10-28). M12.7 (open sign-up while testing) is built (2026-10-28) and waits to go live (its going-live list, in the M12.7 note). Next: M13.
+**Status (2026-10-28):** M9, M10, M11 and M12.1–M12.5 are built; the app is live at `https://dingsda.vercel.app` (M12.4), with nightly backups since 2026-10-28 (M12.5; the first scheduled run is checked on 2026-10-29). M12.6 (account scripts `user:list` and `user:delete`) is built and demoed on Neon (2026-10-28). M12.7 (open sign-up while testing) is built and live (2026-10-28): production and the Mac run with `SIGNUP_MODE=open`. M12 is done. Next: the app's name (Part 2 context, Name), then M13.
 
 Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
 
@@ -296,7 +296,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
 
 #### M12: Accounts and deployment (Vercel + Neon)
-**Status (2026-10-28):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app`, M12.5 built and live since 2026-10-28 (notes after the steps table; the first scheduled backup is checked on 2026-10-29), M12.6 built and demoed on Neon 2026-10-28 (account scripts), M12.7 built 2026-10-28 (open sign-up while testing; going live with the user next, its note's list). The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
+**Status (2026-10-28):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app`, M12.5 built and live since 2026-10-28 (notes after the steps table; the first scheduled backup is checked on 2026-10-29), M12.6 built and demoed on Neon 2026-10-28 (account scripts), M12.7 built and live 2026-10-28 (open sign-up while testing). M12 is done. The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
 
 - **Decided (the user, 2026-10-23; database changed 2026-10-24):** the app is deployed on **Vercel** (Hobby; the web app as static files, the API as one Vercel Function) with the database on **Neon** (Free, PostgreSQL 17), both in Frankfurt, right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
 - **Compared on 2026-10-24** (the providers' own pages; Supabase was the first choice):
@@ -466,6 +466,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     4. The Mac's `.env`: `SIGNUP_MODE=open` instead of `invite`, then restart `pnpm dev`; `curl -s http://localhost:5173/api/sign-in-options` answers `"signUp":"open"`.
     5. The demo (the steps table): Create account has no "Invite only" line; an email that isn't on the invite list creates an account by password and with Google, in production on the iPhone and on the Mac in its own browser (`localhost`), each with AI off (`user:list`).
     6. The test accounts removed with `user:delete`, on Neon and on the Mac (`docs/commands.md`).
+- **M12.7 live (2026-10-28),** following the list above: `SIGNUP_MODE=open` on Vercel (checked by pulling production's plain variables), the push (`de48e43`; CI green), production's `/api/sign-in-options` answering `{"google":true,"signUp":"open"}`, and the Mac's `.env` switched, with `pnpm dev` restarted. The user's demo: no "Invite only" line, and an email not on the list signed up by password and with Google, in production and on the Mac, each with AI off (`user:list`). The four test accounts were removed with `user:delete`, so both databases hold only the developer account again. The Mac's `pnpm dev` reads `.env` only when it starts, so a change of mode there needs a restart.
 
 - **Tests first:**
   - **M12.1:**
