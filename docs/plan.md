@@ -198,7 +198,7 @@ Verified environment:
 
 The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. On 2026-10-23 deployment was added as M12, right after M11, and the milestones after it were renumbered (themes M12 → M13 … time M20 → M21). Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
 
-**Status (2026-10-28):** M9, M10, M11 and M12.1–M12.5 are built; the app is live at `https://dingsda.vercel.app` (M12.4), with nightly backups since 2026-10-28 (M12.5; the first scheduled run is checked on 2026-10-29). Next: M12.6 (account scripts `user:list` and `user:delete`), then M13.
+**Status (2026-10-28):** M9, M10, M11 and M12.1–M12.5 are built; the app is live at `https://dingsda.vercel.app` (M12.4), with nightly backups since 2026-10-28 (M12.5; the first scheduled run is checked on 2026-10-29). Next: M12.6 (account scripts `user:list` and `user:delete`, designed 2026-10-28), then M12.7 (open sign-up with Google), then M13.
 
 Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
 
@@ -296,7 +296,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
 
 #### M12: Accounts and deployment (Vercel + Neon)
-**Status (2026-10-28):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app`, M12.5 built and live since 2026-10-28 (notes after the steps table; the first scheduled backup is checked on 2026-10-29); next M12.6 (account scripts). The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
+**Status (2026-10-28):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app`, M12.5 built and live since 2026-10-28 (notes after the steps table; the first scheduled backup is checked on 2026-10-29); next M12.6 (account scripts, designed 2026-10-28), then M12.7 (open sign-up with Google, decided 2026-10-28). The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
 
 - **Decided (the user, 2026-10-23; database changed 2026-10-24):** the app is deployed on **Vercel** (Hobby; the web app as static files, the API as one Vercel Function) with the database on **Neon** (Free, PostgreSQL 17), both in Frankfurt, right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
 - **Compared on 2026-10-24** (the providers' own pages; Supabase was the first choice):
@@ -342,7 +342,8 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - Vercel Pro once the app takes payments.
     - The daily limits count their day in Europe/Berlin.
   - **The address:** `dingsda.vercel.app`, from the working name (Part 2 context, Name). `language-app`, `words-app`, `deutsch-words` and `wortschatz-app` were taken; `dingsda` was free on 2026-10-26, and the user created the Vercel project that day (`npx -y vercel@48.0.0 project add dingsda`, under the `lazy-pixel` scope): it holds the address with no deployment, and nothing is linked in the repo until M12.4. The Vercel CLI isn't installed on the Mac; it runs through `npx -y vercel@<version>`.
-  - **Not in M12:** the email service, open sign-up and the privacy page; push notifications; changing a username; a second, independent backup copy; Neon's paid history.
+  - **Open sign-up with Google** (the user, 2026-10-28): anyone with a Google account can create one, with AI off, while sign-up with a password stays invite-only (M12.7). Google has already checked the email, which solves the reason invites exist (someone taking another person's email) and makes bots harder; a Google-only account has no password to reset by script.
+  - **Not in M12:** the email service, open sign-up with a password, and the privacy page (unless M12.7 brings one); push notifications; changing a username; a second, independent backup copy; Neon's paid history.
 - **Steps.** Each has tests first, the checks, its demo, a commit, and the user's review:
 
 | Step | Content | Demo |
@@ -353,6 +354,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 | M12.4 Deployment | The build script and handler (from the check), `vercel.json`, the Vercel project under its name with its variables; Neon reset (password, migrations, dictionary) and `user:claim` there; the GitHub Actions checks and deploy; production's Google return address. **Check first:** Google sign-in inside the Home Screen app on the iPhone (if it doesn't come back into the app, the Home Screen app offers the password only) | **The M12 demo:** away from home Wi-Fi, the iPhone opens `https://dingsda.vercel.app`, signs in, imports a photo and practises its words; Google sign-in there, in Safari and in the Home Screen app |
 | M12.5 Backups | The R2 bucket `dingsda-app-backups` (EU jurisdiction, a 30-day lock and a 30-day lifecycle rule; settled 2026-10-27, `docs/design.md` §18.6) and its token, the `age` key pair, the read-only `backup` role, `backup.yml`, `backup:restore` | The first night's backup in R2; a restore into a fresh local database matches Neon's row counts |
 | M12.6 Account scripts | `user:list`: every account with its id, username, email, sign-in methods (password, Google), AI on or off, words in its list, created and last signed in. `user:delete <email\|username>`: deletes an account and all its data by script, with the same cascades as Delete account (§4 Accounts) and its invite. Both print the database first, like the other account scripts, and run on the Mac and on Neon | On the Mac, then on Neon: `user:list` shows the accounts; a test account deleted with `user:delete` is gone with all its rows, and yours is untouched |
+| M12.7 Open sign-up with Google | Anyone with a Google account can create one (AI off); Create account with a password stays invite-only. The open questions are listed under Tests first → M12.7 | In production: a Gmail that isn't on the invite list signs up with Google and gets an empty account with AI off; Create account with a password for an email that isn't invited is still refused |
 
 - **M12.1 built (2026-10-25)** on Better Auth 1.7.7, as designed; the behaviour moved from `docs/design.md` §17 into §4 Accounts, §5, §9.4, §10 (screens 17–19), §12–§14. Beyond the design:
   - **The rate limits count per device on the Mac:** Better Auth reads the client's address from headers only, so without one the whole home network would share one count. Vite's proxy now adds it (`xfwd`) and the server trusts the loopback hop.
@@ -471,9 +473,17 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - A 500's message carries `x-vercel-id` when present.
     - The CI workflow is green on a clean push, and a failing check stops the deploy (tried once on a branch).
   - **M12.5:** the restore drill (the demo); `backup:restore` refuses a database that isn't empty. Built (2026-10-27): those, plus the excluded tables held to the schema, the key's shape, libpq's connection, `db:counts`, `backup:role`'s grants, and a round trip on throwaway databases (`pnpm test:backup`, `docs/design.md` §13).
-  - **M12.6** (asked for by the user on 2026-10-27; open questions to settle when it starts: whether `user:delete` refuses user 1, the developer account, without an extra flag; how it confirms, e.g. typing the username back, and whether a flag skips that for scripts; which columns `user:list` shows and whether it filters):
+  - **M12.6** (asked for by the user on 2026-10-27; settled 2026-10-28 and designed in `docs/design.md` §14: `user:delete` treats every account alike, user 1 included; it confirms by typing the username back, with no flag to skip that; `user:list` shows the columns of the steps table, every account, no filter):
     - `user:list` shows every account, including one with no email (user 1 before `user:claim`), and never a password hash or token.
-    - `user:delete` removes the account's imports, words in the list, sessions, answers, AI usage, sign-ins, sign-in methods and invite; shared words, the dictionary and other accounts stay. An unknown account is an error (exit code 1) and deletes nothing; a refused confirmation deletes nothing.
+    - `user:delete` removes the account's imports, words in the list, sessions, answers, AI usage, sign-ins, sign-in methods and invite; shared words, the dictionary and other accounts stay. An unknown account is an error (exit code 1) and deletes nothing; a refused confirmation deletes nothing. An invite for the account's email that was never linked to it goes too. User 1 is deleted like any other account once confirmed.
+    - `user:list`'s last active comes from the newest sign-in, and is `—` without one.
+  - **M12.7** (decided by the user on 2026-10-28; open questions to settle when it starts):
+    - **A privacy page first?** A public service in Germany that stores people's data needs one; a short page written with the user, or opening without one for now.
+    - **When to switch it on in production:** the working name is to be final before anyone but the author gets the address (Part 2 context, Name).
+    - **The setting:** e.g. a third `SIGNUP_MODE`, `google` (Google open to all, a password by invite only).
+    - **What Create account says** to an email that isn't invited (pointing to Continue with Google).
+    - **A daily cap on new accounts,** against bots with Google accounts, or not.
+
 
 #### M13: Themes and own groups
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
