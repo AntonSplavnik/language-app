@@ -1,5 +1,5 @@
-import { asc, eq } from "drizzle-orm";
-import type { Db } from "../db/client";
+import { and, asc, eq, isNull } from "drizzle-orm";
+import type { Db, Executor } from "../db/client";
 import { invites } from "../db/schema";
 
 // The invite list (docs/design.md §4 Accounts): while SIGNUP_MODE=invite, only these emails can create
@@ -38,6 +38,19 @@ export async function removeInvite(db: Db, email: string): Promise<boolean> {
   const removed = await db
     .delete(invites)
     .where(eq(invites.email, normalizeEmail(email)))
+    .returning({ email: invites.email });
+  return removed.length > 0;
+}
+
+/**
+ * Part of deleting an account (§4 Accounts): removes an invite for its email that no account was
+ * made from, such as one added again after the account existed, so the email can't sign up again
+ * unless it is invited again. The invite the account was made from goes with its users row.
+ */
+export async function removeUnusedInvite(db: Executor, email: string): Promise<boolean> {
+  const removed = await db
+    .delete(invites)
+    .where(and(eq(invites.email, normalizeEmail(email)), isNull(invites.userId)))
     .returning({ email: invites.email });
   return removed.length > 0;
 }

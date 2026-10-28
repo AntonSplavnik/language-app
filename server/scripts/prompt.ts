@@ -20,6 +20,27 @@ export async function askSecret(question: string): Promise<string> {
   return readHidden(question);
 }
 
+/**
+ * Asks for one line that may be seen, such as a confirmation: typed visibly on a terminal (Ctrl+C
+ * or Ctrl+D answer nothing); piped in, the first line.
+ */
+export async function askLine(question: string): Promise<string> {
+  if (!process.stdin.isTTY) return firstLine();
+  return new Promise((resolve) => {
+    const lines = createInterface({ input: process.stdin, output: process.stdout });
+    let answer = "";
+    lines.question(question, (typed) => {
+      answer = typed;
+      lines.close();
+    });
+    lines.once("SIGINT", () => {
+      process.stdout.write("\n");
+      lines.close();
+    });
+    lines.once("close", () => resolve(answer));
+  });
+}
+
 function firstLine(): Promise<string> {
   return new Promise((resolve) => {
     const lines = createInterface({ input: process.stdin });

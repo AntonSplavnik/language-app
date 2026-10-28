@@ -55,7 +55,19 @@ pnpm --filter server user:ai friend@example.com off
 pnpm --filter server user:set-password lazypixel
 ```
 
-Accounts are named by email or username, in any case. Listing all accounts (`user:list`) and deleting one by script (`user:delete`) are planned (M12.6, `docs/plan.md`); until then an account is deleted by its owner in Settings → Account.
+### See every account (how it signs in, AI, words, when created and last active; only reads)
+```sh
+pnpm --filter server user:list
+```
+Times are Berlin time. Last active is when the app was last opened on any device, to within a day; `—` means signed out everywhere.
+
+### Delete an account and everything in it (asks you to type its username back)
+```sh
+pnpm --filter server user:delete friend@example.com
+```
+It shows the account and what will go, then asks for its username: type it (any case) and press Return to delete. Anything else, an empty line or Ctrl+C keeps it and says "Not deleted.". There is no undo, and your own account is treated like any other.
+
+Accounts are named by email or username, in any case. A learner can also delete their own account in Settings → Account.
 
 ## Accounts in production (`https://dingsda.vercel.app`, Neon)
 
@@ -82,7 +94,7 @@ sed -i '' 's/sslmode=require/sslmode=verify-full/' deploy.env
 ```sh
 ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server invite:add friend@example.com )
 ```
-Check that the first line says `Database: ep-…neon.tech/neondb`, not `localhost`. Any account command works the same way: replace `invite:add friend@example.com` with, for example, `user:ai friend@example.com on`, `invite:list` or `user:set-password lazypixel`.
+Check that the first line says `Database: ep-…neon.tech/neondb`, not `localhost`. Any account command works the same way: replace `invite:add friend@example.com` with, for example, `user:list`, `user:ai friend@example.com on`, `invite:list`, `user:set-password lazypixel` or `user:delete friend@example.com`.
 
 ### 6. Delete `deploy.env` when you're done
 ```sh
@@ -95,6 +107,14 @@ rm deploy.env
 3. They open `https://dingsda.vercel.app` and create an account, with a password or Continue with Google. New accounts have AI off.
 4. If they should have AI: step 5 with `user:ai their@email.com on`.
 5. Step 6.
+
+### Deleting an account from production, start to finish
+1. Steps 1–4 above.
+2. See the accounts: step 5 with `user:list`.
+3. Delete one: step 5 with `user:delete their@email.com`. Check the first line says Neon, read what will go, then type its username and press Return.
+4. Step 6.
+
+Copies remain for a while after it: Neon's history keeps the account for 6 hours, and the nightly backups for up to 30 days (nobody can shorten that).
 
 ## Before pushing
 

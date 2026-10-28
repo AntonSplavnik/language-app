@@ -3,26 +3,24 @@ import { count, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addInvite } from "../../src/auth/invites";
 import {
-  aiUsage,
   authAccounts,
-  authSessions,
-  cardResults,
+  authVerifications,
   dictionaryEntries,
-  imports,
   invites,
-  sessions,
   users,
-  userWords,
   words,
   wordTranslations,
 } from "../../src/db/schema";
 import { loadDictionary } from "../../src/dictionary/load";
+import { giveData, NOTHING_LEFT, rowsOf as rowsOfIn } from "../helpers/accounts";
 import { buildTestApp, sessionCookie, testAuth } from "../helpers/app";
 import { authPost, getWith, PASSWORD, setCookies, signUp } from "../helpers/auth";
 import { first, LEARNER_ID, useTestDb } from "../helpers/db";
+import { APP_HOST } from "../helpers/google";
 
 // Deleting an account (docs/design.md §4 Accounts, §5, §9.4): POST /api/auth/delete-user, and
-// the cascades that take the learner's data with the users row.
+// the cascades that take the learner's data with the users row. user:delete deletes the same rows
+// (user-delete.test.ts), held to the same list (helpers/accounts.ts).
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
@@ -34,78 +32,7 @@ beforeEach(async () => {
 
 const deleteAccount = (cookie: string, body: object = { password: PASSWORD }) =>
   authPost(app(), "/delete-user", body, { cookie });
-
-/** Every kind of row a learner owns, plus a shared word with its translation. */
-async function giveData(userId: number, lemma: string) {
-  const word = first(
-    await db
-      .insert(words)
-      .values({ language: "de", lemma, pos: "noun", article: "der", checkStatus: "match" })
-      .returning({ id: words.id }),
-  );
-  await db.insert(wordTranslations).values({ wordId: word.id, language: "en", translation: lemma });
-  const lesson = first(
-    await db
-      .insert(imports)
-      .values({ userId, status: "done", name: "Lesson 4" })
-      .returning({ id: imports.id }),
-  );
-  const userWord = first(
-    await db
-      .insert(userWords)
-      .values({ userId, wordId: word.id, status: "learning", importId: lesson.id })
-      .returning({ id: userWords.id }),
-  );
-  const practice = first(
-    await db
-      .insert(sessions)
-      .values({ userId, source: "import", importId: lesson.id })
-      .returning({ id: sessions.id }),
-  );
-  await db.insert(cardResults).values({
-    sessionId: practice.id,
-    userWordId: userWord.id,
-    result: "knew",
-    flipped: true,
-    answerMs: 900,
-  });
-  await db.insert(aiUsage).values({
-    userId,
-    importId: lesson.id,
-    callType: "extract",
-    model: "claude-haiku-5-5",
-    ok: true,
-  });
-  return word.id;
-}
-
-/** How many rows of each table belong to the user (card results through their sessions). */
-async function rowsOf(userId: number) {
-  const n = async (query: Promise<Array<{ n: number }>>) => first(await query).n;
-  return {
-    imports: await n(db.select({ n: count() }).from(imports).where(eq(imports.userId, userId))),
-    userWords: await n(
-      db.select({ n: count() }).from(userWords).where(eq(userWords.userId, userId)),
-    ),
-    sessions: await n(db.select({ n: count() }).from(sessions).where(eq(sessions.userId, userId))),
-    cardResults: await n(
-      db
-        .select({ n: count() })
-        .from(cardResults)
-        .innerJoin(sessions, eq(cardResults.sessionId, sessions.id))
-        .where(eq(sessions.userId, userId)),
-    ),
-    aiUsage: await n(db.select({ n: count() }).from(aiUsage).where(eq(aiUsage.userId, userId))),
-    authSessions: await n(
-      db.select({ n: count() }).from(authSessions).where(eq(authSessions.userId, userId)),
-    ),
-    authAccounts: await n(
-      db.select({ n: count() }).from(authAccounts).where(eq(authAccounts.userId, userId)),
-    ),
-    invites: await n(db.select({ n: count() }).from(invites).where(eq(invites.userId, userId))),
-    users: await n(db.select({ n: count() }).from(users).where(eq(users.id, userId))),
-  };
-}
+const rowsOf = (userId: number) => rowsOfIn(db, userId);
 
 const dictionarySize = async () => first(await db.select({ n: count() }).from(dictionaryEntries)).n;
 
@@ -114,23 +41,23 @@ async function testAccount() {
   await addInvite(db, "test@example.com");
   const cookie = await signUp(app(), { email: "test@example.com", username: "test" });
   const id = first(await db.select().from(users).where(eq(users.email, "test@example.com"))).id;
-  const wordId = await giveData(id, "Stuhl");
+  const wordId = await giveData(db, id, "Stuhl");
   return { id, cookie, wordId };
 }
 
 describe("POST /api/auth/delete-user", () => {
   it("with the right password removes the account and everything it owns", async () => {
-    const learnerWord = await giveData(LEARNER_ID, "Tisch");
+    const learnerWord = await giveData(db, LEARNER_ID, "Tisch");
     const learnerBefore = await rowsOf(LEARNER_ID);
     const test = await testAccount();
     expect(await rowsOf(test.id)).toEqual({
       imports: 1,
-      userWords: 1,
+      user_words: 1,
       sessions: 1,
-      cardResults: 1,
-      aiUsage: 1,
-      authSessions: 1,
-      authAccounts: 1,
+      card_results: 1,
+      ai_usage: 1,
+      auth_sessions: 1,
+      auth_accounts: 1,
       invites: 1,
       users: 1,
     });
@@ -147,17 +74,7 @@ describe("POST /api/auth/delete-user", () => {
     expect(setCookies(res).join("\n")).toMatch(/better-auth\.session_token=;/);
     expect((await getWith(app(), "/api/stats", test.cookie)).statusCode).toBe(401);
 
-    expect(await rowsOf(test.id)).toEqual({
-      imports: 0,
-      userWords: 0,
-      sessions: 0,
-      cardResults: 0,
-      aiUsage: 0,
-      authSessions: 0,
-      authAccounts: 0,
-      invites: 0,
-      users: 0,
-    });
+    expect(await rowsOf(test.id)).toEqual(NOTHING_LEFT);
     // The shared word facts and the dictionary stay, and so does everyone else's data.
     const shared = await db.select().from(words).where(eq(words.id, test.wordId));
     expect(shared).toHaveLength(1);
@@ -175,6 +92,31 @@ describe("POST /api/auth/delete-user", () => {
     await db.update(invites).set({ userId: null, usedAt: null });
     expect(await deleteAccount(test.cookie)).toMatchObject({ statusCode: 200 });
     expect(await db.select().from(invites)).toEqual([]);
+  });
+
+  it("also removes the state of a Connect to Google under way, which holds its id and email", async () => {
+    const test = await testAccount();
+    const google = buildTestApp(db, { learner: null, auth: testAuth(db, { google: true }) });
+    const connect = (cookie?: string) =>
+      authPost(
+        google,
+        cookie ? "/link-social" : "/sign-in/social",
+        { provider: "google", callbackURL: "/settings/account", errorCallbackURL: "/signin" },
+        { cookie, host: APP_HOST },
+      );
+    expect((await connect(test.cookie)).statusCode).toBe(200);
+    // A signed-out browser's Continue with Google is no account's, and stays.
+    expect((await connect()).statusCode).toBe(200);
+    const states = () => db.select({ value: authVerifications.value }).from(authVerifications);
+    expect((await states()).map((row) => row.value)).toEqual([
+      expect.stringContaining(`"link":{"userId":"${test.id}","email":"test@example.com"}`),
+      expect.not.stringContaining('"link"'),
+    ]);
+
+    expect(await deleteAccount(test.cookie)).toMatchObject({ statusCode: 200 });
+    expect((await states()).map((row) => row.value)).toEqual([
+      expect.not.stringContaining('"link"'),
+    ]);
   });
 
   it("refuses a wrong password and deletes nothing", async () => {
@@ -228,7 +170,7 @@ describe("POST /api/auth/delete-user", () => {
       await db
         .insert(authAccounts)
         .values({ userId: id, providerId: "google", accountId: "google-sub-123" });
-      await giveData(id, "Lampe");
+      await giveData(db, id, "Lampe");
       return { id, cookie: await sessionCookie(testAuth(db), id) };
     }
 
@@ -236,7 +178,7 @@ describe("POST /api/auth/delete-user", () => {
       const google = await googleAccount();
       const res = await deleteAccount(google.cookie, {});
       expect(res.statusCode).toBe(200);
-      expect(await rowsOf(google.id)).toMatchObject({ users: 0, userWords: 0, authAccounts: 0 });
+      expect(await rowsOf(google.id)).toMatchObject({ users: 0, user_words: 0, auth_accounts: 0 });
     });
 
     it("is refused when its sign-in is more than a day old", async () => {

@@ -21,6 +21,8 @@
     "user:claim": "tsx scripts/user-claim.ts",
     "user:set-password": "tsx scripts/user-set-password.ts",
     "user:ai": "tsx scripts/user-ai.ts",
+    "user:list": "tsx scripts/user-list.ts",
+    "user:delete": "tsx scripts/user-delete.ts",
     "invite:add": "tsx scripts/invite.ts add",
     "invite:list": "tsx scripts/invite.ts list",
     "invite:remove": "tsx scripts/invite.ts remove",

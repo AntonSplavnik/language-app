@@ -10,7 +10,8 @@ import {
 import { username } from "better-auth/plugins";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
-import { isInvited, markInviteUsed, removeInvite } from "./invites";
+import { removeLeftovers } from "./accounts";
+import { isInvited, markInviteUsed } from "./invites";
 import { uniqueUsername } from "./usernames";
 
 // Accounts with Better Auth, inside our own server (docs/design.md §4 Accounts, §16 Better Auth). Its
@@ -187,15 +188,18 @@ export function createAuth({
       // younger than a day (`freshAge`); the hook below makes an account with a password give it.
       deleteUser: {
         enabled: true,
-        // An invite for the account's email that was never linked to it (added again later)
-        // would let the email sign up again; the linked one has gone with the cascade.
+        // What the cascades don't cover, shared with user:delete (accounts.ts): an invite for
+        // the account's email never linked to it (added again later) would let the email sign
+        // up again, and a Connect to Google under way keeps its id and email.
         afterDelete: async (user) => {
-          if (typeof user.email !== "string") return;
           try {
-            await removeInvite(db, user.email);
+            await removeLeftovers(db, {
+              id: Number(user.id),
+              email: typeof user.email === "string" ? user.email : null,
+            });
           } catch (error) {
-            // The account is gone either way; only a stray invite would be left.
-            console.error("Couldn't remove the deleted account's invite", error);
+            // The account is gone either way; only a stray invite or trip would be left.
+            console.error("Couldn't remove what the deleted account left behind", error);
           }
         },
       },

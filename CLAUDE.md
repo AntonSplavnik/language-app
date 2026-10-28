@@ -40,6 +40,8 @@ pnpm --filter server user:claim <email> <username>           # once per database
 pnpm --filter server invite:add <email>                      # sign-up is invite-only (SIGNUP_MODE=invite); also invite:list, invite:remove <email>
 pnpm --filter server user:set-password <email|username>      # new password (asked for, or piped in); ends the account's sign-ins
 pnpm --filter server user:ai <email|username> on|off         # the account's AI features (photo/PDF import, Ask AI, example sentences)
+pnpm --filter server user:list                               # every account: methods, AI, words, created, last active; read-only
+pnpm --filter server user:delete <email|username>            # an account and all its data, in one transaction; asks for the username typed back
 pnpm --filter server backup:restore <file.dump.age> [dict]   # a nightly backup into an EMPTY DATABASE_URL; asks for the private age key (docs/design.md §18.6)
 pnpm --filter server db:counts                               # every table's exact row count in DATABASE_URL, read-only (the restore drill compares them)
 pnpm --filter server backup:role [role]                      # the read-only role backups dump as; password from BACKUP_ROLE_PASSWORD

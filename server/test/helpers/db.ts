@@ -35,6 +35,11 @@ async function resetDb(db: Db): Promise<void> {
   const tables = rows.map((r) => `"${r.tablename}"`).join(", ");
   await db.execute(sql.raw(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`));
   await db.execute(sql`DELETE FROM users WHERE id <> ${LEARNER_ID}`);
+  // Back if a test deleted it (user:delete treats it like any other account).
+  await db.execute(sql`
+    INSERT INTO users (id, name, learner_language, target_language) OVERRIDING SYSTEM VALUE
+    VALUES (${LEARNER_ID}, 'Learner', 'en', 'de')
+    ON CONFLICT (id) DO NOTHING`);
   await db.execute(sql`
     UPDATE users
     SET name = 'Learner', learner_language = 'en', target_language = 'de', email = NULL,
