@@ -1,0 +1,86 @@
+# The nightly backup (docs/design.md §18.6): Neon dumped as the read-only `backup` role, encrypted
+# with age to the user's public key, and uploaded to the R2 bucket, whose lock keeps every file for
+# 30 days. Also run by hand (`gh workflow run backup.yml`), before something risky or for the
+# restore drill. Nothing unencrypted leaves the runner. Actions are pinned to a release's commit,
+# its tag beside it.
+name: Backup
+
+on:
+  schedule:
+    # Off the hour, when GitHub's schedules are least delayed. In Berlin's time zone, 03:17 is
+    # never skipped or repeated when the clocks change.
+    - cron: "17 3 * * *"
+      timezone: Europe/Berlin
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One backup at a time; a run started meanwhile waits for the running one.
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BUCKET: dingsda-app-backups
+    steps:
+      # Only for server/scripts/backup-dump.sh: no dependency is installed, so no package's code
+      # runs beside the secrets.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The runner has PostgreSQL 16, whose pg_dump refuses Neon's 17: the 17 client comes from
+      # PostgreSQL's own apt repository (the script that adds it is in the runner's
+      # postgresql-common). age from Ubuntu's.
+      - name: Install the PostgreSQL 17 client and age
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17 age
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      # Berlin time, to the minute, so a run by hand on the day of a nightly one has a name of its
+      # own (the lock refuses to overwrite a file).
+      - name: Name the backup
+        run: echo "BACKUP_FILE=$(TZ=Europe/Berlin date +%Y-%m-%d-%H%M).dump.age" >> "$GITHUB_ENV"
+      - name: Dump, check and encrypt
+        run: server/scripts/backup-dump.sh "$RUNNER_TEMP/$BACKUP_FILE"
+        env:
+          # Neon's direct connection as `backup`, with sslmode=verify-full: libpq checks the
+          # certificate against the system's authorities rather than ~/.postgresql/root.crt.
+          DATABASE_URL: ${{ secrets.NEON_BACKUP_URL }}
+          PGSSLROOTCERT: system
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+      # The AWS CLI on the runner, with the bucket's EU endpoint. R2 checks the file against its
+      # Content-MD5 on arrival; the CLI's own checksums only where an operation requires them
+      # (R2 doesn't take all of its newer defaults). Then the file must be there, with its size and
+      # MD5 as its ETag.
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          file="$RUNNER_TEMP/$BACKUP_FILE"
+          endpoint="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
+          size=$(wc -c < "$file" | tr -d ' ')
+          md5=$(openssl md5 -binary "$file" | base64)
+          md5_hex=$(openssl md5 -r "$file" | cut -d ' ' -f 1)
+          aws s3api put-object --endpoint-url "$endpoint" --bucket "$BUCKET" --key "$BACKUP_FILE" \
+            --body "$file" --content-md5 "$md5" --output text > /dev/null
+          read -r stored_size stored_etag < <(aws s3api head-object --endpoint-url "$endpoint" \
+            --bucket "$BUCKET" --key "$BACKUP_FILE" --query '[ContentLength, ETag]' --output text)
+          if [ "$stored_size" != "$size" ] || [ "$stored_etag" != "\"$md5_hex\"" ]; then
+            echo "The uploaded file doesn't match: R2 has $stored_size bytes, ETag $stored_etag" >&2
+            exit 1
+          fi
+          echo "Uploaded: $BUCKET/$BACKUP_FILE, $size bytes"
+      - name: Remove the encrypted file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/$BACKUP_FILE"

@@ -7,6 +7,7 @@
     "test": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",
     "test:bundle": "vitest run --config vitest.bundle.config.ts",
+    "test:backup": "vitest run --config vitest.backup.config.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
@@ -22,7 +23,10 @@
     "user:ai": "tsx scripts/user-ai.ts",
     "invite:add": "tsx scripts/invite.ts add",
     "invite:list": "tsx scripts/invite.ts list",
-    "invite:remove": "tsx scripts/invite.ts remove"
+    "invite:remove": "tsx scripts/invite.ts remove",
+    "backup:role": "tsx scripts/backup-role.ts",
+    "backup:restore": "tsx scripts/backup-restore.ts",
+    "db:counts": "tsx scripts/db-counts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",

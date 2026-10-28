@@ -123,9 +123,14 @@ pnpm test
 pnpm test:bundle
 ```
 
+### The backup test (a backup's round trip on throwaway databases)
+```sh
+pnpm test:backup
+```
+
 ## Deploying to production
 
-A push to `main` deploys: GitHub runs the checks (≈2.5 min), then Neon's migrations and the Vercel deploy (≈1 min). A push that changes only `*.md` files or `docs/` runs nothing. Nothing is deployed by hand.
+A push to `main` deploys: GitHub runs the checks (≈3 min with the backup test), then Neon's migrations and the Vercel deploy (≈1 min). A push that changes only `*.md` files or `docs/` runs nothing. Nothing is deployed by hand.
 
 ### Push
 ```sh
@@ -152,6 +157,51 @@ gh run view <run-id> --repo AntonSplavnik/language-app --log-failed
 curl -s https://dingsda.vercel.app/api/health
 ```
 It answers `{"status":"ok"}`. Production's server logs (one hour on Hobby) are in Vercel's dashboard → `dingsda` → Logs.
+
+## Backups
+
+Every night at 03:17 (Berlin time) GitHub backs up production's database, encrypted with your `age` key, to the Cloudflare R2 bucket `dingsda-app-backups`, where each file stays 30 days and can't be deleted sooner. A failed backup emails you. The full story is in `docs/design.md` §18.6, the first setup and the restore into Neon in §18.9.
+
+### 1. Run a backup now (before something risky)
+```sh
+gh workflow run backup.yml --repo AntonSplavnik/language-app
+```
+
+### 2. Follow it until it finishes
+```sh
+gh run watch --repo AntonSplavnik/language-app
+```
+
+### 3. See the latest backup runs (nightly ones say `schedule`)
+```sh
+gh run list --workflow backup.yml --repo AntonSplavnik/language-app --limit 5
+```
+The files themselves are in Cloudflare's dashboard → R2 → `dingsda-app-backups` → Objects, named `YYYY-MM-DD-HHMM.dump.age`.
+
+### Restore a backup on the Mac, to look at it (download the file from R2 first)
+
+#### 1. Make an empty database for it
+```sh
+docker exec language-app-db-1 createdb -U app language_app_drill
+```
+
+#### 2. Restore into it (asks for the private key from the password manager, hidden)
+```sh
+DATABASE_URL=postgres://app:app@localhost:5432/language_app_drill pnpm --filter server backup:restore ~/Downloads/<file>.dump.age
+```
+It restores only into an empty database: it refuses the Mac's own database and changes nothing there. Afterwards, empty the clipboard: `pbcopy < /dev/null`.
+
+#### 3. Its row counts (the same command shows any database's)
+```sh
+DATABASE_URL=postgres://app:app@localhost:5432/language_app_drill pnpm --filter server db:counts
+```
+
+#### 4. Delete it when you're done
+```sh
+docker exec language-app-db-1 dropdb -U app language_app_drill
+```
+
+Restoring production itself after a disaster is a longer procedure, done with Claude: `docs/design.md` §18.9, "Restoring production into Neon".
 
 ## AI (costs money)
 

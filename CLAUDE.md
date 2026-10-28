@@ -40,16 +40,20 @@ pnpm --filter server user:claim <email> <username>           # once per database
 pnpm --filter server invite:add <email>                      # sign-up is invite-only (SIGNUP_MODE=invite); also invite:list, invite:remove <email>
 pnpm --filter server user:set-password <email|username>      # new password (asked for, or piped in); ends the account's sign-ins
 pnpm --filter server user:ai <email|username> on|off         # the account's AI features (photo/PDF import, Ask AI, example sentences)
+pnpm --filter server backup:restore <file.dump.age> [dict]   # a nightly backup into an EMPTY DATABASE_URL; asks for the private age key (docs/design.md §18.6)
+pnpm --filter server db:counts                               # every table's exact row count in DATABASE_URL, read-only (the restore drill compares them)
+pnpm --filter server backup:role [role]                      # the read-only role backups dump as; password from BACKUP_ROLE_PASSWORD
 pnpm typecheck
 pnpm check                # Biome lint + format check (`pnpm format` to fix)
 pnpm build:vercel         # web build + the API bundled into .vercel/output (Vercel's Build Output API)
 pnpm test:bundle          # build, then test .vercel/output and the bundled function on the test DB (CI runs it)
+pnpm test:backup          # a backup's round trip on throwaway DBs; needs `brew install age postgresql@17` (CI installs them)
 pnpm --filter server serve:vercel [port]   # serve the built function with plain Node; reads only the environment
 # Scripts against Neon: the string comes from the git-ignored deploy.env, never typed or shown (docs/design.md §18.8)
 ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm db:migrate )   # likewise invite:*, user:*, import:wiktionary
 ```
 
-**Production is live** at `https://dingsda.vercel.app` (Vercel + Neon, docs/design.md §18): a push to `main` deploys it, so push only what has passed its milestone's review. CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`) on every push to `main` and every pull request; on `main`, then Neon's migrations and the Vercel deploy. A push or pull request that changes only `*.md` files or `docs/` runs nothing (`paths-ignore`, docs/design.md §18.4). The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).
+**Production is live** at `https://dingsda.vercel.app` (Vercel + Neon, docs/design.md §18): a push to `main` deploys it, so push only what has passed its milestone's review. CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`, `pnpm test:backup`) on every push to `main` and every pull request; on `main`, then Neon's migrations and the Vercel deploy. A push or pull request that changes only `*.md` files or `docs/` runs nothing (`paths-ignore`, docs/design.md §18.4). Nightly backups of Neon, encrypted with `age`, go to Cloudflare R2 from `.github/workflows/backup.yml` (docs/design.md §18.6; going live §18.9). The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).
 
 Configuration lives in the repo-root `.env` (copy `.env.example`); the server needs `BETTER_AUTH_SECRET` (`openssl rand -base64 32`). iPhone testing in development: same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once).
 

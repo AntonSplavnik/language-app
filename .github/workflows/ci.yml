@@ -56,6 +56,14 @@ jobs:
       - run: pnpm test
       - name: Bundle test (the Vercel build, and the bundled function against the test database)
         run: pnpm test:bundle
+      # The nightly backup's tools, installed as backup.yml installs them, so this also proves
+      # its install step on every push.
+      - name: Install the PostgreSQL 17 client and age
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17 age
+      - name: Backup test (a backup's round trip on throwaway databases)
+        run: pnpm test:backup
 
   deploy:
     name: Deploy

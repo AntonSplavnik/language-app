@@ -1,7 +1,7 @@
 # Language App — Design
 
 **Date:** 2026-10-11, last updated 2026-10-26
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18); kept in sync with the code. Next: M12.5, the nightly backups (§18.6).
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18; M12.5: the nightly backups, built 2026-10-27 and going live with §18.9); kept in sync with the code. Next: M12.5 going live (§18.9), then M12.6.
 
 ## 1. Purpose
 
@@ -32,7 +32,7 @@ A companion app for learning German from any book. After each study session the 
 - Production (M12.4, §18): the web app and the API on Vercel, the database on Neon, both in Frankfurt, deployed by CI (§18.4)
 
 ### Not in the app yet (see §15 Later)
-Nightly backups (M12.5, §18.6), open sign-up (the email service, password reset by email, a privacy page), grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
+Nightly backups until they go live (M12.5 is built, §18.6; going live §18.9), open sign-up (the email service, password reset by email, a privacy page), grammar topics, levels and placement test, other practice modes (fill-in-the-blank, listening, speaking), spaced repetition, pictures on cards, Korean, phone app, starter word lists.
 
 ## 3. Key decisions
 
@@ -149,7 +149,7 @@ Every learner has an account and signs in with their email or username and a pas
 - **What goes:** Better Auth deletes the account's sign-ins and sign-in methods, then the `users` row, and our cascades (§5) take the imports, the words in the list, the practice sessions and answers, the AI usage and the account's invite with it. An `afterDelete` hook also removes any invite for the account's email that was never linked to it (one added again after the account existed), so the email can't sign up again unless it is invited again. It isn't one transaction (Better Auth's endpoint isn't), but every step only deletes.
 - **What stays:** the shared word facts (`words`, `word_translations`) and the dictionary; other learners are untouched.
 - **Afterwards** the cookie is cleared and the learner lands on Sign in with "Your account was deleted." (§10).
-- **Backups:** Neon's history keeps a deleted account for 6 hours (§18.5); the nightly backups, once built (M12.5, §18.6), will keep it for at most 30 days.
+- **Backups:** Neon's history keeps a deleted account for 6 hours (§18.5); the nightly backups (M12.5, §18.6, live once §18.9 is done) keep it for at most 30 days, the bucket's lock and lifecycle rule. They hold no sign-ins (§18.6).
 
 ## 5. Data model
 
@@ -883,6 +883,7 @@ Every error response has the body `{ "error": { "code": "...", "message": "..." 
 | Server | Import flow (extract → merge → compare → dictionary → save → enrich), an import's source (photos or PDF pages), ignored words never re-offered, session selection and order per source, result recording, word list search / import filter / sort / edit / delete, past imports and renaming, the migration that turns `last_import` sessions into `import` ones, dictionary search (suggestions, lookup, forms, similar words), typed words (one word, a list as an import, facts from the chosen entry, a custom translation on a reused word), Call 3 and its limit, daily limit, error paths (429, refusal, invalid output, max_tokens, JSON 500); accounts: Better Auth's schema check on our tables, the accounts migration on a database of its own (user 1's data untouched, the cascades), sign-up (invites, `SIGNUP_MODE=open`, the username and password rules, taken names), sign-in by email and username in any case, sign-out, trusted origins, the rate limits per address, every route but `/api/health` and `/api/auth/*` answering 401 without a session (one test over all the app's routes), the AI calls in the session's language, `user:claim` and the invite list; the AI switch (every AI route 403 without AI and unchanged with it, the switch counting from the next request, typed words and a save without an AI call), deleting an account (every cascaded table emptied, shared words, the dictionary and user 1 untouched, a wrong or missing password, a Google-only account's day-old sign-in), `user:set-password` and `user:ai`, Google sign-in (Google's address: client, return address following the host, state, basic scopes, PKCE, the account chooser; the code exchanged at the token endpoint, the only request sent out; an invited email's new account, verified, AI off, its username from the email and made unique, its invite used; an email not on the list refused with `not_invited` and no row, `next` kept; `SIGNUP_MODE=open`; cancelled; signing in again without the invite; a password account's `account_not_linked`; the developer account's verified email linked; Connect with no invite check, another email refused, a Google account of another account refused; a Google-only account deleting after signing in with Google again; 10 a minute), the username rules for Google sign-ups, Google's tokens not kept (none stored after a Google sign-up, a second sign-in, Connect, Connect again and the implicit link, with Google handing out a refresh token too; old ones cleared by the next sign-in; signing in still works; the password row untouched; no account cookie; `get-access-token`, `refresh-token`, `account-info` and `is-username-available` 404), the migration that clears them (only the token columns of non-password rows; running again or on an empty table changes nothing), Disconnect (a password account loses its Google row and keeps its session and password; a Google-only account refused; the password refused; another account's method; without a session 401; a day-old sign-in 403 and then a fresh one works; an untrusted origin; afterwards Continue with Google links a verified email again and answers `account_not_linked` for an unverified one, and Connect works again), the used-up credit in both forms (through the real SDK and a fake `fetch`: one request, 503 `ai_unavailable`, an `ai_usage` row), the daily limits' day in `APP_TIME_ZONE` with the process in UTC (23:30 and 00:30 Berlin time, the days the clocks change); a browser's sign-in by email, by username or a sign-up from another site refused without a cookie too (and a cross-site navigation), a script without an origin let through; production (M12.4): with `BETTER_AUTH_URL` the cookie `__Secure-better-auth.session_token` with `Secure`, `HttpOnly`, `SameSite=Lax` and the Mac's cookie name meaning nothing, the one trusted origin (the Mac's, the LAN's, plain http, a deployment's own address and another site refused, by email and by username), Google returning to production's callback whatever the host, the rate limits per `x-vercel-forwarded-for` (the stored key, a client's own `x-forwarded-for` not helping), the Mac ignoring that header, a non-https address refused; the request id (Vercel's `x-vercel-id` in a 500's message, Fastify's own without it or for a header that can't be one); the shared setup (the pool per platform, `attachDatabasePool` on Vercel only, the pool closed with the app, Vercel without `BETTER_AUTH_URL` and the Mac with it refused); `BETTER_AUTH_URL` and Vercel's required variables in the config | Vitest + real PostgreSQL test database (Docker), the AI transport replaying **recorded real Claude responses** (fixtures; enrichment tests vary one recorded response). The route tests run as signed-in user 1, with AI on: the test app's `inject` gives each request a real session row and a signed cookie (`buildTestApp`, `learner: null` for signed out, `now` and `timeZone` for the daily limits). Rate limits are off except in their own tests. Google's side is played by the test: its token endpoint is answered by a fake `fetch` (`vi.stubGlobal`) with an id token for the test's Google account, and any other address throws, so nothing leaves the machine (`test/helpers/google.ts`) | Free |
 | Dictionary import | Mapping from kaikki JSONL to `dictionary_entries` and `dictionary_forms`, including the choice of IPA and recording; the pronunciation backfill | Vitest on a small sample file with expected rows | Free |
 | Vercel build (M12.4) | Unit, in `pnpm test`: the routes (`/api` and `/api/…` to the function, not `/apifoo`; the files; `index.html` for the rest), the function's `.vc-config.json`, reading a bundle's imports (esbuild's parser, not text that only mentions one) and which may stay. Bundle, `pnpm test:bundle`: `.vercel/output` as `pnpm build:vercel` writes it (`config.json`, `.vc-config.json`, `index.html` and the hashed assets it loads, the manifest, pdf.js's files; the function one file importing only Node's own modules, `pg-native` and the optional `@opentelemetry/api`, so no workspace package or `src/` path), then the bundled function itself, run by plain Node behind `node:http` (`serve:vercel`) with production's variables only: `/api/health`, 401 without a session, its own 404, an invited sign-up with a `Secure` cookie that opens `/api/stats`, the rate limits' key from `x-vercel-forwarded-for`, another origin refused, and no start without its variables | `pnpm test:bundle` builds, then runs Vitest on the test database (≈6 s); CI runs it after `pnpm test` | Free |
+| Backups (M12.5) | Unit, in `pnpm test`: the excluded tables (each in the schema; every table either backed up whole or excluded; `backup.yml` lists none of its own), the private key's shape (a refusal never repeats it; the public key named as such), libpq's connection (the password in `PGPASSWORD`, `PGSSLROOTCERT=system` with `verify-full` unless a root certificate is chosen), `db:counts` (every table of `public` and `drizzle`, exact), `backup:role` (reads every table and sequence, one made later too; can't delete or create; a new password or only the grants again; no role without a password), `backup:restore` refusing a database that isn't empty before asking for the key and changing nothing, as a function and as the script. Round trip, `pnpm test:backup`, shaped as on Neon (an owner that isn't a superuser but can create roles): `backup-dump.sh` as the read-only role (only the encrypted file left behind; refused without a public key), a wrong key (can't decrypt, the database stays empty), the script with the key piped in (every table's count as the source's, the sign-in tables empty, the dictionary loaded again, neither key nor password printed), the restored database (every migration recorded, `db:migrate` doing nothing, Better Auth's schema check, `pg_trgm`, ids going on from the backup's) and no second restore into it | `pnpm test:backup` needs `age` and PostgreSQL 17's client (≈2 s); CI installs both as `backup.yml` does and runs it after `pnpm test:bundle` | Free |
 | Live | Up to 2 real photos (from the git-ignored `server/test/live/photos/`), a 3-word enrich batch and two Ask AI calls (a misspelt noun, an English word) through the real Claude API, with the models set in `.env`; asserts schema validity, a sensible word count, articles only on nouns, the corrected word, and every call under a minute | `pnpm test:live`, run on demand (after AI changes, before milestones, when switching models) | ~15¢ per run on Opus 5.5, ~1¢ on Haiku 5.5 |
 | AI quality (optional, not built yet) | 20–30 photos of real book pages with hand-checked word lists; reports word recall, lemma accuracy, article accuracy, dictionary mismatches | Script, run on demand to compare models; needs the hand-checked pages first | ~$2–3 per run on Opus |
 | Manual | Layout, gestures, photo flow on the real device | iPhone on the local network | — |
@@ -896,6 +897,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 - The dictionary is loaded once with `pnpm --filter server import:wiktionary <file>` (§7); without it every word is `not_found`. A database with words saved before pronunciation existed then needs `pnpm --filter server backfill:pronunciation` once (§6.6). One loaded before M10 needs the import run once more, for the forms table (§7).
 - Checks: `pnpm test` (never calls Claude), `pnpm typecheck`, `pnpm check` (Biome; `pnpm format` fixes formatting). `ai:try` and `pnpm test:live` shrink photos with macOS `sips`.
 - **The Vercel build** (§18.2): `pnpm build:vercel` writes `.vercel/output` (git-ignored, as all of `.vercel/`); `pnpm test:bundle` builds and then tests the output and the bundled function against the test database (§13); `pnpm --filter server serve:vercel [port]` serves the built function with plain Node on 127.0.0.1, reading only the environment (no `.env`), for trying it by hand. GitHub Actions runs all the checks on every push to `main` and every pull request, except those that change only docs (§18.4).
+- **Backups** (§18.6): `pnpm --filter server backup:restore <file.dump.age> [dictionary.jsonl]` restores a nightly backup into an empty `DATABASE_URL` (a new database: the dev one isn't empty), asking for the private key hidden; `pnpm --filter server db:counts` prints every table's exact row count, read-only; `BACKUP_ROLE_PASSWORD=… pnpm --filter server backup:role [role]` makes the read-only role the dump runs as; `pnpm test:backup` runs a backup's round trip on throwaway databases. They need `brew install age postgresql@17`: the PostgreSQL 17 client, keg-only beside Homebrew's `libpq` 18, its server never started. `server/scripts/backup-dump.sh` is the workflow's dump, check and encryption, runnable by hand with `DATABASE_URL`, `AGE_RECIPIENT` and the 17 client on PATH.
 - **iPhone:** same Wi-Fi, open `http://<Mac IP>:5173` and sign in (Safari and the Home Screen app each sign in once). Optionally Share → **Add to Home Screen** (`web/public/manifest.webmanifest`, Apple web-app meta tags): it then opens full screen as "Dingsda" (`APP_NAME`), without Safari's swipe gestures. The Mac still has to run `pnpm dev`. Photo picking works over HTTP. (Microphone access needs HTTPS: production has it, the LAN would need §18.7.)
 - **Production** is `https://dingsda.vercel.app` (§18). It is deployed by CI, never by hand (only the first deployment came from the Mac, §18.8): a push to `main` deploys it (§18.4), so push only what has passed its milestone's review. The account scripts, `pnpm db:migrate` and `import:wiktionary` reach Neon from the Mac as described under Accounts on the Mac, below.
 - Configuration via `.env` (template: `.env.example`): `DATABASE_URL`, `TEST_DATABASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`, `DAILY_PHOTO_LIMIT`, `DAILY_DESCRIBE_LIMIT`, `SERVER_PORT` (default 3000), `WEB_PORT` (default 5173; the server also uses it for the addresses it trusts, §4 Accounts), `BETTER_AUTH_SECRET` (signs the session cookie, at least 32 characters, `openssl rand -base64 32`; the server, `user:claim` and `user:set-password` refuse to start without it; never in git), `SIGNUP_MODE` (`invite`, the default, or `open`), `APP_TIME_ZONE` (the daily limits' day, §11.5; default `Europe/Berlin`; the server refuses a name that isn't an IANA time zone) and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (the Google OAuth client, below; both or neither; the secret never in git). `BETTER_AUTH_URL` is production's address (§18.3) and stays unset on the Mac (commented out in `.env.example`).
@@ -918,7 +920,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Nightly backups (M12.5, §18.6; accounts are built, §4 Accounts, and the app is live on Vercel + Neon since 2026-10-26, §18)
+- Nightly backups going live (M12.5: built 2026-10-27, §18.6; the going-live steps are §18.9)
 - Account scripts `user:list` and `user:delete` beside the other account scripts of §14 (M12.6, `docs/plan.md`)
 - Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
@@ -1046,6 +1048,15 @@ Recorded here so decisions already made are not lost.
   - **R2** asks for a payment method through its "R2 subscription" checkout; PayPal is accepted.
   - **Vercel Instant Rollback** on Hobby reaches only the previous deployment.
   - **Used-up Anthropic credit** answers either 400 `invalid_request_error`, "Your credit balance is too low…", or 402 `billing_error`. Reports differ, so both are handled.
+- **Backups (M12.5, 2026-10-27):**
+  - **GitHub's schedule time zone:** `timezone:` beside `cron` takes an IANA name, and a run in an hour the clocks skip moves to the next valid time (GitHub's events page). actionlint 1.7.12 (2026-03-30, still the newest release) knows it and checks the name ("invalid timezone … in schedule event"), so no newer actionlint was needed; both workflows are clean, its shellcheck included.
+  - **libpq and `sslmode=verify-full`:** libpq checks the server's certificate against `~/.postgresql/root.crt` unless `sslrootcert=system` (PostgreSQL 16+) points it at the system's authorities (OpenSSL's: Homebrew's `openssl@3` on the Mac, `/etc/ssl` on the runner); `system` allows only `verify-full`. node-postgres (pg-connection-string 2.14.1) reads any `sslrootcert` in a URL as a file path and would fail on `system`, so the URLs stay as Neon's (§18.5) and libpq's tools get `PGSSLROOTCERT=system` from the environment (`backup.yml`, `backup:restore`, §18.9 step 4.4). On the Mac, `PGSSLROOTCERT=system` with `verify-full` got as far as the TLS step against the local server ("server does not support SSL"), so the setting is taken; the certificate check itself happens only against Neon.
+  - **R2 and the AWS CLI:** the region is `auto`; an EU-jurisdiction bucket is reached only through `https://<account id>.eu.r2.cloudflarestorage.com`, and the jurisdiction can't be changed (Cloudflare's data-location page). R2's S3 page lists `Content-MD5` as supported. Newer AWS CLI and SDK releases send CRC checksums by default, which R2 rejected in 2025 by third-party reports (Cloudflare's own AWS CLI page doesn't mention it), so `backup.yml` sets `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` to `when_required` and relies on `Content-MD5` and the ETag (a single PUT's MD5).
+  - **R2 bucket locks** (Cloudflare's page): a rule, for a prefix or the whole bucket, keeps objects from being deleted or overwritten for a number of days, until a date or indefinitely, and doesn't stop new ones; where a lifecycle rule would delete earlier, the lock wins.
+  - **age:** `--identity -` reads the identity from stdin in Ubuntu 24.04's age 1.1.1 (its source) and Homebrew's 1.3.2, so the key reaches age through a pipe. The post-quantum keys of age 1.3 (`age-keygen -pq`) aren't for the runner's 1.1.
+  - **pg_dump's archive** has a `TABLE DATA` entry for every table whose data it keeps, empty tables included, and none for `--exclude-table-data`'s, which `backup-dump.sh` checks in `pg_restore --list`.
+  - **An owner like `neondb_owner`** (not a superuser) migrates (`pg_trgm` is a trusted extension), restores with `--no-owner --no-acl` (`COMMENT ON EXTENSION` included) and, with `CREATEROLE` (which `neon_superuser` gives), makes the `backup` role; without `CREATEROLE` it can't (tried in `pnpm test:backup`).
+  - **One child's output as another's input** (Node): handing `age.stdout` to `pg_restore` as its stdin leaves the parent's end of the pipe open, so age never emits `close` (the restore hung); `backup:restore` closes its end once pg_restore has started.
 
 ## 17. Accounts: where the steps went (M12.1–M12.4, all built)
 
@@ -1057,9 +1068,9 @@ Settled with the user on 2026-10-24 and 2026-10-25 (`docs/plan.md`, M12). As eac
 - **M12.4's code is built (2026-10-26):** production's static https base URL as the one trusted origin, the `Secure` cookies with the `__Secure-` prefix and the client's address from `x-vercel-forwarded-for` are in §4 Accounts (Sessions, Addresses in production, Rate limits), §13, §14 and §16.
 - **M12.4 went live (2026-10-26, §18.8):** `user:claim` ran on Neon's fresh database, so the developer account is user 1 there as on the Mac; the account scripts (§14) run from the Mac on Neon's direct connection. Google has production's return address on the same OAuth client (§14) and the Google pair in Vercel's variables (§18.3), and works in Safari and in the Home Screen app (§16); on https the screens offer it everywhere (§4 Accounts); this was the production part of 17.1.
 
-## 18. Deployment (M12, designed 2026-10-25; M12.4 built and live 2026-10-26)
+## 18. Deployment (M12, designed 2026-10-25; M12.4 built and live 2026-10-26; M12.5 built 2026-10-27)
 
-M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main` but a docs-only one (§18.4). The backups (18.6) are M12.5.
+M12.4's build, function, configuration and workflow are built (18.2–18.4), and the app went live on 2026-10-26 (18.8): `https://dingsda.vercel.app`, deployed by CI on every push to `main` but a docs-only one (§18.4). The backups (18.6, M12.5) are built; they go live with §18.9.
 
 ### 18.1 Where it runs
 | | Development (the Mac) | Production |
@@ -1100,14 +1111,14 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **The Mac's `.env`** gains `BETTER_AUTH_SECRET`, `APP_TIME_ZONE` and `SIGNUP_MODE`, and from M12.3 the Google pair (one Google client with both return addresses: `http://localhost:5173/api/auth/callback/google` for the Mac's own browser, §14, and `https://dingsda.vercel.app/api/auth/callback/google` from M12.4). Never `BETTER_AUTH_URL`: the Mac's server refuses to start with it.
 - **GitHub Actions** (§18.4, §18.6):
   - secrets, set going live (§18.8): `VERCEL_TOKEN` (valid until ≈2027-10-26), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner);
-  - for the backups (M12.5, not set yet): the secrets `NEON_BACKUP_URL` (direct, read-only role), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and a plain variable, `AGE_RECIPIENT`, the backups' public key.
+  - for the backups (M12.5, set going live, §18.9 step 5): the secrets `NEON_BACKUP_URL` (direct, the read-only `backup` role, `sslmode=verify-full`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (the bucket's token), and a repository variable, `AGE_RECIPIENT`, the backups' public key (`age1…`).
 - **Going live's secrets** sat in `deploy.env` at the repo root (git-ignored, values single-quoted) while §18.8 was under way, and the commands read them from there, so none was typed, shown or pasted into a chat; it was deleted afterwards. A later script on Neon gets a new `deploy.env` with `NEON_DIRECT_URL='…'` from Neon's console.
 - **Deployment protection:** Vercel Authentication with Standard Protection: every deployment's own address needs a Vercel login, the production domain doesn't (§16). So Vercel's own login stays off for production: the app's sign-in protects it, and Vercel's would also lock out the iPhone. There are no preview deployments (every deploy is `--prod`).
 
 ### 18.4 Deploys (GitHub Actions)
 `.github/workflows/ci.yml`, built in M12.4; it runs from the push that brings it (§18.8):
 - **Docs-only changes run nothing** (added after going live; the user, 2026-10-26: docs updates shouldn't trigger CI): `push` and `pull_request` both have `paths-ignore: ["**.md", "docs/**"]`, so a push or pull request that changes only markdown files or files under `docs/` runs neither the checks nor the deploy; one that also changes anything else runs everything. It is safe because no code or test reads the docs, and Biome's `files.includes` already leaves `docs` out.
-- **Checks:** on every push to `main` and on pull requests (except docs-only ones, above), on `ubuntu-24.04` with Node 24 and the pnpm of `packageManager` (its store cached): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm check`, `pnpm test` and `pnpm test:bundle`, against a `postgres:17` service with user `app` and the database `language_app_test`, as `docker/initdb` makes it on the Mac (the tests rebuild its schema, `pg_trgm` included, themselves). `pnpm test:live` stays manual, since it costs money. The suite also passes with the process in UTC and the C locale, as on the runner.
+- **Checks:** on every push to `main` and on pull requests (except docs-only ones, above), on `ubuntu-24.04` with Node 24 and the pnpm of `packageManager` (its store cached): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm check`, `pnpm test` and `pnpm test:bundle`, then (from M12.5) the PostgreSQL 17 client and `age`, installed as `backup.yml` installs them, and `pnpm test:backup` (§18.6), against a `postgres:17` service with user `app` and the database `language_app_test`, as `docker/initdb` makes it on the Mac (the tests rebuild its schema, `pg_trgm` included, themselves). `pnpm test:live` stays manual, since it costs money. The suite also passes with the process in UTC and the C locale, as on the runner.
 - **Deploy:** on `main` only (a push, not a pull request), and only when the checks pass (`needs: checks`), one at a time (`concurrency: deploy-production`; a newer run waits for the running one rather than cancelling it):
   1. `vercel pull --yes --environment=production`, then `vercel build --prod`, which runs `vercel.json`'s build command (§18.2), with Vercel CLI 63.1.2 and `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`;
   2. `pnpm db:migrate` against Neon (`NEON_MIGRATE_URL`), once the build is ready, so a failed build leaves Neon alone;
@@ -1129,29 +1140,44 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **Connection strings:** `sslmode=verify-full` in place of Neon's `sslmode=require`, which node-postgres treats the same but warns about on every start (§16).
 - **Roles:**
   - `neondb_owner` for the app (pooled connection) and the migrations (direct);
-  - a read-only `backup` role for the backups, created in SQL: `SELECT` on the tables and sequences of `public` and `drizzle`, plus default privileges for future tables.
+  - a read-only `backup` role for the backups, created in SQL by `backup:role` (§18.6) as `neondb_owner`, whose `neon_superuser` membership lets it create roles: `CONNECT`, `USAGE` on `public` and `drizzle`, `SELECT` on their tables and sequences, plus default privileges for the tables and sequences `neondb_owner` creates later.
 - **History:** Neon Free keeps 6 hours, so any moment in the last 6 hours can be restored from the console.
 
 ### 18.6 Backups
-**Not built yet** (M12.5; the bucket, the sign-in data and the lock settled with the user on 2026-10-27): until then, Neon's 6 hours of history (§18.5) is the only backup. The design:
-- **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`schedule` with `timezone: Europe/Berlin`), and by hand when needed (`workflow_dispatch`: the restore drill, or before something risky):
-  1. installs the PostgreSQL 17 client and `age`;
-  2. runs `pg_dump` (custom format) on the direct connection as `backup`, leaving out the data of these tables (`--exclude-table-data`; the tables themselves stay):
-     - the dictionary, `dictionary_entries` and `dictionary_forms`, which `import:wiktionary` rebuilds;
-     - the sign-ins, `auth_sessions`, `auth_verifications` and `auth_rate_limits` (the user, 2026-10-27), so a backup holds no session token that still works. After a restore everyone signs in again; passwords and Google links (`auth_accounts`) are kept.
-  3. encrypts the file to the user's `age` public key;
-  4. uploads it to the R2 bucket as `YYYY-MM-DD-HHMM.dump.age` (Berlin time, so a run by hand on the day of a nightly one gets a name of its own), with the AWS CLI and the bucket's EU endpoint, using a token limited to that bucket with object read & write only.
+**Built** (M12.5 code, 2026-10-27; settled with the user on 2026-10-27: the bucket, the sign-in data, the lock), **not live yet**: going live is §18.9. Until then, Neon's 6 hours of history (§18.5) is the only backup.
+- **The nightly job:** `.github/workflows/backup.yml` runs every night at 03:17 Berlin time (`schedule` with `timezone: Europe/Berlin`; 03:17 is never skipped or repeated when the clocks change), and by hand when needed (`workflow_dispatch`: the restore drill, or before something risky). One run at a time (`concurrency: backup`, a second waits), 15 minutes at most, `contents: read` only. Its steps:
+  1. checks out the repo (for the dump script; no dependency is installed, so no package's code runs beside the secrets);
+  2. installs the PostgreSQL 17 client (`postgresql-client-17` from PostgreSQL's apt repository, added by the runner's own `apt.postgresql.org.sh`; the runner's 16 refuses Neon's 17) and `age` (Ubuntu's, 1.1.1);
+  3. names the backup `YYYY-MM-DD-HHMM.dump.age`, Berlin time, so a run by hand on the day of a nightly one gets a name of its own (the lock refuses to overwrite a file);
+  4. runs **`server/scripts/backup-dump.sh`** with `NEON_BACKUP_URL` (the direct connection as `backup`), `PGSSLROOTCERT=system` and `AGE_RECIPIENT`:
+     - `pg_dump --format=custom`, leaving out the data of these tables (`--exclude-table-data=public.<table>`; the tables themselves stay), the script's one list (`EXCLUDED_TABLES`):
+       - the dictionary, `dictionary_entries` and `dictionary_forms`, which `backup:restore` loads again;
+       - the sign-ins, `auth_sessions`, `auth_verifications` and `auth_rate_limits` (the user, 2026-10-27), so a backup holds no session token that still works. After a restore everyone signs in again; passwords and Google links (`auth_accounts`) are kept;
+     - **checks the dump** with `pg_restore --list` and fails the run unless it has the data of `users`, `user_words` and `drizzle.__drizzle_migrations`, has every excluded table and none of their data;
+     - encrypts it with `age` to the public key; the plain dump lives in a private temporary folder (`umask 077`) that is removed however the script ends. It prints sizes and times, never the connection string;
+  5. uploads the file with the runner's AWS CLI to the bucket's EU endpoint (`s3api put-object`, region `auto`) with its `Content-MD5`, which R2 checks on arrival; the CLI's newer default checksums are off (`AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` `when_required`, §16). Then `head-object` must find it with the same size and its MD5 as the ETag, or the run fails;
+  6. removes the encrypted file from the runner (`if: always()`).
+- **The excluded tables are kept honest by a test** (`server/test/backup/backup.test.ts`): each one is a table of `server/src/db/schema.ts`, and every table of the schema is either on a list of tables backed up whole or excluded, so a new or renamed table fails the test until it is placed. `backup.yml` lists no table of its own.
 - **The bucket** (the user, 2026-10-27): `dingsda-app-backups` on Cloudflare R2, in the **EU jurisdiction**, so the files stay in the EU. Its endpoint is `https://<account id>.eu.r2.cloudflarestorage.com`, its token is made for that jurisdiction, and the jurisdiction can't be changed later. R2 needs a payment method even within its free tier.
 - **30 days, locked:**
   - a **bucket lock** rule (the user, 2026-10-27) refuses to delete or overwrite a file younger than 30 days, whoever asks, GitHub's token included; only the Cloudflare login can remove the rule;
-  - a lifecycle rule deletes files after 30 days (R2 lets a lock override it), so there are about 30 backups, plus any run by hand. R2's free tier is 10 GB-month, and a backup is a few MB;
+  - a lifecycle rule deletes files after 30 days (a lock wins over a lifecycle rule; both are 30 days), so there are about 30 backups, plus any run by hand. R2's free tier is 10 GB-month, and a backup is under 1 MB today (the Mac's word list: 94 KB, §18.9);
   - the cost: no backup can be deleted early, a mistaken one included. A deleted account stays in backups for at most 30 days either way (§4 Accounts).
-- **The private `age` key** is kept only by the user, in a password manager. GitHub and R2 hold only encrypted files.
-- **Restore** (`pnpm --filter server backup:restore <file.age> <DATABASE_URL>`):
-  - The file is downloaded from R2's dashboard. The script asks for the private key at a hidden prompt (pasted from the password manager, never written to disk), decrypts the file, restores it with PostgreSQL 17's `pg_restore` into an empty database (it refuses one that isn't), then loads the dictionary with `import:wiktionary`.
-  - On the Mac it needs `age` (`brew install age`). Homebrew's `libpq` is PostgreSQL 18, so the 17 client comes from elsewhere (Docker's `postgres:17` image or Homebrew's `postgresql@17`; the build decides).
-  - It is tried once (M12.5) into a fresh local database, from a backup run by hand just before, comparing the row count of every table with Neon's at that moment (the left-out tables aside).
-  - Restoring production into Neon after a disaster is a written procedure in the runbook, not drilled.
+- **The private `age` key** (an X25519 key from plain `age-keygen`; not its `-pq` keys, which the runner's age 1.1 can't use) is kept only by the user, in a password manager. GitHub and R2 hold only encrypted files; GitHub holds the public key as the repository variable `AGE_RECIPIENT`.
+- **The read-only role** `backup` (§18.5), made by **`pnpm --filter server backup:role [role]`**, run as the owner (`neondb_owner`) on the direct connection with the password in `BACKUP_ROLE_PASSWORD` (from `deploy.env`, `openssl rand -hex 32`), so it is never typed, shown or kept in Neon's SQL Editor history; the password reaches Neon only in the `CREATE ROLE` statement over TLS. It grants `CONNECT`, `USAGE` on `public` and `drizzle`, `SELECT` on all their tables and sequences, and default privileges for the tables and sequences the owner creates later (`ALTER DEFAULT PRIVILEGES IN SCHEMA public, drizzle`), so a later migration's table is dumped without a new grant. Run again with a password it changes the password; without one, an existing role only gets its grants again (after a restore into Neon, below). It can read everything, session tokens included (pg_dump locks every table whose definition it dumps), so `NEON_BACKUP_URL` is a secret like the others. It is printed with the database first, like the other scripts.
+- **Restore: `pnpm --filter server backup:restore <file.dump.age> [dictionary.jsonl]`** (decided in M12.5: the target is `DATABASE_URL`, as for every other script, not an argument, so no connection string with a password is ever typed; for Neon it comes from `deploy.env` as in §18.8):
+  1. prints `Database: <host>/<name>`;
+  2. checks that the file and the dictionary file are there, then refuses, changing nothing, a database that isn't empty: any table, view or sequence outside PostgreSQL's own schemas, or a `drizzle` schema. The Mac's own `.env` points at the dev database, which isn't empty, so a restore needs `DATABASE_URL` set to a new one;
+  3. checks that `age` and PostgreSQL 17's `pg_restore` are there (Homebrew's keg-only `postgresql@17`, the runner's `/usr/lib/postgresql/17/bin`, or PATH; `--version` must say 17);
+  4. asks for the private key at a hidden prompt, once (pasted from the password manager; piped in, the first line), and checks its shape (`AGE-SECRET-KEY-1` and 58 Bech32 characters) without ever repeating it;
+  5. decrypts with `age --decrypt --identity -`, the key on age's stdin, straight into `pg_restore --no-owner --no-acl --single-transaction --exit-on-error`: no plain dump or key is ever on disk, in an argument or a log. The restoring role owns everything (as `neondb_owner` does on Neon). One transaction, so a failure (a wrong key, a damaged file) leaves the database empty again. `pg_restore` gets the URL without its password (which goes into `PGPASSWORD`), and `PGSSLROOTCERT=system` with `sslmode=verify-full` (§16);
+  6. loads the dictionary as `import:wiktionary` does, from `data/kaikki/kaikki.org-dictionary-German.jsonl` unless another file is given (≈14 s on the Mac);
+  7. prints every table's row count, as `db:counts` does.
+
+  `pg_trgm` and the `drizzle` schema with `__drizzle_migrations` come back with the rest, so `pnpm db:migrate` then says "Database is up to date"; Better Auth's schema check passes, and new rows' ids go on from the backup's.
+- **Row counts: `pnpm --filter server db:counts`** prints the exact row count of every table of `public` and `drizzle` in `DATABASE_URL`, in one read-only transaction, marking the tables backups leave out `(not in backups)`. On Neon the `backup` role is enough. The drill compares its output on Neon with the restored database's.
+- **On the Mac** a restore needs `age` and the PostgreSQL 17 client: `brew install age postgresql@17` (installed 2026-10-27, age 1.3.2 and 17.11). `postgresql@17` is keg-only, so it doesn't replace Homebrew's `libpq` (18) on PATH; its server is never started (`brew services` stays off for it). The scripts find its `pg_restore` themselves.
+- **Tests** (§13): `pnpm test` covers the exclusion list, the key's shape, libpq's connection, the counts, `backup:role`'s grants, and `backup:restore` refusing a database that isn't empty; **`pnpm test:backup`** runs a backup's whole round trip with the real tools (`backup-dump.sh`, `age`, `pg_dump`/`pg_restore` 17) on throwaway databases, and CI runs it after installing the tools as `backup.yml` does.
 - **Failures:** a failed run emails the user (the notification setting of §18.8 step 7).
 - **Later:** once there are other people's data or payments, an independent copy or Neon's paid 7-day history is considered (§15).
 
@@ -1279,3 +1305,132 @@ The steps in order, done once by the user and Claude together. **You** marks wha
 **Confirmed before going live, and what only going live confirmed** (all of it, on 2026-10-26):
 - **Confirmed** on the Mac: the build and its output, `vercel build` keeping our output (offline, §16), `deploy --prebuilt` needing nothing more than `.vercel/output` (the CLI's source), the bundled function with production's variables (`pnpm test:bundle` and the rehearsal), the migrations and dictionary on a fresh database and after the reset, the workflow's syntax (`actionlint`).
 - **Going live:** the token's access for `pull`, `build` and `deploy` (a project-scoped token isn't documented for them on Hobby; a team-scoped one works), Vercel setting `x-vercel-forwarded-for` and overwriting a forged one (step 6), Neon taking `DROP SCHEMA public` from `neondb_owner`, the protection setting, Google's new return address, the Home Screen app's Google sign-in, and the workflow itself (steps 8 and 9).
+
+### 18.9 Going live with backups (M12.5)
+The steps in order, done once by the user and Claude together, as in §18.8: **You** marks what the user does by hand (a console, the key, a paste, a GitHub secret); **Claude** marks commands the session can run in the main checkout's root, which print no secret.
+- **Secrets** live only in `deploy.env` at the repo root (git-ignored, readable only by you, values single-quoted, read in a subshell `( set -a; . ./deploy.env; set +a; … )`), in GitHub's secrets and, for the private key, in the password manager. Nobody types, prints or pastes a secret into the chat. The private key never touches a file or the session: only the user sees it, and only the public key is shared.
+- **The Mac's prerequisites:** `brew install age postgresql@17` (done during the build, 2026-10-27: age 1.3.2, PostgreSQL 17.11, keg-only; never start its server). `gh` is installed and signed in (§18.8).
+- **Rehearsed on 2026-10-27** on the Mac, without the accounts: a stand-in for Neon (a database owned by a role that isn't a superuser but can create roles, as `neondb_owner`, with a copy of the dev database's rows), `backup:role` and step 4's URL, `backup-dump.sh` as the workflow runs it (throwaway key pair; the upload skipped), the drill of step 8 (counts equal but for the sign-ins), and the procedure below into the stand-in after its reset (`docs/plan.md`, M12.5).
+
+1. **`deploy.env`** (Claude): the `backup` role's password, made here and never shown.
+   ```sh
+   umask 077 && touch deploy.env
+   printf "BACKUP_ROLE_PASSWORD='%s'\n" "$(openssl rand -hex 32)" >> deploy.env
+   ```
+2. **The age key pair** (You, in your own terminal; the session never sees the private key):
+   1. Make it, with the private key going only to the clipboard (the public key is printed):
+      ```sh
+      age-keygen | grep '^AGE-SECRET-KEY-1' | pbcopy
+      ```
+   2. In the password manager, a new entry "Dingsda backups (age key)": paste the private key as its password; the public key (`age1…`) in its notes.
+   3. Check what was saved: copy the password from the entry again, then this must print the same `age1…`:
+      ```sh
+      pbpaste | age-keygen -y
+      ```
+   4. Empty the clipboard (and delete the entry from a clipboard-history app, if one is on):
+      ```sh
+      pbcopy < /dev/null
+      ```
+   5. Tell Claude the public key `age1…` (it isn't secret). No key file was written.
+3. **Cloudflare** (You, dash.cloudflare.com):
+   1. **R2 Object Storage:** subscribe to R2 (the checkout asks for a card or PayPal, even within the free tier).
+   2. **Create bucket:** name `dingsda-app-backups`; Location → **Specify jurisdiction** → **European Union (EU)**; storage class Standard. The jurisdiction can't be changed later.
+   3. The bucket → Settings → **Bucket lock rules** → Add rule: name `keep-30-days`, no prefix (the whole bucket), retain for **30 days** → Save.
+   4. The bucket → Settings → **Object lifecycle rules** → Add rule: name `delete-after-30-days`, the whole bucket, delete objects **30 days** after upload → Save (leave R2's own rule for unfinished multipart uploads as it is).
+   5. R2 → **Manage API tokens** → Create API token: permission **Object Read & Write**, applied to the bucket `dingsda-app-backups` only (the EU jurisdiction), TTL **Forever** (it can only read and add encrypted files, and the lock stops deletes; a failed run would email anyway). Cloudflare shows the **Access Key ID** and **Secret Access Key** once. Copy each in turn; after each copy Claude appends it from the clipboard (nothing printed):
+      ```sh
+      printf "R2_ACCESS_KEY_ID='%s'\n" "$(pbpaste)" >> deploy.env        # copied: Access Key ID
+      printf "R2_SECRET_ACCESS_KEY='%s'\n" "$(pbpaste)" >> deploy.env    # copied: Secret Access Key
+      ```
+   6. The **Account ID** (R2's overview page, or the S3 endpoint `https://<account id>.eu.r2.cloudflarestorage.com` the token page shows): copy it, then Claude:
+      ```sh
+      printf "R2_ACCOUNT_ID='%s'\n" "$(pbpaste)" >> deploy.env
+      ```
+4. **Neon:**
+   1. You: Neon's console → `dingsda` → **Connect** (database `neondb`, role `neondb_owner`, **Connection pooling off**) → copy the string. Claude appends it, switches it to `verify-full` (§18.5) and lists the names only:
+      ```sh
+      printf "NEON_DIRECT_URL='%s'\n" "$(pbpaste)" >> deploy.env
+      sed -i '' 's/sslmode=require/sslmode=verify-full/' deploy.env
+      grep -o '^[A-Z_0-9]*=' deploy.env
+      ```
+   2. Claude: the role, as `neondb_owner`; the first line must be Neon's `ep-…` host, the last `Role backup: created`:
+      ```sh
+      ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server backup:role )
+      ```
+   3. Claude: `NEON_BACKUP_URL`, the direct string with the user `backup` and its password (the rest, `sslmode=verify-full&channel_binding=require` included, as it is):
+      ```sh
+      ( set -a; . ./deploy.env; set +a; printf "NEON_BACKUP_URL='%s'\n" "$(node -e 'const u = new URL(process.env.NEON_DIRECT_URL); u.username = "backup"; u.password = process.env.BACKUP_ROLE_PASSWORD; console.log(u.href)')" >> deploy.env )
+      ```
+   4. Claude: both ways the string is used, as `backup`: node-postgres (`db:counts`, the drill's), and libpq with the system's certificate authorities, as the workflow runs it (a schema-only dump to nowhere, which also takes every table's lock):
+      ```sh
+      ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_BACKUP_URL" pnpm --filter server db:counts )
+      ( set -a; . ./deploy.env; set +a; PGSSLROOTCERT=system /opt/homebrew/opt/postgresql@17/bin/pg_dump --schema-only --file=/dev/null --dbname="$NEON_BACKUP_URL" && echo "pg_dump: OK" )
+      ```
+5. **GitHub** (You, in your own terminal: Claude Code's auto mode refuses `gh secret set`). One command at a time; each reads its value from `deploy.env` and prints only a confirmation. Claude fills in the public key in the last one:
+   ```sh
+   ( set -a; . ./deploy.env; set +a; printf %s "$NEON_BACKUP_URL" | gh secret set NEON_BACKUP_URL --repo AntonSplavnik/language-app )
+   ( set -a; . ./deploy.env; set +a; printf %s "$R2_ACCOUNT_ID" | gh secret set R2_ACCOUNT_ID --repo AntonSplavnik/language-app )
+   ( set -a; . ./deploy.env; set +a; printf %s "$R2_ACCESS_KEY_ID" | gh secret set R2_ACCESS_KEY_ID --repo AntonSplavnik/language-app )
+   ( set -a; . ./deploy.env; set +a; printf %s "$R2_SECRET_ACCESS_KEY" | gh secret set R2_SECRET_ACCESS_KEY --repo AntonSplavnik/language-app )
+   gh variable set AGE_RECIPIENT --repo AntonSplavnik/language-app --body 'age1…'
+   ```
+   Then Claude: `gh secret list --repo AntonSplavnik/language-app` (eight names: §18.8's four and these four) and `gh variable list --repo AntonSplavnik/language-app` (`AGE_RECIPIENT`).
+6. **The push** (Claude), once M12.5's commit has passed review: `git push origin main`. CI runs the checks, now with "Install the PostgreSQL 17 client and age" and "Backup test" (≈30–40 s more; this also proves `backup.yml`'s install step on the runner), then the deploy ("Database is up to date": M12.5 has no migration). The push brings `backup.yml` to `main`, where schedules run.
+7. **A backup by hand** (Claude), then its file:
+   ```sh
+   gh workflow run backup.yml --repo AntonSplavnik/language-app
+   gh run watch --repo AntonSplavnik/language-app
+   ```
+   - The log shows `Dumped: … bytes`, `Checked: 11 tables with data; none for dictionary_entries …`, `Encrypted: …` and `Uploaded: dingsda-app-backups/YYYY-MM-DD-HHMM.dump.age, … bytes`.
+   - Claude, right away: Neon's counts at the moment of the backup, for the drill (don't practise until step 8 is done):
+     ```sh
+     ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_BACKUP_URL" pnpm --filter server db:counts )
+     ```
+   - You: the bucket → **Objects**: the file is there with that size. Its delete must be refused (the dashboard disables or refuses it for a locked object): try it once.
+8. **The drill** (the M12.5 demo):
+   1. You: download the file from the bucket's Objects into `~/Downloads`.
+   2. Claude: a new, empty database on the Mac:
+      ```sh
+      docker exec language-app-db-1 createdb -U app language_app_drill
+      ```
+   3. You, in your own terminal: the restore; `Database: localhost:5432/language_app_drill` first, then paste the private key from the password manager at the hidden prompt, then `pbcopy < /dev/null`:
+      ```sh
+      DATABASE_URL=postgres://app:app@localhost:5432/language_app_drill pnpm --filter server backup:restore ~/Downloads/<file>.dump.age
+      ```
+   4. Claude: the restored counts against step 7's, and the migrations' check:
+      ```sh
+      DATABASE_URL=postgres://app:app@localhost:5432/language_app_drill pnpm --filter server db:counts
+      DATABASE_URL=postgres://app:app@localhost:5432/language_app_drill pnpm db:migrate
+      ```
+      Every table must have Neon's count, but `auth_sessions`, `auth_verifications` and `auth_rate_limits` (0, not in backups); the dictionary's two match Neon's when Neon's was loaded from the same file (98,308 and 249,020). `db:migrate` says "Database is up to date".
+9. **The next morning** (Claude): `gh run list --workflow backup.yml --repo AntonSplavnik/language-app --limit 3` shows a `schedule` run, green, started at about 03:17 (GitHub can start schedules late); You: its `YYYY-MM-DD-03xx.dump.age` is in the bucket.
+10. **Afterwards** (Claude): `rm deploy.env`, `rm ~/Downloads/<file>.dump.age` and `docker exec language-app-db-1 dropdb -U app language_app_drill`. Nothing is lost: the R2 keys and `NEON_BACKUP_URL` are in GitHub (a new R2 token or a new `backup` password, with `backup:role`, replaces them if ever needed), the private key in the password manager. `docs/plan.md` records what went live, and anything found.
+
+**Restoring production into Neon** (written, not drilled; the local stand-in was, §18.9's rehearsal). For damage found within 6 hours, Neon's own history is quicker and loses less (the console → Branches → `main` → **Restore** to a moment before it). Otherwise, from the latest backup before the damage:
+1. You: download that file from the bucket into `~/Downloads`. In Neon's console, keep the damaged state first: Branches → **Create branch** from `main` (`damaged-<date>`), deleted once all is well.
+2. Claude: a new `deploy.env` with `NEON_DIRECT_URL` (step 4.1 above, or `docs/commands.md`, production steps 1–4).
+3. You, Neon's SQL Editor (database `neondb`): empty it, as §18.8 step 2.4 did. From here until step 5 the app answers errors.
+   ```sql
+   DROP SCHEMA IF EXISTS drizzle CASCADE;
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public;
+   ```
+4. You, in your own terminal: the restore as `neondb_owner` (≈30 s for the dictionary over the internet). The first line must be Neon's `ep-…` host; then paste the private key, then `pbcopy < /dev/null`:
+   ```sh
+   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server backup:restore ~/Downloads/<file>.dump.age )
+   ```
+5. Claude: the `backup` role's grants again (the reset dropped them and the restore leaves grants out), the migrations' check, Neon's counts and the app:
+   ```sh
+   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server backup:role )
+   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm db:migrate )
+   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server db:counts )
+   curl -s https://dingsda.vercel.app/api/health
+   ```
+   `backup:role` says "grants renewed"; `db:migrate` "Database is up to date". You: sign in on the iPhone and check the word list.
+6. Claude: `rm deploy.env` and the downloaded file. The next nightly backup runs as before.
+
+**What a restore loses:** everything after the backup's time (at most about a day of practice, imports and new accounts), and every sign-in: every device signs in again, with passwords and Google links kept. The rate limits start again from zero. The developer account and every other keep their ids, so nothing else changes.
+
+**Confirmed before going live, and what only going live confirms:**
+- **Confirmed** on the Mac (2026-10-27): the role's SQL as a non-superuser owner and `pg_dump` as the role it makes (every table locked and read, a table made later too); `backup-dump.sh` with its check and encryption; `backup:restore` from a piped key into an empty database, as the Mac's `app` and as a non-superuser owner after §18.8's reset; the counts equal but for the sign-in tables; `db:migrate` up to date afterwards; the workflow's syntax and its shell (`actionlint` 1.7.12 with shellcheck).
+- **Only going live:** the install step on the runner (CI's backup test proves it on the push, step 6); Neon taking `CREATE ROLE` and the grants from `neondb_owner`, and `pg_dump` as `backup` finding nothing it can't read (step 4.4); libpq's `verify-full` against Neon with `PGSSLROOTCERT=system` (step 4.4 on the Mac, step 7 on the runner); the token's access to the EU bucket, the upload with `Content-MD5` and the ETag check (step 7); the lock refusing a delete (step 7); the schedule's time zone (step 9); and the restore into Neon itself, which stays written, not drilled.

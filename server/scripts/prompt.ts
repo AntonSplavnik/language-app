@@ -11,6 +11,15 @@ export async function askPassword(): Promise<string> {
   return password;
 }
 
+/**
+ * Asks once for a secret that isn't chosen here, such as a key pasted from the password manager:
+ * typed hidden on a terminal; piped in, the first line.
+ */
+export async function askSecret(question: string): Promise<string> {
+  if (!process.stdin.isTTY) return firstLine();
+  return readHidden(question);
+}
+
 function firstLine(): Promise<string> {
   return new Promise((resolve) => {
     const lines = createInterface({ input: process.stdin });

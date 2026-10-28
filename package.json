@@ -11,6 +11,7 @@
     "test": "pnpm -r test",
     "test:live": "pnpm --filter server test:live",
     "test:bundle": "pnpm build:vercel && pnpm --filter @language-app/server test:bundle",
+    "test:backup": "pnpm --filter @language-app/server test:backup",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter server db:generate",
     "db:migrate": "pnpm --filter server db:migrate",
