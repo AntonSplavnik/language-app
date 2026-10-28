@@ -52,7 +52,7 @@ describe("without the Google pair", () => {
 
     const options = await plain.inject({ method: "GET", url: "/api/sign-in-options" });
     expect(options.statusCode).toBe(200);
-    expect(SignInOptions.parse(options.json())).toEqual({ google: false });
+    expect(SignInOptions.parse(options.json())).toEqual({ google: false, signUp: "invite" });
 
     const res = await authPost(plain, "/sign-in/social", {
       provider: "google",
@@ -67,7 +67,7 @@ describe("without the Google pair", () => {
 describe("Continue with Google: the address the browser is sent to", () => {
   it("sign-in-options offers Google, signed out", async () => {
     const res = await app().inject({ method: "GET", url: "/api/sign-in-options" });
-    expect(SignInOptions.parse(res.json())).toEqual({ google: true });
+    expect(SignInOptions.parse(res.json())).toEqual({ google: true, signUp: "invite" });
   });
 
   it("is Google's, with our client, a state, the return address and the basic scopes", async () => {
@@ -241,12 +241,23 @@ describe("sign-up with Google", () => {
     );
   });
 
-  it("with SIGNUP_MODE=open there is no check", async () => {
+  it("with SIGNUP_MODE=open there is no check, and the new account has AI off", async () => {
+    await addInvite(db, "someone.else@example.com");
     google.signsInAs(anna);
-    const { location } = await signInWithGoogle(app({ signupMode: "open" }));
+    const { callback, location } = await signInWithGoogle(app({ signupMode: "open" }));
 
     expect(location.pathname).toBe("/");
-    expect((await userByEmail("anna.schmidt@gmail.com"))?.username).toBe("anna.schmidt");
+    expect(location.searchParams.get("error")).toBeNull();
+    expect(sessionCookieOf(callback)).not.toBe("");
+    expect(await userByEmail("anna.schmidt@gmail.com")).toMatchObject({
+      username: "anna.schmidt",
+      emailVerified: true,
+      aiEnabled: false,
+    });
+    // The list isn't touched: the other email's invite stays unused.
+    expect(await db.select({ email: invites.email, userId: invites.userId }).from(invites)).toEqual(
+      [{ email: "someone.else@example.com", userId: null }],
+    );
   });
 
   it("cancelled on Google's page: back to Sign in with access_denied, nothing fetched", async () => {

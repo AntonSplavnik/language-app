@@ -2,12 +2,14 @@ import {
   ApiClientError,
   PASSWORD_MAX,
   PASSWORD_MIN,
+  type SignInOptions,
+  type SignUpMode,
   SignUpRequest,
   Username,
 } from "@language-app/core";
 
 // Sign in and Create account (docs/design.md §10 screens 17 and 18): the field rules, where a
-// signed-out page goes, and the wording for each error.
+// signed-out page goes, what the server's sign-in options mean, and the wording for each error.
 
 export const SIGN_IN = "/signin";
 export const SIGN_UP = "/signup";
@@ -54,6 +56,25 @@ export function redirectFor(
   return who.byChoice ? SIGN_IN : signInPath(pathname + search);
 }
 
+/** The server's sign-in options as the app knows them; `signUp` is null when it couldn't ask. */
+export type KnownSignInOptions = { google: boolean; signUp: SignUpMode | null };
+
+/**
+ * Asks the server's sign-in options when the app starts. Not knowing means no Google button and no
+ * invite line, never a failed start (§10).
+ */
+export const signInOptionsOrNone = (ask: () => Promise<SignInOptions>) =>
+  ask().then(
+    (options): KnownSignInOptions => options,
+    (): KnownSignInOptions => ({ google: false, signUp: null }),
+  );
+
+/** Create account's line under its title while sign-up needs an invite (§10 screen 18). */
+export const INVITE_ONLY_NOTE = "Invite only: use the email your invite was sent to.";
+export const signUpNote = (signUp: SignUpMode | null): string | null =>
+  signUp === "invite" ? INVITE_ONLY_NOTE : null;
+
+/** A refused sign-up (`not_invited`), which only invite mode sends. */
 export const INVITE_ONLY = "This app is invite-only. Ask for an invite first.";
 export const TOO_MANY = "Too many attempts. Try again in a minute.";
 export const WRONG_LOGIN = "Wrong email, username or password";

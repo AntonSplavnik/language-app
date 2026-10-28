@@ -367,10 +367,22 @@ describe("Google (§9.4)", () => {
     expect(ok({ errorCallbackURL: "//x.example" })).toBe(false);
   });
 
-  it("signInOptions reads whether the server offers Google", async () => {
-    const { api, calls } = recording(200, { google: true });
-    expect(await api.signInOptions()).toEqual({ google: true });
+  it("signInOptions reads whether the server offers Google, and its sign-up mode", async () => {
+    const { api, calls } = recording(200, { google: true, signUp: "invite" });
+    expect(await api.signInOptions()).toEqual({ google: true, signUp: "invite" });
     expect(calls).toEqual([{ url: "/api/sign-in-options", method: "GET", body: undefined }]);
     expect(SignInOptions.safeParse({}).success).toBe(false);
+  });
+
+  it("the sign-up mode is invite or open, and nothing else", () => {
+    const ok = (signUp: unknown) => SignInOptions.safeParse({ google: false, signUp }).success;
+    expect(ok("invite")).toBe(true);
+    expect(ok("open")).toBe(true);
+    expect(ok("closed")).toBe(false);
+    expect(ok("Open")).toBe(false);
+    expect(ok("")).toBe(false);
+    expect(ok(null)).toBe(false);
+    // A server from before M12.7 sends no mode: the app treats it like a failed request.
+    expect(SignInOptions.safeParse({ google: true }).success).toBe(false);
   });
 });

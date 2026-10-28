@@ -136,10 +136,18 @@ export const SocialRedirectResponse = z.object({ url: z.url() });
 export type SocialRedirectResponse = z.infer<typeof SocialRedirectResponse>;
 
 /**
- * `GET /api/sign-in-options` (ours, open to everyone): whether the server has the Google pair,
- * so the screens offer Google only where it can work (§10).
+ * Who can create an account (SIGNUP_MODE, §4 Accounts): `invite`, only an email on the invite
+ * list; `open`, anyone.
  */
-export const SignInOptions = z.object({ google: z.boolean() });
+export const SignUpMode = z.enum(["invite", "open"]);
+export type SignUpMode = z.infer<typeof SignUpMode>;
+
+/**
+ * `GET /api/sign-in-options` (ours, open to everyone): whether the server has the Google pair,
+ * so the screens offer Google only where it can work, and its sign-up mode, so Create account
+ * says "Invite only" only while it is (§10).
+ */
+export const SignInOptions = z.object({ google: z.boolean(), signUp: SignUpMode });
 export type SignInOptions = z.infer<typeof SignInOptions>;
 
 /** Better Auth's error body. The rate limiter's 429 has no code, only a message. */

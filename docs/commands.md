@@ -25,7 +25,8 @@ docker compose stop
 
 These work on the Mac's database (`localhost`). Each prints `Database: <host>/<name>` first.
 
-### Invite someone (sign-up is invite-only)
+### Invite someone (needed only while sign-up is invite-only, `SIGNUP_MODE=invite`)
+While testing (M12.7) the Mac and production run `SIGNUP_MODE=open`: anyone can create an account, with AI off, and the invite list isn't checked. It stays, for a return to `invite`.
 ```sh
 pnpm --filter server invite:add friend@example.com
 ```
@@ -102,6 +103,7 @@ rm deploy.env
 ```
 
 ### Inviting a friend to production, start to finish
+While sign-up is open (M12.7, testing) they just open the address and create an account (step 3); you need steps 1–6 only to switch their AI on.
 1. Steps 1–4 above.
 2. `invite:add` with their email (step 5).
 3. They open `https://dingsda.vercel.app` and create an account, with a password or Continue with Google. New accounts have AI off.

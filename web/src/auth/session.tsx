@@ -1,4 +1,4 @@
-import type { AuthUser } from "@language-app/core";
+import type { AuthUser, SignUpMode } from "@language-app/core";
 import {
   createContext,
   type ReactNode,
@@ -11,6 +11,7 @@ import {
 import { api, onUnauthorized } from "../api";
 import { errorMessage } from "../lib/toast";
 import { googleOffered } from "./google";
+import { type KnownSignInOptions, signInOptionsOrNone } from "./rules";
 
 /** Who is signed in on this device, as the app knows it (§10, Signed in or not). */
 export type AuthState =
@@ -30,6 +31,8 @@ type AuthApi = {
    * opened where Google returns to (https, or localhost; §10).
    */
   googleOffered: boolean;
+  /** Who can create an account, as the server says (§4 Accounts); null when it couldn't be asked. */
+  signUpMode: SignUpMode | null;
   /** After signing in or creating an account. */
   signedIn: (user: AuthUser) => void;
   /** After Sign out. */
@@ -44,23 +47,19 @@ const AuthContext = createContext<AuthApi | null>(null);
 
 /**
  * Asks who is signed in when the app starts (`GET /api/auth/get-session`, which also keeps the
- * session cookie fresh), and at the same time whether the server offers Google, so Sign in shows
- * its buttons from the start; notices when any request finds the session gone (a 401).
+ * session cookie fresh), and at the same time whether the server offers Google and who can create
+ * an account, so Sign in and Create account show the right things from the start; notices when
+ * any request finds the session gone (a 401).
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ kind: "loading" });
-  const [serverHasGoogle, setServerHasGoogle] = useState(false);
+  const [options, setOptions] = useState<KnownSignInOptions>({ google: false, signUp: null });
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });
-    // Not knowing means no Google button, never a failed start.
-    const google = api.signInOptions().then(
-      (options) => options.google,
-      () => false,
-    );
-    Promise.all([api.getSession(), google]).then(
-      ([found, hasGoogle]) => {
-        setServerHasGoogle(hasGoogle);
+    Promise.all([api.getSession(), signInOptionsOrNone(api.signInOptions)]).then(
+      ([found, known]) => {
+        setOptions(known);
         setState(found ? { kind: "signedIn", user: found.user } : { kind: "signedOut" });
       },
       (error: unknown) => setState({ kind: "failed", message: errorMessage(error) }),
@@ -73,13 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthApi>(
     () => ({
       state,
-      googleOffered: googleOffered(serverHasGoogle, window.location),
+      googleOffered: googleOffered(options.google, window.location),
+      signUpMode: options.signUp,
       signedIn: (user) => setState({ kind: "signedIn", user }),
       signedOut: () => setState({ kind: "signedOut", byChoice: true }),
       accountDeleted: () => setState({ kind: "signedOut", byChoice: true, deleted: true }),
       reload,
     }),
-    [state, serverHasGoogle, reload],
+    [state, options, reload],
   );
   return <AuthContext value={value}>{children}</AuthContext>;
 }

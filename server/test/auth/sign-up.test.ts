@@ -1,13 +1,15 @@
-import { AuthSession, SignedInResponse } from "@language-app/core";
+import { AuthSession, SignedInResponse, SignInOptions } from "@language-app/core";
 import { asc, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import type { Auth } from "../../src/auth/auth";
 import { addInvite } from "../../src/auth/invites";
 import { invites, users } from "../../src/db/schema";
 import { buildTestApp, testAuth } from "../helpers/app";
 import { authPost, cookieOf, getWith, PASSWORD, setCookies } from "../helpers/auth";
 import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
-// Create account (docs/design.md §4 Accounts, §9.4): email, username and password, invite-only.
+// Create account (docs/design.md §4 Accounts, §9.4): email, username and password, invite-only
+// unless SIGNUP_MODE=open (M12.7).
 
 const db = useTestDb();
 const app = () => buildTestApp(db, { learner: null });
@@ -103,12 +105,51 @@ describe("sign-up of an email not on the list", () => {
     expect((await accounts()).map((u) => u.id)).toEqual([LEARNER_ID]);
   });
 
-  it("is accepted with SIGNUP_MODE=open, without any check", async () => {
+  it("is accepted with SIGNUP_MODE=open, without any check, and has AI off", async () => {
+    await addInvite(db, "someone.else@example.com");
     const open = buildTestApp(db, { learner: null, auth: testAuth(db, { signupMode: "open" }) });
     const res = await authPost(open, "/sign-up/email", newUser);
 
     expect(res.statusCode).toBe(200);
-    expect((await accounts()).map((u) => u.email)).toEqual([null, "new@example.com"]);
+    expect(SignedInResponse.parse(res.json()).user).toMatchObject({
+      email: "new@example.com",
+      aiEnabled: false,
+    });
+    expect((await accounts()).map((u) => [u.email, u.aiEnabled])).toEqual([
+      [null, true],
+      ["new@example.com", false],
+    ]);
+    // The list isn't touched: the other email's invite stays unused.
+    expect(await db.select({ email: invites.email, userId: invites.userId }).from(invites)).toEqual(
+      [{ email: "someone.else@example.com", userId: null }],
+    );
+  });
+});
+
+describe("sign-in-options tells the app the sign-up mode (M12.7)", () => {
+  const optionsOf = async (auth: Auth) => {
+    const res = await buildTestApp(db, { learner: null, auth }).inject({
+      method: "GET",
+      url: "/api/sign-in-options",
+    });
+    expect(res.statusCode).toBe(200);
+    return SignInOptions.parse(res.json());
+  };
+
+  it.each([
+    ["invite", false],
+    ["invite", true],
+    ["open", false],
+    ["open", true],
+  ] as const)("SIGNUP_MODE=%s, Google %s, signed out", async (signupMode, google) => {
+    expect(await optionsOf(testAuth(db, { signupMode, google }))).toEqual({
+      google,
+      signUp: signupMode,
+    });
+  });
+
+  it("invite is the default", async () => {
+    expect(await optionsOf(testAuth(db))).toEqual({ google: false, signUp: "invite" });
   });
 });
 

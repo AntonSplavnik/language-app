@@ -10,6 +10,7 @@ import {
   type SignUpFields,
   signUpError,
   signUpFieldErrors,
+  signUpNote,
   USERNAME_HINT,
 } from "../auth/rules";
 import { useAuth } from "../auth/session";
@@ -21,13 +22,14 @@ import ui from "../styles/ui.module.css";
 import styles from "./AuthScreens.module.css";
 
 /**
- * Create account (§10 screen 18): email, username and password, for an email on the invite list,
- * or Continue with Google where Google can work. The new account is signed in at once; the app's
- * gate then returns to `?next=`.
+ * Create account (§10 screen 18): email, username and password, for an email on the invite list
+ * (or any, while sign-up is open), or Continue with Google where Google can work. The new account
+ * is signed in at once; the app's gate then returns to `?next=`.
  */
 export function SignUpScreen() {
   const { search } = useLocation();
   const auth = useAuth();
+  const note = signUpNote(auth.signUpMode);
   const formId = useId();
   const [fields, setFields] = useState<SignUpFields>({ email: "", username: "", password: "" });
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -91,7 +93,7 @@ export function SignUpScreen() {
         </button>
       }
     >
-      <p className={ui.lead}>Invite only: use the email your invite was sent to.</p>
+      {note && <p className={ui.lead}>{note}</p>}
       <form
         id={formId}
         className={styles.form}

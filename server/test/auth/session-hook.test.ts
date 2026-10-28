@@ -64,7 +64,7 @@ describe("without a session", async () => {
     expect(res.statusCode).toBe(200);
   });
 
-  it("so does the question whether Google is offered (Sign in asks it)", async () => {
+  it("so does the question whether Google is offered and who can sign up (asked signed out)", async () => {
     const res = await signedOut.inject({ method: "GET", url: "/api/sign-in-options" });
     expect(res.statusCode).toBe(200);
   });

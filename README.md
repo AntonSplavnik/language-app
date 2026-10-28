@@ -2,7 +2,7 @@
 
 A companion app for learning German vocabulary from a book. After a study session you photograph the pages you worked through. The app finds the new German words, checks them against the words you already have and against Wiktionary, lets you confirm them, and turns them into flashcards you practise on your iPhone.
 
-It is a web app with accounts, working name **Dingsda**. It runs in production at `https://dingsda.vercel.app` (Vercel + Neon, see [Production](#production)), and on your Mac for development. Sign-up is invite-only; an account signs in with a password or with Google, and the AI features are switched on per account.
+It is a web app with accounts, working name **Dingsda**. It runs in production at `https://dingsda.vercel.app` (Vercel + Neon, see [Production](#production)), and on your Mac for development. Sign-up is open to anyone while testing (`SIGNUP_MODE=open`), otherwise by invite; an account signs in with a password or with Google, and the AI features are switched on per account.
 
 ## How it works
 
@@ -19,7 +19,7 @@ Steps 2 and 7 are the AI features. An account without AI types its words instead
 
 ## Features
 
-- **Accounts:** sign in with your email or username and a password, or **Continue with Google**. Sign-up is invite-only (`invite:add`); a new account starts empty with the AI features off (`user:ai` switches them). Settings → Account shows the sign-in methods (connect or disconnect Google), whether AI is included, **Sign out** and **Delete account**, which removes the account and all its data. A forgotten password is reset by the owner with `user:set-password`; there is no email yet.
+- **Accounts:** sign in with your email or username and a password, or **Continue with Google**. Sign-up is by invite (`invite:add`) with `SIGNUP_MODE=invite`, or open to anyone with `SIGNUP_MODE=open` (production and the Mac while testing); a new account starts empty with the AI features off (`user:ai` switches them). Settings → Account shows the sign-in methods (connect or disconnect Google), whether AI is included, **Sign out** and **Delete account**, which removes the account and all its data. A forgotten password is reset by the owner with `user:set-password`; there is no email yet.
 - **Import:** several photos per import, an optional name ("Lesson 4"), a status per photo, **Retry** for failed photos and **Retake** for pages that could not be read. Unfinished imports appear as a banner on Home.
 - **PDF pages:** pick a PDF and a page range (up to 10 pages); the pages are rendered in the browser and read like photos. The phone remembers the book, so the next import suggests the pages after the last ones.
 - **Typed words:** type one German word or a list. Suggestions come from the dictionary as you type (*ging* finds *gehen*, *Regenschrim* finds *Regenschirm*); pick the entry you mean and a translation from its glosses, type your own, or **Ask AI**. A list is saved as one import.
@@ -67,7 +67,7 @@ pnpm db:migrate          # create the tables in the dev database
 pnpm --filter server user:claim <email> <username>   # once per database: user 1 becomes your account, with AI on; asks for a password
 ```
 
-User 1 is the account that owns the word list from before accounts existed; `user:claim` gives it your email, username and password. Anyone else needs an invite before they can create an account: `pnpm --filter server invite:add <email>`.
+User 1 is the account that owns the word list from before accounts existed; `user:claim` gives it your email, username and password. With `SIGNUP_MODE=invite` anyone else needs an invite before they can create an account: `pnpm --filter server invite:add <email>`.
 
 The `.env` values that matter:
 
@@ -75,7 +75,7 @@ The `.env` values that matter:
 - `ANTHROPIC_API_KEY`: needed for the AI features. The server starts without it; only the AI calls fail.
 - `AI_MODEL_EXTRACT`, `AI_MODEL_ENRICH`, `AI_MODEL_DESCRIBE`, `AI_EFFORT`: the Claude model for each AI call, and one effort level for all three. Defaults: `claude-haiku-5-5` at `medium`. See [AI models and cost](#ai-models-and-cost).
 - `DAILY_PHOTO_LIMIT`: photo and PDF page reads per account per day (default 50). `DAILY_DESCRIBE_LIMIT`: **Ask AI** calls per account per day (default 200), a safety net rather than a budget. `APP_TIME_ZONE` (default `Europe/Berlin`): where their day starts.
-- `SIGNUP_MODE`: `invite` (the default; only invited emails can create an account) or `open`.
+- `SIGNUP_MODE`: `invite` (the default; only invited emails can create an account) or `open` (anyone can; Create account then has no "Invite only" line).
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: optional, both or neither. Without them no screen offers Google.
 - `SERVER_PORT` (default 3000) and `WEB_PORT` (default 5173). Vite will not start if its port is taken, so change `WEB_PORT` if 5173 is in use.
 - `DATABASE_URL` and `TEST_DATABASE_URL` already match `docker-compose.yml`.

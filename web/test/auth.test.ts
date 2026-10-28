@@ -1,16 +1,19 @@
-import { ApiClientError } from "@language-app/core";
+import { ApiClientError, SignInOptions } from "@language-app/core";
 import { describe, expect, it } from "vitest";
 import {
   INVITE_ONLY,
+  INVITE_ONLY_NOTE,
   isAuthPage,
   nextPath,
   PASSWORD_HINT,
   redirectFor,
   signInError,
   signInMethod,
+  signInOptionsOrNone,
   signInPath,
   signUpError,
   signUpFieldErrors,
+  signUpNote,
   TOO_MANY,
   USERNAME_HINT,
   WRONG_LOGIN,
@@ -205,5 +208,45 @@ describe("the wording for each error", () => {
       field: null,
       message: "Can't reach the server",
     });
+  });
+});
+
+describe("Create account's invite line (M12.7)", () => {
+  const options = (google: boolean, signUp: "invite" | "open") => () =>
+    Promise.resolve({ google, signUp });
+  const lineFor = async (ask: () => Promise<SignInOptions>) =>
+    signUpNote((await signInOptionsOrNone(ask)).signUp);
+
+  it("shows while sign-up needs an invite", async () => {
+    expect(await lineFor(options(true, "invite"))).toBe(
+      "Invite only: use the email your invite was sent to.",
+    );
+    expect(await lineFor(options(false, "invite"))).toBe(INVITE_ONLY_NOTE);
+  });
+
+  it("not while sign-up is open", async () => {
+    expect(await lineFor(options(true, "open"))).toBeNull();
+    expect(await lineFor(options(false, "open"))).toBeNull();
+  });
+
+  it("not when the options request fails, which also means no Google", async () => {
+    const offline = () =>
+      Promise.reject(new ApiClientError("network", "Can't reach the server", null));
+    expect(await signInOptionsOrNone(offline)).toEqual({ google: false, signUp: null });
+    expect(await lineFor(offline)).toBeNull();
+    // A server from before M12.7 answers without the mode, which the schema refuses.
+    const old = () => Promise.reject(SignInOptions.safeParse({ google: true }).error);
+    expect(await signInOptionsOrNone(old)).toEqual({ google: false, signUp: null });
+  });
+
+  it("the options come through as the server sent them", async () => {
+    expect(await signInOptionsOrNone(options(true, "open"))).toEqual({
+      google: true,
+      signUp: "open",
+    });
+  });
+
+  it("the refusal on submit keeps its own wording", () => {
+    expect(INVITE_ONLY).toBe("This app is invite-only. Ask for an invite first.");
   });
 });

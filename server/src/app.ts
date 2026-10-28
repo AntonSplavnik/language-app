@@ -38,12 +38,15 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   app.register(multipart, { limits: { fileSize: MAX_PHOTO_BYTES, files: 1 } });
   app.decorateRequest("learner", null as unknown as Learner);
 
-  // Open to everyone: the health check, whether Google is offered (Sign in asks before anyone is
-  // signed in), and signing up, in and out.
+  // Open to everyone: the health check, whether Google is offered and who can create an account
+  // (Sign in and Create account ask before anyone is signed in), and signing up, in and out.
   app.get("/api/health", async (): Promise<HealthResponse> => ({ status: "ok" }));
   app.get(
     "/api/sign-in-options",
-    async (): Promise<SignInOptions> => ({ google: offersGoogle(deps.auth) }),
+    async (): Promise<SignInOptions> => ({
+      google: offersGoogle(deps.auth),
+      signUp: deps.auth.signupMode,
+    }),
   );
   authRoutes(app, deps.auth);
 

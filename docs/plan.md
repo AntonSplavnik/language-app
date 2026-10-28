@@ -198,7 +198,7 @@ Verified environment:
 
 The prototype (M0–M8) and its redesign (`docs/redesign/`) are built. On 2026-10-14 the user listed the features to add next and agreed the order below. On 2026-10-23 deployment was added as M12, right after M11, and the milestones after it were renumbered (themes M12 → M13 … time M20 → M21). Each milestone is described here only as far as it has been decided. A milestone starts by writing its section of `docs/design.md`, settling the open questions listed with it together with the user; then it follows the usual workflow (CLAUDE.md): test-first, the demo, the user's check on the iPhone, a commit.
 
-**Status (2026-10-28):** M9, M10, M11 and M12.1–M12.5 are built; the app is live at `https://dingsda.vercel.app` (M12.4), with nightly backups since 2026-10-28 (M12.5; the first scheduled run is checked on 2026-10-29). M12.6 (account scripts `user:list` and `user:delete`) is built and demoed on Neon (2026-10-28). Next: M12.7 (open sign-up while testing), then M13.
+**Status (2026-10-28):** M9, M10, M11 and M12.1–M12.5 are built; the app is live at `https://dingsda.vercel.app` (M12.4), with nightly backups since 2026-10-28 (M12.5; the first scheduled run is checked on 2026-10-29). M12.6 (account scripts `user:list` and `user:delete`) is built and demoed on Neon (2026-10-28). M12.7 (open sign-up while testing) is built (2026-10-28) and waits to go live (its going-live list, in the M12.7 note). Next: M13.
 
 Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-api` skill first, re-record the affected fixtures and run `pnpm test:live`.
 
@@ -296,7 +296,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - server: `POST /imports` with `source: "pdf"` (stored, listed with it in `GET /imports`), an unknown source rejected.
 
 #### M12: Accounts and deployment (Vercel + Neon)
-**Status (2026-10-28):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app`, M12.5 built and live since 2026-10-28 (notes after the steps table; the first scheduled backup is checked on 2026-10-29), M12.6 built and demoed on Neon 2026-10-28 (account scripts); next M12.7 (open sign-up while testing). The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
+**Status (2026-10-28):** M12.1–M12.3b built, M12.4 built and live at `https://dingsda.vercel.app`, M12.5 built and live since 2026-10-28 (notes after the steps table; the first scheduled backup is checked on 2026-10-29), M12.6 built and demoed on Neon 2026-10-28 (account scripts), M12.7 built 2026-10-28 (open sign-up while testing; going live with the user next, its note's list). The behaviour is in `docs/design.md` §4 Accounts and the other sections §17 lists, and §18.
 
 - **Decided (the user, 2026-10-23; database changed 2026-10-24):** the app is deployed on **Vercel** (Hobby; the web app as static files, the API as one Vercel Function) with the database on **Neon** (Free, PostgreSQL 17), both in Frankfurt, right after M11, so it works away from home Wi-Fi and the word list has backups before it grows. The Mac keeps `pnpm dev` and its own databases for development.
 - **Compared on 2026-10-24** (the providers' own pages; Supabase was the first choice):
@@ -448,6 +448,24 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - **Rehearsed** on a copy of the dev database (`m126_copy`, its server on port 3100): a test account invited and signed up through the API, with 3 typed words as an import, a practice session with 2 answers and a second sign-in. `user:list` showed both accounts. `user:delete` refused a wrong answer, an empty one and Ctrl+C (also typed visibly on a pseudo-terminal through `expect`), and `db:counts` changed only by the sign-up's rate-limit row; a second throwaway account was deleted on the pseudo-terminal by typing its username in capitals, then the test account with a piped answer in capitals with spaces around. Afterwards every table's count was the dev database's again (exactly the printed rows gone), user 1's rows and the shared words had the same checksums, and the shared word the account had added stayed. The copy, the worktree's test database and the scratch files were deleted.
   - **Demoed on Neon (2026-10-28),** with the user: `user:list` on the Mac (one account) and on Neon. A throwaway account was made on production (an invite, a sign-up and a typed import of 2 words through the API), and `user:list` showed it. The user ran `user:delete` in their own terminal: a wrong answer printed "Not deleted.", then the username deleted it. Every table's count changed by exactly the test account's rows (users, words in its list 2, imports, sign-ins, sign-in methods and invite, 1 each). The developer account kept its 107 words, 6 imports and both sign-in methods, and the shared words it had added stayed.
   - **Fixed while reviewing:** `user:list`'s script test expected exactly two spaces before the `id` header, which is right-aligned, so it failed whenever earlier tests' accounts had pushed ids to two digits. It now allows more.
+- **M12.7 built (2026-10-28)**, as designed in `docs/design.md` §4 Accounts, with no migration, no new dependency and no change to how sign-up behaves (`SIGNUP_MODE=open` already skipped the invite check); the behaviour is in §4 Accounts, §9.4, §10 screen 18, §12, §13, §14 and §18.3, and the design system's PageHeader. Built: `SignUpMode` and `signUp` in `SignInOptions` (`core/`); `/api/sign-in-options` answering `{ google, signUp }`; `signInOptionsOrNone` and `signUpNote` in `web/src/auth/rules.ts`, the mode kept beside the Google flag in `session.tsx` (`useAuth().signUpMode`), and Create account showing its line from it. Decisions:
+  - **The mode rides on the Better Auth instance** (`createAuth` returns it with `signupMode`), not as a separate setting of the app: the route reports the mode the instance applying it has, so the two can't differ, also in tests that build the app with an open-mode auth.
+  - **No mode known is `null`, not `invite`:** a failed options request (or a server from before M12.7, whose answer the schema refuses) gives no Google and no line, as designed; a refused sign-up still says "This app is invite-only. Ask for an invite first."
+  - **Without the line, nothing takes its place:** Create account's form starts right under the title, as Sign in's does (the line is `ui.lead`, pulled up 6 px; the form keeps its own 8 px). PageHeader's lead line is now described as optional.
+  - **Wording in invite mode only:** the `not_invited` rows of §12 and Create account's errors now say they happen only with `SIGNUP_MODE=invite`; `INVITE_ONLY` is unchanged.
+  - **Tests:** the open-mode sign-ups by password and with Google existed (M12.1, M12.3); they now also check AI off, a signed-in session (Google) and the invite list untouched, with another email's invite on it. The invite-mode refusals were there already. 1 more core test (96), 5 more server tests (598: `/sign-in-options` for each mode with Google on and off, signed out, and the default), 5 more web tests (257).
+  - **Checked in a browser** (headless Chrome, a copy of the dev database `m127_copy`, the worktree's server on 3100 and Vite on 5180, its own test database): Create account in invite mode shows the line, in open mode doesn't, light and dark; in open mode an email not on the (empty) invite list created an account through the form, landed on Home ("Type the words you studied to start your list.", the no-AI Home) with `aiEnabled: false`, `user:list` showed it with AI off, and `user:delete` removed it. The copy was dropped.
+  - **Going live** (the main session with the user; nothing outside the repo was touched while building):
+    1. `SIGNUP_MODE=open` on Vercel as a plain variable, then the list (from the main checkout, linked to the project, §18.8 step 4):
+       ```sh
+       printf %s open | npx -y vercel@63.1.2 env add SIGNUP_MODE production --no-sensitive --force --yes
+       npx -y vercel@63.1.2 env ls production
+       ```
+    2. The push of the M12.7 commit to `main`; CI's deploy builds with the new variable.
+    3. `curl -s https://dingsda.vercel.app/api/sign-in-options` answers `{"google":true,"signUp":"open"}`.
+    4. The Mac's `.env`: `SIGNUP_MODE=open` instead of `invite`, then restart `pnpm dev`; `curl -s http://localhost:5173/api/sign-in-options` answers `"signUp":"open"`.
+    5. The demo (the steps table): Create account has no "Invite only" line; an email that isn't on the invite list creates an account by password and with Google, in production on the iPhone and on the Mac in its own browser (`localhost`), each with AI off (`user:list`).
+    6. The test accounts removed with `user:delete`, on Neon and on the Mac (`docs/commands.md`).
 
 - **Tests first:**
   - **M12.1:**
@@ -496,6 +514,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - `/api/sign-in-options` answers `signUp: "invite"` or `"open"` with the server's mode (the schema in `core/`).
     - Create account shows "Invite only: …" in invite mode only, and not when the options request fails.
     - In open mode, an email not on the list signs up by password and with Google (the server's existing open-mode test), with AI off; in invite mode it is still refused with `not_invited`.
+    - Built (2026-10-28): those, plus the mode `invite` by default, an answer without the mode refused by the schema (and so treated as a failed request), and the invite list left untouched by an open-mode sign-up (`docs/design.md` §13).
 
 #### M13: Themes and own groups
 - **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.

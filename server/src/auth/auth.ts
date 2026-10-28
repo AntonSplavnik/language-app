@@ -147,7 +147,7 @@ export function createAuth({
 }: AuthOptions) {
   const site = baseUrl ? productionSite(baseUrl) : macSite(webPort);
 
-  return betterAuth({
+  const auth = betterAuth({
     secret,
     baseURL: site.baseURL,
     trustedOrigins: site.trustedOrigins,
@@ -329,6 +329,9 @@ export function createAuth({
       }),
     },
   });
+  // The mode rides with the instance that applies it, so `/api/sign-in-options` tells the app
+  // the mode its sign-ups actually get (§9.4).
+  return Object.assign(auth, { signupMode });
 }
 
 export type Auth = ReturnType<typeof createAuth>;
