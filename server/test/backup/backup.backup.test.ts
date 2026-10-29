@@ -122,9 +122,21 @@ beforeAll(async () => {
   sourceCounts = await tableCounts(source);
 });
 
+// An ended pool's connections close a moment later. DROP … WITH (FORCE) would kill one still
+// closing, and its FATAL then reaches a client nobody listens to any more (an unhandled error).
+const untilClosed = async (databases: string[]) => {
+  for (let tries = 0; tries < 50; tries++) {
+    const { rows } = await admin.execute<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname::text IN ${databases}`);
+    if (rows[0]?.n === 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+};
+
 afterAll(async () => {
   await source?.$client.end();
   await target?.$client.end();
+  await untilClosed([SOURCE, TARGET]);
   await dropAll();
   await admin.$client.end();
   rmSync(dir, { recursive: true, force: true });
