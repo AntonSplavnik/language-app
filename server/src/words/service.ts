@@ -13,6 +13,7 @@ import {
 import { and, asc, count, desc, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { userWords, words, wordTranslations } from "../db/schema";
+import { inGroup } from "../groups/service";
 import { HttpError } from "../http/errors";
 import { learnerLanguageOf, wordViewQuery } from "./views";
 
@@ -43,21 +44,23 @@ const effectiveThemes = sql<string[] | null>`coalesce(${userWords.themes}, ${wor
 export const hasTheme = (theme: ThemeKey): SQL => sql`${theme} = any(${effectiveThemes})`;
 
 /**
- * The learner's words (§9.1): one status or all, searched, from one import or one theme or all,
- * A–Z or newest first. The counts per status cover the same search, import and theme, whatever
- * status was asked for.
+ * The learner's words (§9.1): one status or all, searched, from one import, one theme, one group
+ * or all, A–Z or newest first. The counts per status cover the same search, import, theme and
+ * group, whatever status was asked for. The filters it gets apply together (the app sends one).
  */
 export async function listWords(
   db: Db,
   userId: number,
-  { status, q, importId, theme, sort = "az" }: WordListQuery,
+  { status, q, importId, theme, groupId, sort = "az" }: WordListQuery,
 ): Promise<WordListResponse> {
   const language = await learnerLanguageOf(db, userId);
-  // The words the import created; an import of another learner's has none of this learner's.
+  // The words the import created; an import of another learner's has none of this learner's, and
+  // neither has a group of theirs.
   const mine = and(
     eq(userWords.userId, userId),
     importId === undefined ? undefined : eq(userWords.importId, importId),
     theme === undefined ? undefined : hasTheme(theme),
+    groupId === undefined ? undefined : inGroup(userId, groupId),
   );
   const search = searchFilter(q);
   const order =

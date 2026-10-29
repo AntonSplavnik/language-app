@@ -53,6 +53,8 @@ describe("POST /api/auth/delete-user", () => {
     expect(await rowsOf(test.id)).toEqual({
       imports: 1,
       user_words: 1,
+      groups: 1,
+      group_words: 1,
       sessions: 1,
       card_results: 1,
       ai_usage: 1,

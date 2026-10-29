@@ -7,6 +7,7 @@ import type { Learner } from "./auth/learner";
 import { authRoutes, requireLearner } from "./auth/routes";
 import type { Db } from "./db/client";
 import { dictionaryRoutes } from "./dictionary/routes";
+import { groupRoutes } from "./groups/routes";
 import { registerErrorHandling } from "./http/errors";
 import { requestIds } from "./http/request-id";
 import { importRoutes } from "./imports/routes";
@@ -56,6 +57,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
     statsRoutes(learnerApp, deps);
     importRoutes(learnerApp, deps);
     wordRoutes(learnerApp, deps);
+    groupRoutes(learnerApp, deps);
     dictionaryRoutes(learnerApp, deps);
     practiceRoutes(learnerApp, deps);
   });

@@ -88,6 +88,8 @@ export const ImportSummary = z.object({
   completedAt: z.iso.datetime(),
   /** Its `learning` + `learned` words: what a session from it can draw on (at least 1). */
   wordCount: z.number().int().positive(),
+  /** Its words in every status (My words' Filter screen counts them, as themes and groups). */
+  words: z.number().int().positive(),
 });
 export type ImportSummary = z.infer<typeof ImportSummary>;
 

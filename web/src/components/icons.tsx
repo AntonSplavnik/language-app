@@ -177,6 +177,20 @@ export const TagIcon = (props: IconProps) => (
   </Stroke>
 );
 
+/** A filter: My words' Filter pill. Three lines, each shorter than the one above. */
+export const FilterIcon = (props: IconProps) => (
+  <Stroke {...props}>
+    <path d="M4 7h16M7 12h10M10 17h4" />
+  </Stroke>
+);
+
+/** A group of the learner's: the Group source. */
+export const FolderIcon = (props: IconProps) => (
+  <Stroke weight={1.8} {...props}>
+    <path d="M3.5 7.5a2 2 0 0 1 2-2h4.2l2 2.2h6.8a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+  </Stroke>
+);
+
 /** The AI and the dictionary disagree on an article (Review). */
 export const WarningIcon = (props: IconProps) => (
   <Stroke {...props}>

@@ -75,7 +75,7 @@ const nameOf = async (id: number) =>
   first(await db.select({ name: imports.name }).from(imports).where(eq(imports.id, id))).name;
 
 describe("GET /api/imports (§9.2)", () => {
-  it("lists done imports with learning or learned words, newest first, counting those words", async () => {
+  it("lists done imports with learning or learned words, newest first, counting those words and all of them", async () => {
     const threeDaysAgo = daysAgo(3);
     const older = await seedImport({ name: "Lesson 3", completedAt: threeDaysAgo });
     await seedWord("Tisch", older);
@@ -93,14 +93,30 @@ describe("GET /api/imports (§9.2)", () => {
     const photos = { source: "photos" };
     expect(await pastImports()).toEqual([
       // Completed at the same moment: the newer row first.
-      { id: laterRow, name: null, ...photos, completedAt: sameTime.toISOString(), wordCount: 2 },
-      { id: earlierRow, name: null, ...photos, completedAt: sameTime.toISOString(), wordCount: 1 },
+      {
+        id: laterRow,
+        name: null,
+        ...photos,
+        completedAt: sameTime.toISOString(),
+        wordCount: 2,
+        words: 2,
+      },
+      {
+        id: earlierRow,
+        name: null,
+        ...photos,
+        completedAt: sameTime.toISOString(),
+        wordCount: 1,
+        words: 1,
+      },
+      // Its ignored word counts among its words (the Filter screen), not among those to practise.
       {
         id: older,
         name: "Lesson 3",
         ...photos,
         completedAt: threeDaysAgo.toISOString(),
         wordCount: 3,
+        words: 4,
       },
     ]);
   });
@@ -170,12 +186,12 @@ describe("GET /api/imports (§9.2)", () => {
       app().inject({ method: "PATCH", url: `/api/words/${id}`, payload: { status } });
 
     await patch(tisch, "ignored");
-    expect((await pastImports()).map((i) => i.wordCount)).toEqual([1]);
+    expect((await pastImports()).map((i) => [i.wordCount, i.words])).toEqual([[1, 2]]);
     await patch(stuhl, "ignored");
     expect(await pastImports()).toEqual([]);
 
     await patch(stuhl, "learning");
-    expect(await pastImports()).toMatchObject([{ id: lesson, wordCount: 1 }]);
+    expect(await pastImports()).toMatchObject([{ id: lesson, wordCount: 1, words: 2 }]);
   });
 
   it("is empty without imports", async () => {

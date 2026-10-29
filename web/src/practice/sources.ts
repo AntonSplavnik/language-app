@@ -1,4 +1,10 @@
-import { SESSION_SIZE, type ThemeKey, type ThemeSummary, themeLabel } from "@language-app/core";
+import {
+  type GroupSummary,
+  SESSION_SIZE,
+  type ThemeKey,
+  type ThemeSummary,
+  themeLabel,
+} from "@language-app/core";
 
 /**
  * A source's count on Practice setup (§8.1), in two lines: the number, large, over the rest
@@ -30,4 +36,17 @@ export function themeMenu(themes: ThemeSummary[]): {
     null,
   );
   return { themes: practisable, start: start?.key ?? null };
+}
+
+/**
+ * The Group card's menu (§10 screen 4): the groups with words to practise, newest first (as
+ * `GET /groups` gives them), and the one it starts on, the newest. Without any, the menu is empty
+ * and the card has no words.
+ */
+export function groupMenu(groups: GroupSummary[]): {
+  groups: GroupSummary[];
+  start: number | null;
+} {
+  const practisable = groups.filter((group) => group.practisable > 0);
+  return { groups: practisable, start: practisable[0]?.id ?? null };
 }

@@ -156,7 +156,13 @@ describe("GET /api/sessions/options (§8.1)", () => {
     await seedWord("Lampe", { importId: lesson, status: "ignored" });
     await seedWord("Alt", { addedAt: daysAgo(30) });
 
-    expect(await options()).toEqual({ import: 2, theme: 0, last_7_days: 2, not_learned: 2 });
+    expect(await options()).toEqual({
+      import: 2,
+      group: 0,
+      theme: 0,
+      last_7_days: 2,
+      not_learned: 2,
+    });
   });
 
   it("import counts the most recent past import: a newer import without words to learn doesn't count", async () => {
@@ -173,7 +179,13 @@ describe("GET /api/sessions/options (§8.1)", () => {
   it("import has no words before any import is done", async () => {
     await seedImport(null);
     await seedWord("Tisch");
-    expect(await options()).toEqual({ import: 0, theme: 0, last_7_days: 1, not_learned: 1 });
+    expect(await options()).toEqual({
+      import: 0,
+      group: 0,
+      theme: 0,
+      last_7_days: 1,
+      not_learned: 1,
+    });
   });
 });
 

@@ -41,6 +41,8 @@ const BACKED_UP = [
   "ai_usage",
   "auth_accounts",
   "card_results",
+  "group_words",
+  "groups",
   "imports",
   "invites",
   "sessions",

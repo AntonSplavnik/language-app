@@ -1,5 +1,5 @@
-/* A card of rows that each toggle a check (§10 Edit word's Themes card). See
-   docs/design-system/components/CheckList.md. The label is ui.label. */
+/* A card of rows that each toggle a check (§10 Edit word's Themes card, the Filter screen, Add to
+   group). See docs/design-system/components/CheckList.md. The label is ui.label. */
 
 /* The card is ui.card, without padding of its own: the rows reach its edges. */
 .head {
@@ -21,6 +21,14 @@
   overflow-wrap: anywhere;
 }
 
+/* The action pill at the label's right (Use suggested, Edit): a Cancel-style pill a step smaller. */
+.action {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  text-decoration: none;
+}
+
 .rows {
   margin: 12px 0 0;
   padding: 0;
@@ -29,6 +37,11 @@
 
 .rows li {
   border-top: 1px solid var(--border);
+}
+
+/* A label over "Loading…" and no rows yet. */
+.empty {
+  padding-bottom: 16px;
 }
 
 .row {
@@ -56,8 +69,27 @@
   border-bottom-right-radius: calc(var(--radius-card) - 1px);
 }
 
-.row:active {
+/* Rows alone, without a label (the Filter screen's All words): no hairline above the first. */
+.bare .rows {
+  margin-top: 0;
+}
+
+.bare .rows li:first-child {
+  border-top: 0;
+}
+
+/* The first row takes the card's top corners too. */
+.bare .rows li:first-child .row {
+  border-top-left-radius: calc(var(--radius-card) - 1px);
+  border-top-right-radius: calc(var(--radius-card) - 1px);
+}
+
+.row:not(:disabled):active {
   background: var(--surface-muted);
+}
+
+.row:disabled {
+  cursor: default;
 }
 
 .row:focus-visible {
@@ -72,6 +104,26 @@
   font-size: 16px;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+/* A row's count before its check (the Filter screen): meta, tabular. */
+.count {
+  flex: none;
+  font-size: 15px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The chevron of "All 23 imports", Add to group's plus: 20 px, muted, where the check would be. */
+.mark {
+  flex: none;
+  margin: 0 2px;
+  color: var(--muted);
+}
+
+.spinner {
+  margin: 0 4px;
+  color: var(--muted);
 }
 
 /* An empty ring, or the lime check when checked (as EntryCard's, a size smaller). */

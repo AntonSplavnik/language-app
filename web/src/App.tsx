@@ -1,4 +1,5 @@
 import { APP_NAME } from "@language-app/core";
+import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { withoutAiRedirect } from "./auth/aiFeatures";
 import { ACCOUNT_URL, redirectFor, SIGN_IN, SIGN_UP } from "./auth/rules";
@@ -6,11 +7,15 @@ import { useAuth } from "./auth/session";
 import { LoadState } from "./components/LoadState";
 import { Page } from "./components/Page";
 import { AccountScreen } from "./screens/AccountScreen";
+import { AddToGroupScreen } from "./screens/AddToGroupScreen";
 import { AddWordsScreen } from "./screens/AddWordsScreen";
 import { ConfirmWordScreen } from "./screens/ConfirmWordScreen";
 import { DoneScreen } from "./screens/DoneScreen";
 import { EditWordScreen } from "./screens/EditWordScreen";
+import { FilterScreen } from "./screens/FilterScreen";
 import { FlashcardsScreen } from "./screens/FlashcardsScreen";
+import { GroupScreen } from "./screens/GroupScreen";
+import { GroupsScreen } from "./screens/GroupsScreen";
 import { Home } from "./screens/Home";
 import { ImportScreen } from "./screens/ImportScreen";
 import { MyWordsScreen } from "./screens/MyWordsScreen";
@@ -18,6 +23,7 @@ import { PastImportScreen } from "./screens/PastImportScreen";
 import { PastImportsScreen } from "./screens/PastImportsScreen";
 import { PdfPagesScreen } from "./screens/PdfPagesScreen";
 import { PracticeSetupScreen } from "./screens/PracticeSetupScreen";
+import { RenameGroupScreen } from "./screens/RenameGroupScreen";
 import { RenameImportScreen } from "./screens/RenameImportScreen";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
@@ -25,11 +31,17 @@ import { SignInScreen } from "./screens/SignInScreen";
 import { SignUpScreen } from "./screens/SignUpScreen";
 import { SummaryScreen } from "./screens/SummaryScreen";
 import { WordDetailScreen } from "./screens/WordDetailScreen";
+import { clearSelection, keepsSelection } from "./words/selection";
 
 // Screens and flow: docs/design.md §10.
 export function App() {
   const { state, reload } = useAuth();
   const { pathname, search } = useLocation();
+
+  // My words' selection lives across My words, Filter and Add to group; any other screen ends it.
+  useEffect(() => {
+    if (!keepsSelection(pathname)) clearSelection();
+  }, [pathname]);
 
   // Who is signed in is known before any screen loads its data (§4 Accounts, §10).
   if (state.kind === "loading") return null;
@@ -71,8 +83,11 @@ export function App() {
       <Route path="/practice" element={<PracticeSetupScreen />} />
       <Route path="/practice/:id" element={<FlashcardsScreen />} />
       <Route path="/practice/:id/summary" element={<SummaryScreen />} />
-      {/* The tab, search and view live in the query: /words?status=learned&q=tisch&import=5 */}
+      {/* The tab, search, sort and filter live in the query: /words?status=learned&q=tisch&import=5 */}
       <Route path="/words" element={<MyWordsScreen />} />
+      {/* Pages pushed from My words, carrying its query; they return without a history entry. */}
+      <Route path="/words/filter" element={<FilterScreen />} />
+      <Route path="/words/add-to-group" element={<AddToGroupScreen />} />
       {/* Words typed by hand; static paths win over /words/:id. One word or ?mode=list. */}
       <Route path="/words/new" element={<AddWordsScreen />} />
       <Route path="/words/new/confirm" element={<ConfirmWordScreen />} />
@@ -85,6 +100,10 @@ export function App() {
       <Route path="/settings/imports" element={<PastImportsScreen />} />
       <Route path="/settings/imports/:id" element={<PastImportScreen />} />
       <Route path="/settings/imports/:id/rename" element={<RenameImportScreen />} />
+      {/* The learner's groups, as the imports; Rename group is a screen like Rename import. */}
+      <Route path="/settings/groups" element={<GroupsScreen />} />
+      <Route path="/settings/groups/:id" element={<GroupScreen />} />
+      <Route path="/settings/groups/:id/rename" element={<RenameGroupScreen />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

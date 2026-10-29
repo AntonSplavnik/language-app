@@ -6,6 +6,7 @@ export * from "./learning";
 export * from "./schemas/ai";
 export * from "./schemas/auth";
 export * from "./schemas/common";
+export * from "./schemas/groups";
 export * from "./schemas/health";
 export * from "./schemas/imports";
 export * from "./schemas/sessions";

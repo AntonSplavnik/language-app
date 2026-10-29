@@ -25,7 +25,7 @@ const summary = (
   name: string | null = null,
   wordCount = 9,
   source: ImportSummary["source"] = "photos",
-): ImportSummary => ({ id, name, source, completedAt, wordCount });
+): ImportSummary => ({ id, name, source, completedAt, wordCount, words: wordCount });
 
 const labels = (imports: ImportSummary[]) =>
   labelImports(imports, now, LOCALE).map((item) => item.label);

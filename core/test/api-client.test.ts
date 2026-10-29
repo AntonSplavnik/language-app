@@ -166,6 +166,7 @@ describe("import endpoints", () => {
           source: "photos",
           completedAt: "2026-10-13T12:50:30.720Z",
           wordCount: 9,
+          words: 11,
         },
         {
           id: 6,
@@ -173,6 +174,7 @@ describe("import endpoints", () => {
           source: "typed",
           completedAt: "2026-10-14T12:50:30.720Z",
           wordCount: 3,
+          words: 3,
         },
       ],
     };
@@ -181,11 +183,12 @@ describe("import endpoints", () => {
     expect(`${calls[0]?.init?.method ?? "GET"} ${calls[0]?.url}`).toBe("GET /api/imports");
   });
 
-  it("listImports rejects an import without its word count", async () => {
-    const { api } = recording({
-      imports: [{ id: 5, name: null, source: "photos", completedAt: "2026-10-13T12:50:30.720Z" }],
-    });
-    await expect(api.listImports()).rejects.toMatchObject({ code: "invalid_response" });
+  it("listImports rejects an import without its word counts", async () => {
+    const item = { id: 5, name: null, source: "photos", completedAt: "2026-10-13T12:50:30.720Z" };
+    for (const counts of [{ words: 9 }, { wordCount: 9 }]) {
+      const { api } = recording({ imports: [{ ...item, ...counts }] });
+      await expect(api.listImports()).rejects.toMatchObject({ code: "invalid_response" });
+    }
   });
 
   it("renameImport patches the name, or null to clear it", async () => {

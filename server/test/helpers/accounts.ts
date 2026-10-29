@@ -5,6 +5,8 @@ import {
   authAccounts,
   authSessions,
   cardResults,
+  groups,
+  groupWords,
   imports,
   invites,
   sessions,
@@ -22,6 +24,8 @@ import { first } from "./db";
 export const ACCOUNT_TABLES = [
   "imports",
   "user_words",
+  "groups",
+  "group_words",
   "sessions",
   "card_results",
   "ai_usage",
@@ -52,6 +56,13 @@ export async function giveData(db: Db, userId: number, lemma: string): Promise<n
       .values({ userId, wordId: word.id, status: "learning", importId: lesson.id })
       .returning({ id: userWords.id }),
   );
+  const group = first(
+    await db
+      .insert(groups)
+      .values({ userId, name: `With ${lemma}` })
+      .returning({ id: groups.id }),
+  );
+  await db.insert(groupWords).values({ groupId: group.id, userWordId: userWord.id });
   const practice = first(
     await db
       .insert(sessions)
@@ -85,6 +96,14 @@ export async function rowsOf(db: Db, userId: number, email?: string) {
     imports: await n(db.select({ n: count() }).from(imports).where(eq(imports.userId, userId))),
     user_words: await n(
       db.select({ n: count() }).from(userWords).where(eq(userWords.userId, userId)),
+    ),
+    groups: await n(db.select({ n: count() }).from(groups).where(eq(groups.userId, userId))),
+    group_words: await n(
+      db
+        .select({ n: count() })
+        .from(groupWords)
+        .innerJoin(groups, eq(groupWords.groupId, groups.id))
+        .where(eq(groups.userId, userId)),
     ),
     sessions: await n(db.select({ n: count() }).from(sessions).where(eq(sessions.userId, userId))),
     card_results: await n(

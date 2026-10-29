@@ -1,5 +1,5 @@
 import type { ImportSummary, RenameImportResponse } from "@language-app/core";
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Executor } from "../db/client";
 import { imports, userWords } from "../db/schema";
 import { HttpError } from "../http/errors";
@@ -9,29 +9,27 @@ import { HttpError } from "../http/errors";
 
 /**
  * The learner's past imports, newest first: `done` imports with at least one `learning` or
- * `learned` word, each with the number of those words. An import that added nothing to learn (no
- * new words, all skipped, or its words later deleted or set to Ignored) is left out; its row stays.
+ * `learned` word, each with the number of those words (`wordCount`) and of its words in every
+ * status (`words`, the Filter screen's count). An import that added nothing to learn (no new words,
+ * all skipped, or its words later deleted or set to Ignored) is left out; its row stays.
  */
 export async function listPastImports(db: Executor, userId: number): Promise<ImportSummary[]> {
+  const practisable = inArray(userWords.status, ["learning", "learned"]);
+  const wordCount = sql<number>`(count(*) filter (where ${practisable}))::int`;
   const rows = await db
     .select({
       id: imports.id,
       name: imports.name,
       source: imports.source,
       completedAt: imports.completedAt,
-      wordCount: count(userWords.id),
+      wordCount,
+      words: count(userWords.id),
     })
     .from(imports)
-    .innerJoin(
-      userWords,
-      and(
-        eq(userWords.importId, imports.id),
-        eq(userWords.userId, userId),
-        inArray(userWords.status, ["learning", "learned"]),
-      ),
-    )
+    .innerJoin(userWords, and(eq(userWords.importId, imports.id), eq(userWords.userId, userId)))
     .where(and(eq(imports.userId, userId), eq(imports.status, "done")))
     .groupBy(imports.id)
+    .having(sql`${wordCount} > 0`)
     .orderBy(desc(imports.completedAt), desc(imports.id));
 
   return rows.map((row) => {

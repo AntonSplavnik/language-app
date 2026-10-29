@@ -8,6 +8,7 @@ import {
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 import type { Db, Executor } from "../db/client";
 import { cardResults, imports, sessions, userWords } from "../db/schema";
+import { requireGroup } from "../groups/service";
 import { HttpError } from "../http/errors";
 import { learnerLanguageOf, wordViewQuery } from "../words/views";
 import { type SessionChoice, selectCards } from "./select";
@@ -19,7 +20,7 @@ export async function startSession(
   userId: number,
   choice: SessionChoice,
 ): Promise<SessionResponse> {
-  const { source, importId, theme } = choice;
+  const { source, importId, groupId, theme } = choice;
   // Only a finished import of the learner's can be practised (§9).
   if (importId !== undefined) {
     const [found] = await db
@@ -28,6 +29,8 @@ export async function startSession(
       .where(and(eq(imports.id, importId), eq(imports.userId, userId), eq(imports.status, "done")));
     if (!found) throw new HttpError(404, "import_not_found", "Import not found");
   }
+  // Only a group of the learner's (§9).
+  if (groupId !== undefined) await requireGroup(db, userId, groupId);
 
   const cards = await selectCards(db, userId, choice);
   if (cards.length === 0) {
@@ -35,7 +38,13 @@ export async function startSession(
   }
   const [session] = await db
     .insert(sessions)
-    .values({ userId, source, importId: importId ?? null, theme: theme ?? null })
+    .values({
+      userId,
+      source,
+      importId: importId ?? null,
+      groupId: groupId ?? null,
+      theme: theme ?? null,
+    })
     .returning();
   if (!session) throw new Error("insert returned no row");
   return { id: session.id, source, cards };

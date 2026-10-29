@@ -15,6 +15,11 @@ type PageProps = {
   /** Where the round back button goes; no back button when omitted. */
   back?: string;
   /**
+   * The round back button's action instead of a link, for a screen whose Back goes back in the
+   * history rather than to a page (Filter, Groups opened from Filter).
+   */
+  onBack?: () => void;
+  /**
    * A control at the left end instead of the back button, e.g. Edit word's Cancel. The title is
    * then centred between it and the action, as on an iOS sheet.
    */
@@ -39,13 +44,14 @@ export function Page({
   title,
   largeTitle,
   back,
+  onBack,
   leading,
   action,
   bar,
   children,
   footer,
 }: PageProps) {
-  const hasHeader = Boolean(bar || leading || back || title || action);
+  const hasHeader = Boolean(bar || leading || back || onBack || title || action);
   return (
     <div className={styles.page}>
       {hasHeader && (
@@ -54,11 +60,15 @@ export function Page({
             <>
               {leading ? (
                 <div className={styles.leading}>{leading}</div>
+              ) : back ? (
+                <Link to={back} className={ui.round} aria-label="Back">
+                  <ChevronLeftIcon />
+                </Link>
               ) : (
-                back && (
-                  <Link to={back} className={ui.round} aria-label="Back">
+                onBack && (
+                  <button type="button" className={ui.round} aria-label="Back" onClick={onBack}>
                     <ChevronLeftIcon />
-                  </Link>
+                  </button>
                 )
               )}
               {title && <h1 className={styles.title}>{title}</h1>}

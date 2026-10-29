@@ -26,6 +26,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // Tables from docs/design.md §5. Column names are snake_case in the database (casing: "snake_case").
@@ -232,6 +233,47 @@ export const userWords = pgTable(
   ],
 );
 
+/**
+ * The learner's own groups of words (§5, M13.2), such as "Hard ones": made from a selection in My
+ * words, renamed and deleted in Settings → Groups.
+ */
+export const groups = pgTable(
+  "groups",
+  {
+    id: id(),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Trimmed, 1–40 characters (GROUP_NAME_MAX in core). */
+    name: text().notNull(),
+    createdAt: createdAt(),
+  },
+  // One name per account, ignoring case: "Hard ones" and "hard ones" are the same group.
+  (t) => [uniqueIndex("groups_user_name").on(t.userId, sql`lower(${t.name})`)],
+);
+
+/**
+ * The words of the learner's list in each group; a word can be in any number of groups. Deleting
+ * the group, or the word from the list, removes its rows.
+ */
+export const groupWords = pgTable(
+  "group_words",
+  {
+    groupId: integer()
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    userWordId: integer()
+      .notNull()
+      .references(() => userWords.id, { onDelete: "cascade" }),
+    addedAt: timestampTz().notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.userWordId] }),
+    // Deleting a word from the list finds its rows.
+    index("group_words_user_word").on(t.userWordId),
+  ],
+);
+
 export const sessions = pgTable("sessions", {
   id: id(),
   userId: integer()
@@ -242,6 +284,8 @@ export const sessions = pgTable("sessions", {
   importId: integer().references(() => imports.id, { onDelete: "set null" }),
   /** The theme practised, for source `theme`; null otherwise (§5). */
   theme: text().$type<ThemeKey>(),
+  /** The group practised, for source `group`; null otherwise, and once the group is deleted (§5). */
+  groupId: integer().references(() => groups.id, { onDelete: "set null" }),
   startedAt: timestampTz().notNull().defaultNow(),
   finishedAt: timestampTz(),
 });

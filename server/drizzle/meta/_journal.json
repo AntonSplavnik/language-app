@@ -71,6 +71,13 @@
       "when": 1793273316867,
       "tag": "0009_session-theme",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793288808264,
+      "tag": "0010_groups",
+      "breakpoints": true
     }
   ]
 }

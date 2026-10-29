@@ -129,6 +129,8 @@ describe("deleteAccount", () => {
     expect(await rowsOf(db, test.account.id, "test@example.com")).toEqual({
       imports: 1,
       user_words: 1,
+      groups: 1,
+      group_words: 1,
       sessions: 1,
       card_results: 1,
       ai_usage: 1,
@@ -144,6 +146,7 @@ describe("deleteAccount", () => {
     expect(deleted).toEqual({
       words: 1,
       imports: 1,
+      groups: 1,
       sessions: 1,
       answers: 1,
       aiUsage: 1,
@@ -377,6 +380,7 @@ describe("user:delete as the script", () => {
       formatContents({
         words: 1,
         imports: 1,
+        groups: 1,
         sessions: 1,
         answers: 1,
         aiUsage: 1,

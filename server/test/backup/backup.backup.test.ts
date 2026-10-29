@@ -103,7 +103,10 @@ beforeAll(async () => {
     INSERT INTO user_words (user_id, word_id, status, import_id, times_seen, themes)
     VALUES (1, 1, 'learning', 1, 3, '{work}'), (1, 2, 'learned', 1, 5, NULL),
            (2, 1, 'learning', NULL, 0, NULL)`);
-  await source.execute(sql`INSERT INTO sessions (user_id, source) VALUES (1, 'not_learned')`);
+  await source.execute(sql`INSERT INTO groups (user_id, name) VALUES (1, 'Hard ones')`);
+  await source.execute(sql`INSERT INTO group_words (group_id, user_word_id) VALUES (1, 1)`);
+  await source.execute(sql`
+    INSERT INTO sessions (user_id, source, group_id) VALUES (1, 'not_learned', NULL), (1, 'group', 1)`);
   await source.execute(sql`
     INSERT INTO card_results (session_id, user_word_id, result, flipped, answer_ms)
     VALUES (1, 1, 'knew', true, 900)`);

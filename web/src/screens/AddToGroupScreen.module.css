@@ -1,0 +1,28 @@
+/* Add to group (§10): the sheet header, a lead line, the New group card (TextField on a card with
+   a Create pill beside the field, as Done's Name this import) and the groups (CheckList). */
+
+/* body, muted. */
+.lead {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.muted {
+  margin: 0 4px;
+  color: var(--muted);
+}
+
+/* "New group": the label, then the field with the Create pill beside it. */
+.naming {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

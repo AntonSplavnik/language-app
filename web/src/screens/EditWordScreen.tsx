@@ -9,7 +9,7 @@ import {
 import { useId, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import { api } from "../api";
-import { CheckList, CheckRow } from "../components/CheckList";
+import { CheckList, CheckRow, checkListAction } from "../components/CheckList";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Headword } from "../components/Headword";
 import { Page } from "../components/Page";
@@ -174,7 +174,7 @@ export function EditWordScreen() {
             ownThemes && (
               <button
                 type="button"
-                className={`${ui.pill} ${ui.pillSecondary} ${styles.suggested}`}
+                className={checkListAction}
                 onClick={() => edit({ themes: word.suggestedThemes })}
               >
                 Use suggested

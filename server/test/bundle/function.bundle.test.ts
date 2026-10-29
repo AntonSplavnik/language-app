@@ -3,7 +3,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { type IncomingHttpHeaders, request } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ApiError, HealthResponse, StatsResponse } from "@language-app/core";
+import {
+  ApiError,
+  CreateGroupResponse,
+  HealthResponse,
+  RemoveFromGroupResponse,
+  StatsResponse,
+} from "@language-app/core";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   FUNCTION_CONFIG,
@@ -13,10 +20,10 @@ import {
   strayImports,
 } from "../../scripts/vercel-output";
 import { addInvite } from "../../src/auth/invites";
-import { authRateLimits } from "../../src/db/schema";
+import { authRateLimits, users, userWords, words } from "../../src/db/schema";
 import { TEST_SECRET } from "../helpers/app";
 import { PASSWORD } from "../helpers/auth";
-import { useTestDb } from "../helpers/db";
+import { first, useTestDb } from "../helpers/db";
 import { testDatabaseUrl } from "../helpers/env";
 
 // The Vercel build as it is deployed (docs/design.md §13, §18.2): what `pnpm build:vercel` wrote
@@ -147,7 +154,14 @@ function call(
           host: "dingsda.vercel.app",
           "x-forwarded-proto": "https",
           "x-vercel-forwarded-for": "203.0.113.20",
-          ...(body === undefined ? {} : { "content-type": "application/json" }),
+          // With its length, as a browser sends it: Node sends a DELETE's body without one
+          // otherwise, and the body then reads as a broken next request.
+          ...(body === undefined
+            ? {}
+            : {
+                "content-type": "application/json",
+                "content-length": String(Buffer.byteLength(body)),
+              }),
           ...headers,
         },
       },
@@ -225,6 +239,59 @@ describe("the bundled function, with production's configuration", () => {
       (row) => row.key,
     );
     expect(keys).toContain("203.0.113.20|/sign-up/email");
+  });
+
+  it("takes a DELETE with a JSON body: words taken out of a group (§9.5)", async () => {
+    await addInvite(db, "groups@example.com");
+    const signUp = await fn.call("/api/auth/sign-up/email", {
+      method: "POST",
+      headers: { origin: PRODUCTION },
+      json: { email: "groups@example.com", username: "grouper", password: PASSWORD },
+    });
+    expect(signUp.status).toBe(200);
+    const cookie = cookieHeader(signUp);
+    const learner = first(await db.select().from(users).where(eq(users.username, "grouper")));
+    const word = first(
+      await db
+        .insert(words)
+        .values({
+          language: "de",
+          lemma: "Tisch",
+          pos: "noun",
+          article: "der",
+          checkStatus: "match",
+        })
+        .returning({ id: words.id }),
+    );
+    const tisch = first(
+      await db
+        .insert(userWords)
+        .values({ userId: learner.id, wordId: word.id, status: "learning" })
+        .returning({ id: userWords.id }),
+    ).id;
+
+    const created = await fn.call("/api/groups", {
+      method: "POST",
+      headers: { cookie },
+      json: { name: "Hard ones", userWordIds: [tisch] },
+    });
+    expect(created.status).toBe(201);
+    const { group } = CreateGroupResponse.parse(JSON.parse(created.body));
+
+    const removed = await fn.call(`/api/groups/${group.id}/words`, {
+      method: "DELETE",
+      headers: { cookie },
+      json: { userWordIds: [tisch] },
+    });
+
+    expect(removed.status).toBe(200);
+    expect(RemoveFromGroupResponse.parse(JSON.parse(removed.body))).toEqual({ removed: 1 });
+
+    const deleted = await fn.call(`/api/groups/${group.id}`, {
+      method: "DELETE",
+      headers: { cookie },
+    });
+    expect(deleted.status).toBe(204);
   });
 
   it("refuses a sign-in from any other origin than production's", async () => {

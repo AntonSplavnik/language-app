@@ -1,17 +1,25 @@
 import type {
   CreateSessionRequest,
+  GroupSummary,
   SessionOptionsResponse,
   SessionSource,
   ThemeKey,
 } from "@language-app/core";
 import { type InputHTMLAttributes, type ReactNode, useEffect, useState } from "react";
 import { api } from "../api";
-import { CalendarIcon, CameraIcon, PlayIcon, TagIcon, TargetIcon } from "../components/icons";
+import {
+  CalendarIcon,
+  CameraIcon,
+  FolderIcon,
+  PlayIcon,
+  TagIcon,
+  TargetIcon,
+} from "../components/icons";
 import { Page } from "../components/Page";
 import { SelectPill } from "../components/SelectPill";
 import { type LabelledImport, labelImports } from "../imports/labels";
 import { errorMessage, useToast } from "../lib/toast";
-import { countParts, type LabelledTheme, themeMenu } from "../practice/sources";
+import { countParts, groupMenu, type LabelledTheme, themeMenu } from "../practice/sources";
 import { useStartSession } from "../practice/useStartSession";
 import ui from "../styles/ui.module.css";
 import styles from "./PracticeSetupScreen.module.css";
@@ -22,6 +30,12 @@ const LABELS: Record<SessionSource, { title: string; description: string; icon: 
     // Shown only while there is no past import; otherwise the menu of imports takes its place.
     description: "The words of one import",
     icon: <CameraIcon size={22} />,
+  },
+  group: {
+    title: "Group",
+    // Shown only while no group has words to practise; otherwise the menu of groups takes its place.
+    description: "Words of one of your groups",
+    icon: <FolderIcon size={22} />,
   },
   theme: {
     title: "Theme",
@@ -44,13 +58,14 @@ const LABELS: Record<SessionSource, { title: string; description: string; icon: 
 type Loaded = {
   options: SessionOptionsResponse["options"];
   imports: LabelledImport[];
+  groups: GroupSummary[];
   themes: LabelledTheme[];
 };
 
 /**
  * Choose what to practise (§8.1). The first source with words is preselected, the Import menu
- * starts on the most recent past import and the Theme menu on the theme with the most words to
- * practise: two taps to start.
+ * starts on the most recent past import, the Group menu on the newest group with words to practise
+ * and the Theme menu on the theme with the most: two taps to start.
  */
 export function PracticeSetupScreen() {
   const toast = useToast();
@@ -58,18 +73,27 @@ export function PracticeSetupScreen() {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [selected, setSelected] = useState<SessionSource | null>(null);
   const [importId, setImportId] = useState<number | null>(null);
+  const [groupId, setGroupId] = useState<number | null>(null);
   const [theme, setTheme] = useState<ThemeKey | null>(null);
 
   useEffect(() => {
-    Promise.all([api.sessionOptions(), api.listImports(), api.listThemes()]).then(
-      ([{ options }, { imports }, { themes: summaries }]) => {
+    Promise.all([api.sessionOptions(), api.listImports(), api.listGroups(), api.listThemes()]).then(
+      ([{ options }, { imports }, { groups: allGroups }, { themes: summaries }]) => {
+        const groups = groupMenu(allGroups);
         const menu = themeMenu(summaries);
-        setLoaded({ options, imports: labelImports(imports), themes: menu.themes });
+        setLoaded({
+          options,
+          imports: labelImports(imports),
+          groups: groups.groups,
+          themes: menu.themes,
+        });
         setImportId(imports[0]?.id ?? null);
+        setGroupId(groups.start);
         setTheme(menu.start);
-        // The Import and Theme cards count what their menus start on.
+        // The Import, Group and Theme cards count what their menus start on.
         const starting: Partial<Record<SessionSource, number>> = {
           import: imports[0]?.wordCount ?? 0,
+          group: groups.groups[0]?.practisable ?? 0,
           theme: menu.themes.find((item) => item.key === menu.start)?.practisable ?? 0,
         };
         setSelected(options.find((o) => (starting[o.source] ?? o.count) > 0)?.source ?? null);
@@ -79,23 +103,21 @@ export function PracticeSetupScreen() {
   }, [toast]);
 
   const chosenImport = loaded?.imports.find((item) => item.id === importId);
+  const chosenGroup = loaded?.groups.find((item) => item.id === groupId);
   const chosenTheme = loaded?.themes.find((item) => item.key === theme);
-  const countOf = (source: SessionSource, count: number) =>
-    source === "import"
-      ? (chosenImport?.wordCount ?? 0)
-      : source === "theme"
-        ? (chosenTheme?.practisable ?? 0)
-        : count;
-  const choice: CreateSessionRequest | null =
-    selected === "import"
-      ? chosenImport
-        ? { source: "import", importId: chosenImport.id }
-        : null
-      : selected === "theme"
-        ? chosenTheme
-          ? { source: "theme", theme: chosenTheme.key }
-          : null
-        : selected && { source: selected };
+  const countOf = (source: SessionSource, count: number) => {
+    if (source === "import") return chosenImport?.wordCount ?? 0;
+    if (source === "group") return chosenGroup?.practisable ?? 0;
+    if (source === "theme") return chosenTheme?.practisable ?? 0;
+    return count;
+  };
+  const choiceOf = (source: SessionSource | null): CreateSessionRequest | null => {
+    if (source === "import") return chosenImport ? { source, importId: chosenImport.id } : null;
+    if (source === "group") return chosenGroup ? { source, groupId: chosenGroup.id } : null;
+    if (source === "theme") return chosenTheme ? { source, theme: chosenTheme.key } : null;
+    return source && { source };
+  };
+  const choice = choiceOf(selected);
 
   return (
     <Page
@@ -159,6 +181,32 @@ export function PracticeSetupScreen() {
               );
             }
 
+            if (source === "group" && loaded.groups.length > 0) {
+              return (
+                <MenuOption
+                  key={source}
+                  source={source}
+                  className={cardClass}
+                  radio={radio}
+                  count={count}
+                  label="Group to practise"
+                  text={chosenGroup?.name ?? ""}
+                  value={String(groupId ?? "")}
+                  onChange={(value) => {
+                    // Choosing a group also chooses the card.
+                    setGroupId(Number(value));
+                    setSelected("group");
+                  }}
+                >
+                  {loaded.groups.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </MenuOption>
+              );
+            }
+
             if (source === "theme" && loaded.themes.length > 0) {
               return (
                 <MenuOption
@@ -207,7 +255,7 @@ export function PracticeSetupScreen() {
 }
 
 /**
- * A source card with a menu in place of its description (Import, Theme). The menu can't sit inside
+ * A source card with a menu in place of its description (Import, Group, Theme). The menu can't sit inside
  * the label (a label holds one control), so the label's parts join the card's grid and a layer of
  * it covers the card; the menu sits above.
  */

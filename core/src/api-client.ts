@@ -18,6 +18,17 @@ import {
   UnlinkAccountResponse,
 } from "./schemas/auth";
 import { ApiError } from "./schemas/common";
+import {
+  AddToGroupResponse,
+  type CreateGroupRequest,
+  CreateGroupResponse,
+  GroupListResponse,
+  GroupSummary,
+  type GroupWordsRequest,
+  NoContent,
+  RemoveFromGroupResponse,
+  type RenameGroupRequest,
+} from "./schemas/groups";
 import { HealthResponse } from "./schemas/health";
 import {
   type CreateImportRequest,
@@ -97,7 +108,8 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
       throw new ApiClientError("network", "Can't reach the server", null);
     }
 
-    const body: unknown = await res.json().catch(() => undefined);
+    // 204 No Content has no body to read (`DELETE /groups/:id`).
+    const body: unknown = res.status === 204 ? undefined : await res.json().catch(() => undefined);
 
     if (!res.ok) {
       const error = ApiError.safeParse(body);
@@ -126,7 +138,7 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
 
   const sendJson = <S extends z.ZodType>(
     schema: S,
-    method: "POST" | "PATCH",
+    method: "POST" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
   ) =>
@@ -215,6 +227,26 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     deleteWord: (id: number) => request(DeleteWordResponse, `/words/${id}`, { method: "DELETE" }),
     /** The learner's themes that have words, with their counts (§9.1), in THEMES order. */
     listThemes: () => request(ThemeListResponse, "/themes"),
+
+    /** The learner's groups, empty ones too, newest first (§9.5). */
+    listGroups: () => request(GroupListResponse, "/groups"),
+    /** A new group, with the given words in it; 409 `group_exists` for a name taken. */
+    createGroup: (body: CreateGroupRequest) => postJson(CreateGroupResponse, "/groups", body),
+    renameGroup: (id: number, name: string) =>
+      sendJson(GroupSummary, "PATCH", `/groups/${id}`, { name } satisfies RenameGroupRequest),
+    /** Deletes the group; its words stay in the list. */
+    deleteGroup: (id: number): Promise<void> =>
+      request(NoContent, `/groups/${id}`, { method: "DELETE" }),
+    /** Puts the words into the group, skipping those already in it. */
+    addToGroup: (id: number, userWordIds: number[]) =>
+      postJson(AddToGroupResponse, `/groups/${id}/words`, {
+        userWordIds,
+      } satisfies GroupWordsRequest),
+    /** Takes the words out of the group (a DELETE with a JSON body), skipping those not in it. */
+    removeFromGroup: (id: number, userWordIds: number[]) =>
+      sendJson(RemoveFromGroupResponse, "DELETE", `/groups/${id}/words`, {
+        userWordIds,
+      } satisfies GroupWordsRequest),
 
     sessionOptions: () => request(SessionOptionsResponse, "/sessions/options"),
     createSession: (body: CreateSessionRequest) => postJson(SessionResponse, "/sessions", body),

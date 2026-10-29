@@ -53,7 +53,7 @@ export const NOTE_MAX = 2000;
 export const WordSort = z.enum(["az", "newest"]);
 export type WordSort = z.infer<typeof WordSort>;
 
-/** `GET /api/words?status=&q=&importId=&theme=&sort=` (§9.1). */
+/** `GET /api/words?status=&q=&importId=&theme=&groupId=&sort=` (§9.1). */
 export const WordListQuery = z.object({
   /** Absent: every status. */
   status: WordStatus.optional(),
@@ -63,6 +63,8 @@ export const WordListQuery = z.object({
   importId: z.coerce.number().int().positive().optional(),
   /** Only the words with this theme among their effective ones; a key not in THEMES is refused. */
   theme: ThemeKey.optional(),
+  /** Only the words in this group; an id that isn't one of the learner's groups matches nothing. */
+  groupId: z.coerce.number().int().positive().optional(),
   /** `az` when absent. */
   sort: WordSort.optional(),
 });
@@ -92,8 +94,8 @@ export const WordListResponse = z.object({
    */
   words: z.array(WordListItem),
   /**
-   * Words per status that match `q`, `importId` and `theme` (all of them without any), whatever
-   * `status` asked for.
+   * Words per status that match `q`, `importId`, `theme` and `groupId` (all of them without any),
+   * whatever `status` asked for.
    */
   counts: z.record(WordStatus, z.number().int().nonnegative()),
 });

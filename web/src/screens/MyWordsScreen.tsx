@@ -1,20 +1,22 @@
 import {
   displayTranslation,
   LEARNED_STREAK,
-  type ThemeSummary,
-  themeLabel,
   type WordListItem,
   type WordListResponse,
+  type WordSort,
 } from "@language-app/core";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api";
+import { FilterPill } from "../components/FilterPill";
 import { Headword } from "../components/Headword";
-import { BookIcon, SearchIcon } from "../components/icons";
+import { BookIcon, CheckIcon, SearchIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { SegmentedTabs } from "../components/SegmentedTabs";
 import { SelectPill } from "../components/SelectPill";
-import { type LabelledImport, labelImports } from "../imports/labels";
+import { addText, removedText, removeText, selectionTitle } from "../groups/labels";
+import { useGroups } from "../groups/useGroups";
+import { labelImports } from "../imports/labels";
 import { usePastImports } from "../imports/usePastImports";
 import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
@@ -23,18 +25,30 @@ import { groupByDay } from "../words/groupByDay";
 import { groupByLetter } from "../words/groupByLetter";
 import { progressLabel } from "../words/labels";
 import {
+  addToGroupUrl,
+  emptyFilterText,
+  filterGone,
+  filterKey,
+  filterText,
+  filterUrl,
   type ListQuery,
-  type ListView,
   listParams,
   listRequest,
   parseListQuery,
+  sectionsBy,
   TABS,
-  viewFromValue,
-  viewGone,
-  viewValue,
   wordsUrl,
 } from "../words/listQuery";
-import { themeMenuText } from "../words/themes";
+import { takeListReturn } from "../words/listReturn";
+import {
+  allSelected,
+  clearSelection,
+  selectAll,
+  startSelecting,
+  toggle,
+  updateSelected,
+  useSelection,
+} from "../words/selection";
 import { useThemes } from "../words/useThemes";
 import styles from "./MyWordsScreen.module.css";
 
@@ -44,34 +58,57 @@ const SEARCH_DELAY_MS = 250;
 /** One dot per right answer in a row that it takes to learn a word: 1, 2, 3. */
 const STREAK_DOTS = Array.from({ length: LEARNED_STREAK }, (_, index) => index + 1);
 
+const SORT_TEXT: Record<WordSort, string> = { az: "A–Z", newest: "Newest first" };
+
+/** What Filter and Add to group store in their history entry: opened from My words. */
+export type FromList = { fromList?: boolean };
+const FROM_LIST: FromList = { fromList: true };
+
 type Loaded = { query: ListQuery; data: WordListResponse };
 
-/** The learner's words by status, with search and the view menu (§10 My words). */
+/**
+ * The learner's words by status, with search, the sort, the filter and selection mode (§10 My
+ * words).
+ */
 export function MyWordsScreen() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const query = parseListQuery(params);
-  const { status, q, view } = query;
-  // A string, so effects and callbacks don't run again for an equal view.
-  const viewKey = viewValue(view);
+  const { status, q, sort, filter } = query;
+  // Strings, so effects and callbacks don't run again for an equal query.
+  const key = filterKey(filter);
+  const search = params.toString();
+  const here = wordsUrl(query);
 
   const [text, setText] = useState(q);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
   const latestRequest = useRef(0);
+  const selection = useSelection();
   const { state: past } = usePastImports();
   const imports = past.kind === "ready" ? labelImports(past.imports) : null;
   const themeList = useThemes();
   const themes = themeList.kind === "ready" ? themeList.themes : null;
+  const { state: groupList } = useGroups();
+  const groups = groupList.kind === "ready" ? groupList.groups : null;
 
-  // The search and the view go into the URL, so Back from a word returns to the same list.
-  // `replace`: tabs, searches and views are not steps the Back button should walk through.
+  // Back from Filter or Add to group with a list chosen: it replaces this entry's list, so Back
+  // from here goes where it went before (§10 Filter).
+  useLayoutEffect(() => {
+    const chosen = takeListReturn(here);
+    if (chosen) navigate(chosen, { replace: true });
+  }, [here, navigate]);
+
+  // The search, sort and filter go into the URL, so Back from a word returns to the same list.
+  // `replace`: tabs, searches, sorts and filters are not steps the Back button should walk through.
   const show = useCallback(
     (change: Partial<ListQuery>) =>
-      setParams(listParams({ status, q, view: viewFromValue(viewKey), ...change }), {
+      setParams((current) => listParams({ ...parseListQuery(current), ...change }), {
         replace: true,
       }),
-    [status, q, viewKey, setParams],
+    [setParams],
   );
 
   useEffect(() => {
@@ -83,45 +120,116 @@ export function MyWordsScreen() {
   // Only the latest request may show its answer: typing can overtake a slow one.
   const load = useCallback(() => {
     const request = ++latestRequest.current;
-    const asked: ListQuery = { status, q, view: viewFromValue(viewKey) };
+    const asked = parseListQuery(new URLSearchParams(search));
     setError(null);
     api.listWords(listRequest(asked)).then(
       (data) => request === latestRequest.current && setLoaded({ query: asked, data }),
       (failure) => request === latestRequest.current && setError(errorMessage(failure)),
     );
-  }, [status, q, viewKey]);
+  }, [search]);
 
   useEffect(load, [load]);
 
-  // Without the imports or the themes the list still loads as asked; the menu leaves them out.
-  const importsError = past.kind === "error" ? past.message : null;
-  useEffect(() => {
-    if (importsError) toast.show(importsError);
-  }, [importsError, toast]);
-  const themesError = themeList.kind === "error" ? themeList.message : null;
-  useEffect(() => {
-    if (themesError) toast.show(themesError);
-  }, [themesError, toast]);
+  // Without the imports, themes or groups the list still loads as asked; the Filter pill then
+  // says "One import" or "One group".
+  useFailureToast(past.kind === "error" ? past.message : null);
+  useFailureToast(themeList.kind === "error" ? themeList.message : null);
+  useFailureToast(groupList.kind === "error" ? groupList.message : null);
 
-  // An import that is no longer in the menu (its words were all deleted), or a theme without
-  // words, falls back to A–Z.
-  const gone = viewGone(view, { imports, themes });
+  // A filter no longer offered (an import whose words were all deleted, a theme without words, a
+  // deleted group) falls back to all words, keeping the tab, search and sort.
+  const gone = filterGone(filter, { imports, themes, groups });
   useEffect(() => {
-    if (gone) show({ view: { kind: "az" } });
+    if (gone) show({ filter: null });
   }, [gone, show]);
 
-  // While another search loads, the previous results of the same tab and view stay on screen.
+  // While another search loads, the previous results of the same tab, sort and filter stay.
   const shown =
-    loaded?.query.status === status && viewValue(loaded.query.view) === viewKey ? loaded : null;
-  const here = wordsUrl(query);
-  // How many words there are in all (in the chosen import); a search's counts are only its matches.
+    loaded?.query.status === status &&
+    loaded.query.sort === sort &&
+    filterKey(loaded.query.filter) === key
+      ? loaded
+      : null;
+  const shownIds = shown?.data.words.map((word) => word.userWordId) ?? [];
+  // How many words there are in all (in the filter); a search's counts are only its matches.
   const total = loaded && !loaded.query.q ? wordCount(loaded.data.counts) : null;
+
+  const selecting = selection.active;
+  const selected = selection.ids.size;
+  const groupId = filter?.kind === "group" ? filter.groupId : null;
+
+  const remove = async () => {
+    if (groupId === null || selected === 0 || removing) return;
+    setRemoving(true);
+    try {
+      const { removed } = await api.removeFromGroup(groupId, [...selection.ids]);
+      toast.show(removedText(removed, filterText(filter, { imports, groups })));
+      clearSelection();
+      load();
+    } catch (failure) {
+      // The selection stays, so trying again is one tap.
+      toast.show(errorMessage(failure));
+    } finally {
+      setRemoving(false);
+    }
+  };
 
   return (
     <Page
       largeTitle="My words"
-      back="/"
-      action={total && <span className={styles.total}>{total}</span>}
+      back={selecting ? undefined : "/"}
+      title={selecting ? selectionTitle(selected) : undefined}
+      leading={
+        selecting && (
+          <button
+            type="button"
+            className={`${ui.pill} ${ui.pillSecondary}`}
+            disabled={removing}
+            onClick={clearSelection}
+          >
+            Cancel
+          </button>
+        )
+      }
+      action={
+        selecting ? (
+          <button
+            type="button"
+            className={`${ui.pill} ${ui.pillSecondary}`}
+            disabled={shownIds.length === 0 || removing}
+            onClick={() => updateSelected((ids) => selectAll(ids, shownIds))}
+          >
+            {allSelected(selection.ids, shownIds) ? "Deselect all" : "Select all"}
+          </button>
+        ) : (
+          total && <span className={styles.total}>{total}</span>
+        )
+      }
+      footer={
+        selecting && (
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={`${ui.button} ${ui.primary} ${ui.cta}`}
+              disabled={selected === 0 || removing}
+              onClick={() => navigate(addToGroupUrl(query), { state: FROM_LIST })}
+            >
+              {addText(selected)}
+            </button>
+            {groupId !== null && (
+              <button
+                type="button"
+                className={`${ui.button} ${ui.secondary} ${ui.large}`}
+                disabled={selected === 0 || removing}
+                onClick={remove}
+              >
+                {removing && <span className={ui.spinner} />}
+                {removeText(selected)}
+              </button>
+            )}
+          </div>
+        )
+      }
     >
       <form
         className={styles.search}
@@ -147,12 +255,33 @@ export function MyWordsScreen() {
         />
       </form>
 
-      <ViewMenu
-        view={view}
-        imports={imports}
-        themes={themes}
-        onChange={(next) => show({ view: next })}
-      />
+      <div className={styles.pills}>
+        <SelectPill
+          className={styles.sort}
+          label="Sort words"
+          text={SORT_TEXT[sort]}
+          value={sort}
+          onChange={(value) => show({ sort: value === "newest" ? "newest" : "az" })}
+        >
+          <option value="az">{SORT_TEXT.az}</option>
+          <option value="newest">{SORT_TEXT.newest}</option>
+        </SelectPill>
+        <FilterPill
+          to={filterUrl(query)}
+          state={FROM_LIST}
+          chosen={filter ? filterText(filter, { imports, groups }) : null}
+          onClear={() => show({ filter: null })}
+        />
+        {!selecting && (
+          <button
+            type="button"
+            className={`${ui.pill} ${ui.pillSecondary} ${styles.select}`}
+            onClick={startSelecting}
+          >
+            Select
+          </button>
+        )}
+      </div>
 
       <SegmentedTabs
         label="Word status"
@@ -160,7 +289,7 @@ export function MyWordsScreen() {
         tabs={TABS.map((tab) => ({
           key: tab.status,
           label: tab.label,
-          to: wordsUrl({ status: tab.status, q, view }),
+          to: wordsUrl({ ...query, status: tab.status }),
           count: loaded?.data.counts[tab.status],
         }))}
       />
@@ -185,138 +314,129 @@ export function MyWordsScreen() {
           <EmptyList query={shown.query} counts={shown.data.counts} />
         ) : (
           <div className={styles.results} aria-busy={shown.query.q !== q}>
-            {shown.query.q ? (
-              // While searching: one flat list, without headings, in either order.
-              <WordList words={shown.data.words} from={here} />
-            ) : (
-              <Sections words={shown.data.words} view={shown.query.view} from={here} />
-            )}
+            <Sections
+              words={shown.data.words}
+              query={shown.query}
+              row={(word) =>
+                selecting ? (
+                  <SelectRow
+                    key={word.userWordId}
+                    word={word}
+                    selected={selection.ids.has(word.userWordId)}
+                    onToggle={() => updateSelected((ids) => toggle(ids, word.userWordId))}
+                  />
+                ) : (
+                  <WordRow key={word.userWordId} word={word} from={here} />
+                )
+              }
+            />
           </div>
         ))}
     </Page>
   );
 }
 
-const VIEW_TEXT = { az: "All words · A–Z", newest: "All words · Newest first" };
-
-/**
- * All words · A–Z, All words · Newest first, then the past imports under "Imports" and the themes
- * with words under "Themes" (§10). Until the imports are in (or when they fail to load), an import
- * in the URL shows as "One import"; a theme shows its label.
- */
-function ViewMenu({
-  view,
-  imports,
-  themes,
-  onChange,
-}: {
-  view: ListView;
-  imports: LabelledImport[] | null;
-  themes: ThemeSummary[] | null;
-  onChange: (view: ListView) => void;
-}) {
-  const chosenImport =
-    view.kind === "import" ? imports?.find((item) => item.id === view.importId) : undefined;
-  const chosenTheme =
-    view.kind === "theme" ? themes?.find((item) => item.key === view.theme) : undefined;
-  const text =
-    view.kind === "import"
-      ? (chosenImport?.label ?? "One import")
-      : view.kind === "theme"
-        ? themeLabel(view.theme)
-        : VIEW_TEXT[view.kind];
-  const listed = view.kind === "import" ? chosenImport : view.kind === "theme" ? chosenTheme : true;
-  return (
-    <SelectPill
-      className={styles.view}
-      label="Words to show"
-      text={text}
-      value={viewValue(view)}
-      onChange={(value) => onChange(viewFromValue(value))}
-    >
-      <option value="az">{VIEW_TEXT.az}</option>
-      <option value="newest">{VIEW_TEXT.newest}</option>
-      {imports && imports.length > 0 && (
-        <optgroup label="Imports">
-          {imports.map((item) => (
-            <option key={item.id} value={viewValue({ kind: "import", importId: item.id })}>
-              {item.label}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {themes && themes.length > 0 && (
-        <optgroup label="Themes">
-          {themes.map((theme) => (
-            <option key={theme.key} value={viewValue({ kind: "theme", theme: theme.key })}>
-              {themeMenuText(theme)}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {!listed && <option value={viewValue(view)}>{text}</option>}
-    </SelectPill>
-  );
+/** A failed load of what the Filter pill names, said once in a toast. */
+function useFailureToast(message: string | null) {
+  const toast = useToast();
+  useEffect(() => {
+    if (message) toast.show(message);
+  }, [message, toast]);
 }
 
 /**
- * Newest first under day headings; A–Z (all words, one import's or one theme's) under letter
- * headings.
+ * Without a search, newest first under day headings and A–Z under letter headings, for every list,
+ * filtered or not; while searching, one flat list.
  */
-function Sections({ words, view, from }: { words: WordListItem[]; view: ListView; from: string }) {
-  const groups =
-    view.kind === "newest"
+function Sections({
+  words,
+  query,
+  row,
+}: {
+  words: WordListItem[];
+  query: ListQuery;
+  row: (word: WordListItem) => ReactNode;
+}) {
+  const by = sectionsBy(query);
+  if (by === "none") return <ul className={styles.list}>{words.map(row)}</ul>;
+  const sections =
+    by === "day"
       ? groupByDay(words)
       : groupByLetter(words).map((group) => ({ heading: group.letter, words: group.words }));
-  return groups.map((group) => (
+  return sections.map((section) => (
     // Keyed by its first word: a heading can come back later in the server's order.
-    <section key={group.words[0]?.userWordId}>
-      <h2 className={styles.letter}>{group.heading}</h2>
-      <WordList words={group.words} from={from} />
+    <section key={section.words[0]?.userWordId}>
+      <h2 className={styles.letter}>{section.heading}</h2>
+      <ul className={styles.list}>{section.words.map(row)}</ul>
     </section>
   ));
 }
 
-function WordList({ words, from }: { words: WordListItem[]; from: string }) {
-  return (
-    <ul className={styles.list}>
-      {words.map((word) => (
-        <WordRow key={word.userWordId} word={word} from={from} />
-      ))}
-    </ul>
-  );
-}
-
 /** Headword over translation, the progress mark at the right; the whole row opens the word. */
 function WordRow({ word, from }: { word: WordListItem; from: string }) {
-  const progress = progressLabel(word);
   return (
     <li>
       <Link to={`/words/${word.userWordId}`} state={{ from }} className={styles.row}>
-        <span className={styles.text}>
-          <Headword word={word} className={styles.headword} />
-          <span className={styles.translation}>{displayTranslation(word)}</span>
-        </span>
-        {progress &&
-          (progress.kind === "new" ? (
-            <span className={styles.new}>
-              <span aria-hidden>{progress.text}</span>
-              <span className={ui.srOnly}>{progress.spoken}</span>
-            </span>
-          ) : (
-            <span className={styles.dots}>
-              {STREAK_DOTS.map((dot) => (
-                <span
-                  key={dot}
-                  aria-hidden
-                  className={`${styles.dot} ${dot <= progress.filled ? styles.filled : ""}`}
-                />
-              ))}
-              <span className={ui.srOnly}>{progress.spoken}</span>
-            </span>
-          ))}
+        <RowContent word={word} />
       </Link>
     </li>
+  );
+}
+
+/** In selection mode: a circle at the left; the whole row selects or unselects the word. */
+function SelectRow({
+  word,
+  selected,
+  onToggle,
+}: {
+  word: WordListItem;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        className={`${styles.row} ${styles.selectRow}`}
+        aria-pressed={selected}
+        onClick={onToggle}
+      >
+        <span className={`${styles.check} ${selected ? styles.checked : ""}`} aria-hidden>
+          {selected && <CheckIcon size={14} weight={3} />}
+        </span>
+        <RowContent word={word} />
+      </button>
+    </li>
+  );
+}
+
+function RowContent({ word }: { word: WordListItem }) {
+  const progress = progressLabel(word);
+  return (
+    <>
+      <span className={styles.text}>
+        <Headword word={word} className={styles.headword} />
+        <span className={styles.translation}>{displayTranslation(word)}</span>
+      </span>
+      {progress &&
+        (progress.kind === "new" ? (
+          <span className={styles.new}>
+            <span aria-hidden>{progress.text}</span>
+            <span className={ui.srOnly}>{progress.spoken}</span>
+          </span>
+        ) : (
+          <span className={styles.dots}>
+            {STREAK_DOTS.map((dot) => (
+              <span
+                key={dot}
+                aria-hidden
+                className={`${styles.dot} ${dot <= progress.filled ? styles.filled : ""}`}
+              />
+            ))}
+            <span className={ui.srOnly}>{progress.spoken}</span>
+          </span>
+        ))}
+    </>
   );
 }
 
@@ -338,12 +458,12 @@ const EMPTY: Record<ListQuery["status"], { title: string; text: string }> = {
 
 function EmptyList({ query, counts }: { query: ListQuery; counts: WordListResponse["counts"] }) {
   const tab = TABS.find((t) => t.status === query.status)?.label.toLowerCase();
-  // A search, one import or one theme may have words in the other tabs.
+  // A search or a filter may have words in the other tabs.
   const elsewhere = TABS.filter((t) => t.status !== query.status && counts[t.status] > 0).map(
     (t) => (
       <Link
         key={t.status}
-        to={wordsUrl({ status: t.status, q: query.q, view: query.view })}
+        to={wordsUrl({ ...query, status: t.status })}
         replace
         className={`${ui.button} ${ui.quiet}`}
       >
@@ -363,20 +483,20 @@ function EmptyList({ query, counts }: { query: ListQuery; counts: WordListRespon
       </div>
     );
   }
-  if (query.view.kind === "import") {
+  if (query.filter?.kind === "group" && counts.learning + counts.learned + counts.ignored === 0) {
     return (
       <div className={styles.empty}>
         <EmptyIcon />
-        <p className={styles.emptyTitle}>No {tab} words from this import.</p>
-        {elsewhere}
+        <p className={styles.emptyTitle}>No words in this group yet.</p>
+        <p>Use Select to add some.</p>
       </div>
     );
   }
-  if (query.view.kind === "theme") {
+  if (query.filter) {
     return (
       <div className={styles.empty}>
         <EmptyIcon />
-        <p className={styles.emptyTitle}>No {tab} words in this theme.</p>
+        <p className={styles.emptyTitle}>{emptyFilterText(query.status, query.filter)}</p>
         {elsewhere}
       </div>
     );

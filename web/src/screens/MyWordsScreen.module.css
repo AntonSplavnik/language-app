@@ -1,4 +1,5 @@
-/* My words (§10): search, the status tabs, and the list in letter sections. */
+/* My words (§10): search, the pill row (sort, Filter, Select), the status tabs, and the list in
+   letter or day sections; in selection mode, a circle on each row and the action bar. */
 
 .muted {
   margin: 0;
@@ -79,9 +80,30 @@
   color: var(--muted);
 }
 
-/* The view menu (SelectPill) under the search, at its natural width. */
-.view {
-  align-self: flex-start;
+/* The pill row under the search, 8 apart, on one line: the Filter pill (FilterPill) shrinks
+   first, with an ellipsis, so its name never wraps the row. */
+.pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The sort (SelectPill) keeps its natural width. */
+.sort {
+  flex: none;
+}
+
+/* Select, at the right end of the row. */
+.select {
+  margin-left: auto;
+}
+
+/* The action bar while selecting: Add to group, and in a group's list Remove from group under it. */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* No box: rows sit on the page, with a hairline under each. */
@@ -108,6 +130,34 @@
 
 .row:active {
   background: var(--surface);
+}
+
+/* In selection mode the row is a button: the same look, a circle first. */
+.selectRow {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* CheckList's circle: an empty ring, or the lime check when selected. */
+.check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--track-strong);
+  display: grid;
+  place-items: center;
+}
+
+.checked {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .row:focus-visible {

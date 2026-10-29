@@ -4,14 +4,17 @@ import { wordCount } from "../src/words/counts";
 import { groupByLetter } from "../src/words/groupByLetter";
 import { checkLabel, dayText, progressLabel } from "../src/words/labels";
 import {
+  addToGroupUrl,
+  emptyFilterText,
+  filterGone,
+  filterKey,
+  filterText,
+  filterUrl,
   listRequest,
   parseListQuery,
-  viewFromValue,
-  viewGone,
-  viewValue,
+  sectionsBy,
   wordsUrl,
 } from "../src/words/listQuery";
-import { themeMenuText } from "../src/words/themes";
 
 describe("letter sections of the list (§10)", () => {
   const words = (...lemmas: string[]) => lemmas.map((lemma, id) => ({ id, lemma }));
@@ -77,18 +80,14 @@ describe("word count in the header (§10)", () => {
 });
 
 describe("My words URL (§10)", () => {
-  const AZ = { kind: "az" } as const;
+  const ALL = { sort: "az", filter: null } as const;
 
   it("reads the tab and the search, Learning by default", () => {
-    expect(parseListQuery(new URLSearchParams(""))).toEqual({
-      status: "learning",
-      q: "",
-      view: AZ,
-    });
+    expect(parseListQuery(new URLSearchParams(""))).toEqual({ status: "learning", q: "", ...ALL });
     expect(parseListQuery(new URLSearchParams("status=ignored&q=+tisch+"))).toEqual({
       status: "ignored",
       q: "tisch",
-      view: AZ,
+      ...ALL,
     });
     expect(parseListQuery(new URLSearchParams("status=nonsense")).status).toBe("learning");
   });
@@ -102,113 +101,189 @@ describe("My words URL (§10)", () => {
     expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
       status: "ignored",
       q: "über & co",
-      view: AZ,
+      ...ALL,
     });
   });
 
-  it("reads the view: newest first, or one import", () => {
-    const view = (query: string) => parseListQuery(new URLSearchParams(query)).view;
-    expect(view("sort=newest")).toEqual({ kind: "newest" });
-    expect(view("import=5")).toEqual({ kind: "import", importId: 5 });
-    // An import shows its words A–Z; a sort next to it is ignored.
-    expect(view("import=5&sort=newest")).toEqual({ kind: "import", importId: 5 });
-    for (const odd of ["sort=oldest", "import=abc", "import=0", "import=-2", "import=1.5"]) {
-      expect(view(odd)).toEqual(AZ);
+  it("reads the sort and at most one filter: an import, a theme or a group", () => {
+    const read = (query: string) => {
+      const { sort, filter } = parseListQuery(new URLSearchParams(query));
+      return { sort, filter };
+    };
+    expect(read("sort=newest")).toEqual({ sort: "newest", filter: null });
+    expect(read("import=5")).toEqual({ sort: "az", filter: { kind: "import", importId: 5 } });
+    expect(read("theme=home")).toEqual({ sort: "az", filter: { kind: "theme", theme: "home" } });
+    expect(read("group=7")).toEqual({ sort: "az", filter: { kind: "group", groupId: 7 } });
+    // The sort stays beside a filter (M13.2): every list can be newest first.
+    expect(read("import=5&sort=newest")).toEqual({
+      sort: "newest",
+      filter: { kind: "import", importId: 5 },
+    });
+    expect(read("group=7&sort=newest").sort).toBe("newest");
+    // Only one filter at a time; the first of import, theme and group wins.
+    expect(read("theme=home&group=7").filter).toEqual({ kind: "theme", theme: "home" });
+  });
+
+  it("reads a filter it doesn't know as none (and a sort it doesn't know as A–Z)", () => {
+    const filter = (query: string) => parseListQuery(new URLSearchParams(query)).filter;
+    for (const odd of [
+      "import=abc",
+      "import=0",
+      "import=-2",
+      "import=1.5",
+      "theme=health",
+      "theme=Home",
+      "theme=",
+      "group=abc",
+      "group=0",
+      "group=2x",
+    ]) {
+      expect(filter(odd), odd).toBeNull();
+    }
+    expect(parseListQuery(new URLSearchParams("sort=oldest")).sort).toBe("az");
+  });
+
+  it("puts the sort in the URL only when it is newest first, then the filter", () => {
+    expect(wordsUrl({ status: "learning", q: "", ...ALL })).toBe("/words?status=learning");
+    expect(wordsUrl({ status: "learning", q: "", sort: "newest" })).toBe(
+      "/words?status=learning&sort=newest",
+    );
+    const cases = [
+      [{ kind: "import", importId: 5 }, "import=5"],
+      [{ kind: "theme", theme: "home" }, "theme=home"],
+      [{ kind: "group", groupId: 7 }, "group=7"],
+    ] as const;
+    for (const [filter, param] of cases) {
+      const url = wordsUrl({ status: "ignored", q: "tisch", sort: "newest", filter });
+      expect(url).toBe(`/words?status=ignored&q=tisch&sort=newest&${param}`);
+      expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
+        status: "ignored",
+        q: "tisch",
+        sort: "newest",
+        filter,
+      });
     }
   });
 
-  it("puts the view in the URL only when it isn't A–Z", () => {
-    expect(wordsUrl({ status: "learning", q: "", view: AZ })).toBe("/words?status=learning");
-    expect(wordsUrl({ status: "learning", q: "", view: { kind: "newest" } })).toBe(
-      "/words?status=learning&sort=newest",
-    );
-    const url = wordsUrl({ status: "ignored", q: "tisch", view: { kind: "import", importId: 5 } });
-    expect(url).toBe("/words?status=ignored&q=tisch&import=5");
-    expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
-      status: "ignored",
-      q: "tisch",
-      view: { kind: "import", importId: 5 },
-    });
-  });
-
-  it("asks the server for the view's words and order", () => {
-    expect(listRequest({ status: "learning", q: "", view: AZ })).toEqual({
+  it("asks the server for the filter's words in the sort's order", () => {
+    expect(listRequest({ status: "learning", q: "", ...ALL })).toEqual({
       status: "learning",
       q: "",
     });
-    expect(listRequest({ status: "learned", q: "tisch", view: { kind: "newest" } })).toEqual({
+    expect(listRequest({ status: "learned", q: "tisch", sort: "newest", filter: null })).toEqual({
       status: "learned",
       q: "tisch",
       sort: "newest",
     });
     expect(
-      listRequest({ status: "ignored", q: "", view: { kind: "import", importId: 5 } }),
+      listRequest({
+        status: "ignored",
+        q: "",
+        sort: "az",
+        filter: { kind: "import", importId: 5 },
+      }),
     ).toEqual({ status: "ignored", q: "", importId: 5 });
+    expect(
+      listRequest({
+        status: "learning",
+        q: "",
+        sort: "newest",
+        filter: { kind: "theme", theme: "home" },
+      }),
+    ).toEqual({ status: "learning", q: "", theme: "home", sort: "newest" });
+    expect(
+      listRequest({ status: "learning", q: "", sort: "az", filter: { kind: "group", groupId: 7 } }),
+    ).toEqual({ status: "learning", q: "", groupId: 7 });
   });
 
-  it("the view menu's values stand for the views", () => {
-    const views = [AZ, { kind: "newest" }, { kind: "import", importId: 5 }] as const;
-    expect(views.map(viewValue)).toEqual(["az", "newest", "import-5"]);
-    for (const view of views) expect(viewFromValue(viewValue(view))).toEqual(view);
-    expect(viewFromValue("import-x")).toEqual(AZ);
+  it("the Filter screen and Add to group carry My words' query", () => {
+    const query = {
+      status: "learned",
+      q: "tisch",
+      sort: "newest",
+      filter: { kind: "theme", theme: "home" },
+    } as const;
+    expect(filterUrl(query)).toBe("/words/filter?status=learned&q=tisch&sort=newest&theme=home");
+    expect(addToGroupUrl(query)).toBe(
+      "/words/add-to-group?status=learned&q=tisch&sort=newest&theme=home",
+    );
+  });
+
+  it("a filter's key stands for it: equal filters, equal keys", () => {
+    expect(filterKey(null)).toBe("");
+    expect(filterKey({ kind: "import", importId: 5 })).toBe("import-5");
+    expect(filterKey({ kind: "theme", theme: "home" })).toBe("theme-home");
+    expect(filterKey({ kind: "group", groupId: 7 })).toBe("group-7");
   });
 });
 
-describe("My words by theme (§10 screen 7)", () => {
-  const AZ = { kind: "az" } as const;
-  const home = { kind: "theme", theme: "home" } as const;
+describe("the Filter pill (§10 screen 7)", () => {
+  const imports = [{ id: 5, label: "Lesson 4" }];
+  const groups = [{ id: 7, name: "Hard ones" }];
 
-  it("reads a theme from the URL; a key that isn't in THEMES is All words · A–Z", () => {
-    const view = (query: string) => parseListQuery(new URLSearchParams(query)).view;
-    expect(view("theme=home")).toEqual(home);
-    expect(view("theme=free-time")).toEqual({ kind: "theme", theme: "free-time" });
-    // A theme shows its words A–Z; a sort next to it is ignored.
-    expect(view("theme=home&sort=newest")).toEqual(home);
-    for (const odd of ["theme=health", "theme=Home", "theme=", "theme=home-2"]) {
-      expect(view(odd), odd).toEqual(AZ);
-    }
+  it("says Filter without a filter, else the filter's name", () => {
+    expect(filterText(null, { imports, groups })).toBe("Filter");
+    expect(filterText({ kind: "import", importId: 5 }, { imports, groups })).toBe("Lesson 4");
+    expect(filterText({ kind: "theme", theme: "body" }, { imports, groups })).toBe("Body & health");
+    expect(filterText({ kind: "group", groupId: 7 }, { imports, groups })).toBe("Hard ones");
   });
 
-  it("keeps the theme in the URL and asks the server for its words", () => {
-    const url = wordsUrl({ status: "learned", q: "tisch", view: home });
-    expect(url).toBe("/words?status=learned&q=tisch&theme=home");
-    expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
+  it("while the imports or groups load (or failed), says One import or One group; a theme at once", () => {
+    const loading = { imports: null, groups: null };
+    expect(filterText({ kind: "import", importId: 5 }, loading)).toBe("One import");
+    expect(filterText({ kind: "group", groupId: 7 }, loading)).toBe("One group");
+    expect(filterText({ kind: "theme", theme: "home" }, loading)).toBe("Home");
+  });
+
+  it("clearing it keeps the tab, search and sort", () => {
+    const query = {
       status: "learned",
       q: "tisch",
-      view: home,
-    });
-    expect(listRequest({ status: "learning", q: "", view: home })).toEqual({
-      status: "learning",
-      q: "",
-      theme: "home",
-    });
+      sort: "newest",
+      filter: { kind: "group", groupId: 7 },
+    } as const;
+    expect(wordsUrl({ ...query, filter: null })).toBe("/words?status=learned&q=tisch&sort=newest");
   });
 
-  it("the view menu's values stand for the themes", () => {
-    expect(viewValue(home)).toBe("theme-home");
-    expect(viewFromValue("theme-free-time")).toEqual({ kind: "theme", theme: "free-time" });
-    expect(viewFromValue("theme-health")).toEqual(AZ);
-  });
-
-  it("lists each theme under Themes by its label and its words", () => {
-    expect(themeMenuText({ key: "home", words: 34 })).toBe("Home (34)");
-    expect(themeMenuText({ key: "body", words: 1 })).toBe("Body & health (1)");
-  });
-
-  it("falls back to All words · A–Z once the menu is in and no longer has the view", () => {
-    const menu = {
+  it("falls back to all words once the lists are in and no longer offer the filter", () => {
+    const lists = {
       imports: [{ id: 5 }],
       themes: [{ key: "home" as const }, { key: "work" as const }],
+      groups: [{ id: 7 }],
     };
-    expect(viewGone(home, menu)).toBe(false);
-    expect(viewGone({ kind: "theme", theme: "food" }, menu)).toBe(true);
-    expect(viewGone({ kind: "import", importId: 5 }, menu)).toBe(false);
-    expect(viewGone({ kind: "import", importId: 6 }, menu)).toBe(true);
-    // While the menu loads, or when it couldn't be loaded, the view stays.
-    expect(viewGone({ kind: "theme", theme: "food" }, { ...menu, themes: null })).toBe(false);
-    expect(viewGone({ kind: "import", importId: 6 }, { ...menu, imports: null })).toBe(false);
-    expect(viewGone(AZ, { imports: [], themes: [] })).toBe(false);
-    expect(viewGone({ kind: "newest" }, { imports: [], themes: [] })).toBe(false);
+    expect(filterGone({ kind: "theme", theme: "home" }, lists)).toBe(false);
+    expect(filterGone({ kind: "theme", theme: "food" }, lists)).toBe(true);
+    expect(filterGone({ kind: "import", importId: 5 }, lists)).toBe(false);
+    expect(filterGone({ kind: "import", importId: 6 }, lists)).toBe(true);
+    expect(filterGone({ kind: "group", groupId: 7 }, lists)).toBe(false);
+    // A deleted group.
+    expect(filterGone({ kind: "group", groupId: 8 }, lists)).toBe(true);
+    // While a list loads, or when it couldn't be loaded, the filter stays.
+    expect(filterGone({ kind: "theme", theme: "food" }, { ...lists, themes: null })).toBe(false);
+    expect(filterGone({ kind: "import", importId: 6 }, { ...lists, imports: null })).toBe(false);
+    expect(filterGone({ kind: "group", groupId: 8 }, { ...lists, groups: null })).toBe(false);
+    expect(filterGone(null, { imports: [], themes: [], groups: [] })).toBe(false);
+  });
+});
+
+describe("My words' list headings (§10 screen 7)", () => {
+  it("newest first splits any list by day, filtered or not; A–Z by letter", () => {
+    expect(sectionsBy({ sort: "newest", q: "" })).toBe("day");
+    expect(sectionsBy({ sort: "az", q: "" })).toBe("letter");
+    // While searching: one flat list.
+    expect(sectionsBy({ sort: "newest", q: "tisch" })).toBe("none");
+  });
+
+  it("each filter's empty tab says where it looks", () => {
+    expect(emptyFilterText("learned", { kind: "import", importId: 5 })).toBe(
+      "No learned words from this import.",
+    );
+    expect(emptyFilterText("ignored", { kind: "theme", theme: "home" })).toBe(
+      "No ignored words in this theme.",
+    );
+    expect(emptyFilterText("learned", { kind: "group", groupId: 7 })).toBe(
+      "No learned words in this group.",
+    );
   });
 });
 

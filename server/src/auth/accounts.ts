@@ -8,6 +8,7 @@ import {
   authSessions,
   authVerifications,
   cardResults,
+  groups,
   imports,
   invites,
   sessions,
@@ -252,6 +253,8 @@ export type AccountContents = {
   /** The words in its list (`user_words`); the shared words stay. */
   words: number;
   imports: number;
+  /** Its own groups of words (and with them which words each held, `group_words`). */
+  groups: number;
   /** Practice sessions, and the answers given (`card_results`). */
   sessions: number;
   answers: number;
@@ -275,6 +278,7 @@ export async function accountContents(
   return {
     words: await db.$count(userWords, eq(userWords.userId, id)),
     imports: await db.$count(imports, eq(imports.userId, id)),
+    groups: await db.$count(groups, eq(groups.userId, id)),
     sessions: await db.$count(sessions, eq(sessions.userId, id)),
     // An answer goes with its session or with its word in the list, whichever is the account's.
     answers: await db.$count(
@@ -309,6 +313,7 @@ export function formatContents(contents: AccountContents): string[] {
   const lines: Array<[string, number, string?]> = [
     ["words in its list", contents.words],
     ["imports", contents.imports],
+    ["groups", contents.groups],
     ["practice sessions", contents.sessions],
     ["practice answers", contents.answers],
     ["AI usage records", contents.aiUsage],

@@ -12,8 +12,9 @@ export const SESSION_SIZE = 20;
 
 /**
  * `GET /api/sessions/options`: how many words each source has, in display order (§8.1). The count
- * of `import` is the most recent past import's (§9.2), that of `theme` the theme's with the most
- * words to practise (§9.1); 0 when there is none.
+ * of `import` is the most recent past import's (§9.2), that of `group` the newest group's with words
+ * to practise (§9.5), that of `theme` the theme's with the most words to practise (§9.1); 0 when
+ * there is none.
  */
 export const SessionOptionsResponse = z.object({
   options: z.array(
@@ -27,18 +28,24 @@ export const SessionOptionsResponse = z.object({
 export type SessionOptionsResponse = z.infer<typeof SessionOptionsResponse>;
 
 /**
- * `POST /api/sessions`: `importId`, the import to practise, goes with source `import` only, and
- * `theme`, the theme to practise, with source `theme` only.
+ * `POST /api/sessions`: `importId`, the import to practise, goes with source `import` only,
+ * `groupId`, the group to practise, with source `group` only, and `theme`, the theme to practise,
+ * with source `theme` only.
  */
 export const CreateSessionRequest = z
   .object({
     source: SessionSource,
     importId: z.number().int().positive().optional(),
+    groupId: z.number().int().positive().optional(),
     theme: ThemeKey.optional(),
   })
   .refine((body) => (body.source === "import") === (body.importId !== undefined), {
     message: "Send importId with the import source, and only with it",
     path: ["importId"],
+  })
+  .refine((body) => (body.source === "group") === (body.groupId !== undefined), {
+    message: "Send groupId with the group source, and only with it",
+    path: ["groupId"],
   })
   .refine((body) => (body.source === "theme") === (body.theme !== undefined), {
     message: "Send theme with the theme source, and only with it",

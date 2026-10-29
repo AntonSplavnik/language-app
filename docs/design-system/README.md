@@ -16,7 +16,7 @@ A visual version with live previews of every component in both themes is the **G
 
 ### Foundations
 
-- [Icons](components/Icons.md): The whole icon set, as in `web/src/components/icons.tsx` (`ChevronLeftIcon` … `TrashIcon`, `PlayIcon`).
+- [Icons](components/Icons.md): The whole icon set, as in `web/src/components/icons.tsx` (`ChevronLeftIcon` … `TrashIcon`, `PlayIcon`), with the filter (Filter pill) and the folder (Group source).
 
 ### Actions
 
@@ -43,16 +43,17 @@ A visual version with live previews of every component in both themes is the **G
 
 ### Navigation
 
-- [MenuCard](components/MenuCard.md): A card of rows that each open a screen: the name, a short grey status and a chevron (Settings' sections, an import's actions).
-- [PageHeader](components/PageHeader.md): The top of every screen, from `Page` (`web/src/components/Page.tsx`): sticky, `bg` at 88% with a 12 px blur, min 60 px, gutter 20.
+- [MenuCard](components/MenuCard.md): A card of rows that each open a screen: the name, a short grey status and a chevron (Settings' sections, an import's and a group's actions).
+- [PageHeader](components/PageHeader.md): The top of every screen, from `Page` (`web/src/components/Page.tsx`): sticky, `bg` at 88% with a 12 px blur, min 60 px, gutter 20; the sheet look also for My words' selection mode.
 - [SegmentedTabs](components/SegmentedTabs.md): A segmented control of links (`SegmentedTabs`): My words' status tabs (Learning, Learned, Ignored, each with its count), Add words' One word / A list.
 
 ### Forms
 
 - [SearchField](components/SearchField.md): The search on My words: 48 px, `radius-field`, `surface` + `border`, a 18 px search icon inside at the left in `muted`, 16 px text.
-- [CheckList](components/CheckList.md): A card of rows that each toggle a check, a 24 px ring that fills lime (Edit word's Themes card, at most 2 checked); the label, an optional action (Use suggested) and help at the top.
+- [CheckList](components/CheckList.md): A card of rows that each toggle a check, a 24 px ring that fills lime (Edit word's Themes card, at most 2 checked; the Filter screen's sections, with a count per row); the label, an optional action (Use suggested, Edit) and help at the top; also rows that add (Add to group) and a row that shows the rest ("All 23 imports").
 - [SourceOption](components/SourceOption.md): A radio choice drawn as a card (Practice setup): icon well, title over description, and the count at the right.
-- [SelectPill](components/SelectPill.md): A native select drawn as a pill with the chosen text and a chevron, the select invisible on top (My words' view menu, Practice setup's Import and Theme menus).
+- [SelectPill](components/SelectPill.md): A native select drawn as a pill with the chosen text and a chevron, the select invisible on top (My words' sort pill, Practice setup's Import, Group and Theme menus).
+- [FilterPill](components/FilterPill.md): My words' Filter pill: SelectPill's look but a link to the Filter screen, a filter icon and "Filter"; with a filter chosen, the Selected look, its name and a round close button that clears it.
 - [StatusSelect](components/StatusSelect.md): The word's status on Word detail: a native `<select>` (Learning / Learned / Ignored) styled as a pill, so the phone's own picker opens.
 - [TextField](components/TextField.md): Text inputs, in three settings: on a card, on the page, and several in a form card (`FormCard`: Sign in, Create account).
 
@@ -60,12 +61,12 @@ A visual version with live previews of every component in both themes is the **G
 
 - [ReviewRow](components/ReviewRow.md): A candidate word on Review: a card (`radius-xl`, 8 apart) whose **whole body is one toggle button** (`aria-pressed`) between Practice and Ignore.
 - [EntryCard](components/EntryCard.md): A dictionary entry to choose on Confirm word: a Review-like toggle card with a ring that fills with a check, a translation field with gloss chips and Ask AI when chosen, and the hand form under the cards.
-- [WordRow](components/WordRow.md): A word in a list, straight on the page with a hairline under it (My words; Summary's missed words use the same row with the translation at the right).
+- [WordRow](components/WordRow.md): A word in a list, straight on the page with a hairline under it (My words, with a selection circle in selection mode; Summary's missed words use the same row with the translation at the right; Imports' and Groups' rows the same look).
 
 ### Feedback
 
 - [Banner](components/Banner.md): A card on Home for unfinished work, with a chevron or an action at the right.
-- [ConfirmDelete](components/ConfirmDelete.md): Deleting asks in place, never with a browser dialog (Edit word's Delete word, Account's Delete account with its password).
+- [ConfirmDelete](components/ConfirmDelete.md): Deleting asks in place, never with a browser dialog (Edit word's Delete word, a group's Delete group, Account's Delete account with its password).
 - [EmptyState](components/EmptyState.md): What an empty list says (My words tabs, a search with no match): centred, a 64 px rounded icon square (`surface` + `border`, book icon in `muted`), a bold first line in `text`, the explanation in 15 px `muted`, then any action.
 - [LoadState](components/LoadState.md): A screen about one thing until it is there: "Loading…", gone (the reason and a link to its list), or failed with **Try again** (Word detail, Edit word, an import's page, Rename import, the app's start).
 - [Toast](components/Toast.md): A short confirmation near the bottom edge (`web/src/lib/toast.tsx`): "Moved to Learned", "Saved", "“der Tisch” deleted", or an error message.
@@ -85,7 +86,7 @@ A visual version with live previews of every component in both themes is the **G
 
 The app (working name "Dingsda", kept behind `APP_NAME` in `core/`; "German Words" stays the name of this design system) is a phone-first app for learning the German vocabulary of a book: photograph the pages, review the words the AI found, practise them as flashcards. It runs on an iPhone and on desktop, at its production address (`https://dingsda.vercel.app`) and, in development, over the home network. The look is **dark and quiet with one lime action**: near-black (or near-white) grounds, flat bordered cards, a chunky grotesque for anything big, and the lime saved for the single thing the screen wants you to do next. German nouns always wear their gender colour.
 
-This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.lead`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `ConfirmDelete`, `GoogleButton`, `ThemeChips`, `CheckList`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
+This system describes what is built in `web/` of the language-app repository. The code is the source of truth: `web/src/styles/global.css` holds every colour token as a CSS custom property of the same name as here (`--bg`, `--accent-ink`, `--der` …), `web/src/styles/ui.module.css` the shared building blocks (`ui.button`, `ui.primary`, `ui.cta`, `ui.secondary`, `ui.quiet`, `ui.danger`, `ui.large`, `ui.small`, `ui.pill`, `ui.pillPrimary`, `ui.pillSecondary`, `ui.card`, `ui.round`, `ui.label`, `ui.lead`, `ui.field`, `ui.fieldLabel`, `ui.optional`, `ui.input`, `ui.sunk`, `ui.spinner`, `ui.shimmer`, `ui.srOnly`), `web/src/components/` the shared components (`Page`, `DropZone`, `Headword`, `MenuCard`, `SelectPill`, `SegmentedTabs`, `StepProgress`, `SpeakerButton`, `ExampleSentence`, `PendingDetails`, `LoadState` and its `WordLoadState`, `FormCard`, `ConfirmDelete`, `GoogleButton`, `ThemeChips`, `CheckList`, `FilterPill`, `icons.tsx`). Reuse those; never restate a value that already has a token or a class.
 
 ## Content fundamentals
 
