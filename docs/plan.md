@@ -589,16 +589,28 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 #### M14: Practice that sticks
 **Reordered on 2026-10-29** (the user, after trying M13.1: three right answers in a row isn't enough to remember a word, and Summary should offer the words just missed). Two steps:
 - **M14.1 Practise what you missed:** Summary gets a button, "Practise the 6 you didn't know", which starts a session of just those words; after it, the same offer for whatever is still missed, until none are left. No new tables. (Was in `docs/design.md` §15, not planned: "practise missed words again".)
-- **M14.2 Spaced repetition** (below; was M16): it replaces "3 right in a row = learned" (§8.5), so the interim idea of counting at most one right answer a day is not needed.
-- The app schedules each word for the day it is due, from its answers. Practice gets a **Due today** preset; Home shows how many are due.
-- **Open:** the algorithm (FSRS, as in current Anki, or the simpler SM-2); per word or per word and mode (card modes come later, M17; decide it here); whether it replaces "3 right in a row → learned" (§8.5); seeding the schedule from the answers recorded since M7; how the self-graded swipes map to the algorithm's grades.
+- **M14.2 Spaced repetition, and the app choosing what to practise** (was M16; widened on 2026-10-29 by the user: the Learning / Learned / Ignored tabs are redundant, "learned" should be the app's own logic, shown to the learner as statistics, and the app should suggest what to learn from the learner's answers rather than from 3 right in a row). The direction, agreed that day; the details are settled when M14.2 starts:
+  - **Each word gets a memory state from its answers:** how well it is known and when it is due again. A word is never "done": one known well comes back less and less often (days, weeks, months). This replaces "3 right in a row = learned" (`docs/design.md` §8.5), so the interim idea of counting at most one right answer a day is not needed.
+  - **Learning and Learned go, as states and as tabs.** My words becomes one list with the Filter screen's filters (M13.2); each row shows a strength mark (for example "weak / getting there / strong", or "due today") instead of the streak dots. Word detail shows the word's numbers: seen, right, last practised, next review.
+  - **Ignored stays the learner's choice, not a tab.** The app can't tell "I know this already" or "not this one" from answers, so ignoring stays something the learner does (on Review, on Word detail); the ignored words are one choice in the Filter screen ("Ignored words"), from which a word can be brought back.
+  - **Home's Practise starts a session the app chooses:** the words due for review first, then a few new words a day (so new words don't pile up), then those often missed. Home shows how many are due, and Practice gets **Due today**. Practice setup's Import, Group and Theme cards stay, for practising something specific; within that choice the due and weak words come first.
+  - **Statistics instead of boxes:** M15 shows progress in these terms (due today, how many words are strong, accuracy, a streak, cards per day). "Strong" is worked out from the answers, like Anki's "mature" cards, not a status a word is put in.
+  - **Open** (settle when M14.2 starts):
+    1. the algorithm: FSRS (as in current Anki; an open-source TypeScript implementation could live in `core/`), which is the lean, or the simpler SM-2;
+    2. the swipes as grades: Knew it and Didn't know as pass and fail (FSRS works with two grades), Skip not counted;
+    3. each word's starting state from the answers recorded since M7 (`card_results`), so nothing restarts from zero;
+    4. one strength per word, or one per word and direction (card modes, M17): decided here, before the data model;
+    5. new words a day: a fixed number, a setting, or adjusted to the reviews due;
+    6. what a row's strength mark shows, and where "strong" starts;
+    7. what becomes of `user_words.status` (`learning` and `learned` merged into one active state, `ignored` kept), of the API's `status` and tab counts, and of what uses them: Review's Ignore, Summary, Home's counts, the Not learned yet source, the Filter screen's counts;
+    8. whether Practice setup's Last 7 days and Not learned yet stay as presets once the app-chosen session exists.
 
 #### M15: Progress over time
-- A daily goal, a streak of days on which it was met, and a history (cards answered and words learned per day and week). The base for gamification (Later).
+- A daily goal, a streak of days on which it was met, and a history (cards answered, and words that became strong, per day and week; after M14.2 "learned" is no longer a state, so progress is counted from the words' memory states). The base for gamification (Later).
 - **Open:** what the goal counts (cards answered, due words cleared, minutes); whose midnight counts (the phone's time zone, not the server's); whether Basics practice counts.
 
 #### M16: Filters and practice builder
-- One set of filters, freely combined, used by both My words and Practice: theme, own group, part of speech, gender (der / die / das), plural-only nouns (*die Eltern*), import, date added; My words keeps its status tabs.
+- One set of filters, freely combined, used by both My words and Practice: theme, own group, part of speech, gender (der / die / das), plural-only nouns (*die Eltern*), import, date added. My words' status tabs go in M14.2 (Ignored becomes a choice in the Filter screen).
 - **Practice setup:** the three current sources stay as presets, so a session still starts in two taps (§1); a custom choice builds a session from any combination of filters and shows how many words match while it changes.
 - M9 built the import choice as single menus (My words' view menu, Practice's Import card) and M13.1 the theme choice the same way; M13.2 replaces My words' menu with a Filter screen of sections (one choice at a time). This milestone lets that screen combine choices, and adds "due" (M14) as one of them.
 - **Open:** plural-only nouns need a flag (their dictionary entries have no gender, §6.3); choosing the session size (now 20); saving a custom combination.
@@ -606,7 +618,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
 #### M17: Card modes
 - **English → German** (today's card); **German → English** (the German word with its IPA and speaker button on the front, the translation on the back); **articles** (*Tisch* → der / die / das, answered by tapping one of three buttons and graded by the app); **plurals** (*der Tisch* → *die Tische*); **verb forms** (*gehen* → *ging · ist gegangen*).
 - A mode only takes the words it fits: articles and plurals need nouns with an article or a plural, verb forms need verbs with forms. The mode is chosen in Practice setup next to the words.
-- **Open:** progress per mode or shared (is a word learned once it is known English → German, or separately per mode?), to be settled before M14; how an app-graded mode fits the swipe flow.
+- **Open:** progress per mode or shared (is a word learned once it is known English → German, or separately per mode?), to be settled in M14.2 (its open item 4); how an app-graded mode fits the swipe flow.
 
 ### Phase 3: basics
 
