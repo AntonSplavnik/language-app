@@ -212,7 +212,7 @@ Milestones that change a prompt or an AI call (M10, M11, M13) load the `claude-a
 | M10 | Add a word by hand | Type *Regenschirm*, confirm the filled details, find it in My words; type three words as a list, confirm them one by one, practise them as an import |
 | M11 | Import from PDF | Pages 42–45 of a book PDF → review → save |
 | M12 | Accounts and deployment (Vercel + Neon) | Away from home Wi-Fi, the iPhone opens the app's https address, signs in, imports a photo and practises its words |
-| M13 | Themes and own groups | Correct a theme in review; make a group "Hard ones"; the existing words have themes |
+| M13 | Themes and own groups | The existing words have themes on Word detail; correct one on Edit word; select three words in My words and make a group "Hard ones" |
 | M14 | Filters and practice builder | Practise "verbs from Weather"; filter My words to *die* nouns |
 | M15 | Card modes | An article session and a German → English session |
 | M16 | Spaced repetition | Home shows the words due today; a "Due today" session |
@@ -520,11 +520,14 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
     - Built (2026-10-28): those, plus the mode `invite` by default, an answer without the mode refused by the schema (and so treated as a failed request), and the invite list left untouched by an open-mode sign-up (`docs/design.md` §13).
 
 #### M13: Themes and own groups
-- **Themes:** a built-in list (about 20–30: weather, home, food, family, travel, body, clothes…), chosen with the user at the start of the milestone. The AI picks a word's themes from this list only, during extraction (call 1), so they appear on the Review screen, where the learner corrects them. They can also be changed later on the word's screens.
-- The words already in the list get themes once, from a backfill run (a small AI call, like the pronunciation backfill).
-- **Own groups:** the learner creates, renames, deletes and fills them by hand (e.g. "Lesson 4", "Hard ones"); the AI never uses them. A word can be in several themes and groups.
-- **Adding words to a group:** the learner selects several words (in My words) and creates a group from them or adds them to one (the user, 2026-10-16). A single word typed by hand (M10) belongs to no group until then.
-- **Open:** whether the AI's themes live on the shared `words` row with the learner's corrections per learner, or per learner only; how many themes per word; whether a word's own screens can also change its groups.
+**Designed 2026-10-29** in `docs/design.md` §19 (settled with the user that day); built in two steps, M13.1 themes and M13.2 groups (§19.8).
+- **Decided (the user, 2026-10-29):**
+  - **Themes are decided for the learner:** 22 built-in themes (§19.2), 0–2 per word chosen by the AI, stored on the shared word so every account sees them (AI off included); a learner's correction, on Edit word, is theirs alone. Not on the Review screen.
+  - **Where themes come from:** the whole dictionary is themed once, ahead of time, by a batch run (≈$0.50–$1); words not in the dictionary (≈10 %, mostly compounds) get themes from enrichment (Call 2), whose one prompt always asks and whose answer is used only for a word without themes yet.
+  - **No AI backfill:** existing dictionary words get their themes as the dictionary's themes load (no AI); existing words not in the dictionary stay without themes, since the testing data is cleared later anyway.
+  - **Groups are the learner's own,** private to the account: made from a **Select** mode in My words (an empty circle per word that fills when tapped, as in Photos) and **Add to group**; renamed and deleted in Settings → Groups. A word can be in any number of groups.
+  - **Theme filters are M14's;** M13 lists a group's words through My words' view menu.
+- **Before:** the user's earlier notes on this milestone (2026-10-14/16): themes from a built-in list, picked by the AI, correctable; own groups filled by hand; several words selected in My words and made into a group.
 
 ### Phase 2: practice
 
@@ -581,6 +584,7 @@ In this order, after M21:
 - **Someday:** export of the word list (CSV, Anki), and the items of §15 not chosen yet.
 
 **Small open items** left by the milestones built so far, in no order (each where it was found):
+- **Words without themes (M13 gap, the user, 2026-10-29: solve after testing or when it shows):** a word not in the dictionary, entered by hand by an account with AI off, stays without themes until an account with AI adds it. The fix when needed: theme it when it is saved, with one tiny themes-only call (`docs/design.md` §19.4); a scheduled job was considered and not chosen.
 - **Renew the Vercel token** for GitHub (`VERCEL_TOKEN`, `github-actions-dingsda`) before ≈2027-10-26, or deploys fail (M12.4 live; `docs/design.md` §18.8).
 - **Spelling variants as words** (M10): ≈6,000 dictionary entries are only spelling variants and show up as suggestions and cards with that gloss; the loader could treat alt-of senses like form-of ones, then reload the dictionary once.
 - **Add details with the credit used up** answers 200 with the words still pending, so its toast says "Some words still have no details. Try again later." rather than "AI is unavailable right now" (M12.2).

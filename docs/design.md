@@ -1,7 +1,7 @@
 # Language App — Design
 
 **Date:** 2026-10-11, last updated 2026-10-28
-**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18; M12.5: the nightly backups, live since 2026-10-28, §18.6; M12.6: the account scripts `user:list` and `user:delete`, §14; M12.7: open sign-up while testing, §4 Accounts); kept in sync with the code. Next: M13 (themes and own groups), once M12.7 is live.
+**Status:** Describes the built prototype (milestones M0–M8, `docs/plan.md`) and the Part 2 milestones built since (M9: past imports; M10: adding words by hand; M11: importing pages of a PDF; M12.1: accounts and sign-in; M12.2: the AI switch, deleting an account, the account scripts; M12.3: Google sign-in; M12.3b: Google's tokens not kept, Disconnect; M12.4: deployment, live at `https://dingsda.vercel.app` since 2026-10-26, §18; M12.5: the nightly backups, live since 2026-10-28, §18.6; M12.6: the account scripts `user:list` and `user:delete`, §14; M12.7: open sign-up while testing, §4 Accounts); kept in sync with the code. Next: M13 (themes and own groups), designed in §19 (2026-10-29), built in two steps.
 
 ## 1. Purpose
 
@@ -949,7 +949,7 @@ Fixtures are created by running a few real photos through Claude once and saving
 Recorded here so decisions already made are not lost.
 
 **Planned** (`docs/plan.md`, Part 2; each feature moves into the sections above when it is built):
-- Themes tagged by the AI from a built-in list and corrected by the learner; the learner's own groups (M13)
+- Themes from a built-in list, decided by the AI and correctable by the learner; the learner's own groups (M13, designed in §19)
 - Combinable filters in My words and Practice: theme, group, part of speech, gender, plural-only nouns, import, date added (M14)
 - Practice modes German → English, articles, plurals, verb forms (M15)
 - Spaced repetition (M16); progress over time: daily goal, streak, history (M17)
@@ -1478,3 +1478,91 @@ The steps in order, done once by the user and Claude together, as in §18.8: **Y
 **Confirmed before going live, and what only going live confirms:**
 - **Confirmed** on the Mac (2026-10-27): the role's SQL as a non-superuser owner and `pg_dump` as the role it makes (every table locked and read, a table made later too); `backup-dump.sh` with its check and encryption; `backup:restore` from a piped key into an empty database, as the Mac's `app` and as a non-superuser owner after §18.8's reset; the counts equal but for the sign-in tables; `db:migrate` up to date afterwards; the workflow's syntax and its shell (`actionlint` 1.7.12 with shellcheck).
 - **Only going live:** the install step on the runner (CI's backup test proves it on the push, step 6); Neon taking `CREATE ROLE` and the grants from `neondb_owner`, and `pg_dump` as `backup` finding nothing it can't read (step 4.4); libpq's `verify-full` against Neon with `PGSSLROOTCERT=system` (step 4.4 on the Mac, step 7 on the runner); the token's access to the EU bucket, the upload with `Content-MD5` and the ETag check (step 7); the lock refusing a delete (step 7); the schedule's time zone (step 9); and the restore into Neon itself, which stays written, not drilled. All but the schedule's time zone were confirmed on 2026-10-28 (above).
+
+## 19. Themes and own groups (M13, designed 2026-10-29, not built yet)
+
+Settled with the user on 2026-10-29 (`docs/plan.md`, M13). As each step is built, its parts move into the sections above (§5, §6.5–§6.7, §7, §9, §10, §11.3, §13, §14), as §17 did for accounts; this section then only records where they went.
+
+### 19.1 Decisions
+- **Themes are the app's, groups are the learner's.** A theme comes from a fixed list and is assigned automatically; a group is one the learner makes, names and fills ("Doctor visit", "Lesson 4", "Hard ones"). Someone who wants *Arzt* in a category of their own makes a group; the themes don't change.
+- **Decided for the learner** (the user, 2026-10-29: most people want a smooth experience, things decided for them, like Apple's products). Themes appear without anyone choosing them; correcting them is possible on the word's own screen, never asked for.
+- **Themes live on the shared word** (`words`), like its article and translation, so every account sees them, accounts with AI off included. A learner's correction is theirs alone.
+- **0–2 themes per word,** chosen by the AI: the main one first, a second only when the word belongs to it just as much (*Arzt*: Body & health, Work). Words that belong to no theme in particular get none (*und*, *weil*, *machen*).
+- **Where they come from:**
+  - **Dictionary words** (≈90 % of a textbook's words; on the author's list 392 of 435): themed once, ahead of time, by one batch run over the whole dictionary. No AI at save time.
+  - **Words not in the dictionary** (≈10 %, mostly compounds: *Mechatroniker*, *Traumberuf*, *Stellenmarkt*): themed by enrichment (Call 2), which AI accounts already make for every new word. One prompt that always asks for themes; the server uses its answer only for a word that has none yet (the user, 2026-10-29: one prompt rather than two).
+- **Not on the Review screen** (the user, 2026-10-29): Review stays as it is. Themes show on Word detail.
+- **Groups are made from a selection** (the user, 2026-10-29): **Select** in My words puts an empty circle on every word, which fills with the accent when tapped (as in Photos); **Add to group** puts the selected words into a group, new or existing. Groups are renamed and deleted in Settings → Groups, as imports are.
+- **Theme filters come in M14.** M13 shows themes on Word detail and lets a group's words be listed; combining filters (theme, group, part of speech…) is M14's.
+
+### 19.2 The theme list
+22 themes, each a stable key stored in the database and an English label shown in the app (the labels can change later; the keys don't):
+
+| Key | Label | Key | Label |
+|---|---|---|---|
+| `family` | Family & people | `free-time` | Free time |
+| `body` | Body & health | `sport` | Sport |
+| `food` | Food & drink | `nature` | Nature & animals |
+| `home` | Home | `weather` | Weather & seasons |
+| `clothes` | Clothes | `time` | Time & dates |
+| `shopping` | Shopping & money | `numbers` | Numbers & amounts |
+| `town` | Town & places | `colours` | Colours & shapes |
+| `travel` | Travel & transport | `feelings` | Feelings & character |
+| `work` | Work | `communication` | Communication & media |
+| `school` | School & learning | `offices` | Offices & paperwork (registration, visas, the bank) |
+| `culture` | Culture & celebrations | `technology` | Technology |
+
+- **Written once:** the list (keys, labels, and a one-line description of each for the AI) is a constant in `core/` (`THEMES`), so the screens and the server share it. The rules for choosing (at most 2, main first, none for words without a particular theme) are written once in `server/src/ai/`, and both the dictionary run (§19.4) and Call 2 use that same text, so the two can't drift apart.
+- **Changing the list later** (a new theme, one split in two) means running the dictionary batch again for the words it could affect; cheap (§19.4).
+
+### 19.3 Data model
+- **`words.themes`** (`text[]`, nullable): the word's theme keys, 0–2, main first. `null` = not decided yet; `{}` = decided, no theme. Only keys in `THEMES` are stored.
+- **`user_words.themes`** (`text[]`, nullable): the learner's own choice, which replaces the word's for them everywhere; `null` = the word's. A learner can choose 0–2, like the AI.
+- **`dictionary_themes`** (`lemma`, `pos`, `article` nullable, `themes text[]`; unique on the three, `NULLS NOT DISTINCT`): the result of the dictionary run, keyed as `words` is (`lemma`, `pos`, article), so *der See* and *die See* can differ. Loaded by `import:wiktionary` from a file committed to the repo (§19.4), and replaced with the dictionary. Like the dictionary, it is left out of backups' data (`EXCLUDED_TABLES`, §18.6): reloading restores it.
+- **`groups`** (`id`, `user_id` → `users` `ON DELETE CASCADE`, `name`, `created_at`): unique per account on `lower(name)`. A name is 1–40 characters, trimmed.
+- **`group_words`** (`group_id` → `groups` `ON DELETE CASCADE`, `user_word_id` → `user_words` `ON DELETE CASCADE`, `added_at`; primary key on the two): a group holds words of the learner's list, so deleting a word from the list, or the account, removes it from its groups. A word can be in any number of groups.
+- Deleting an account (§4 Accounts, `user:delete`) takes its groups by the cascades; `user:delete` counts them in what it will delete.
+
+### 19.4 Where themes come from
+1. **The dictionary run, once:** `pnpm --filter server themes:classify` (on the Mac, against the Mac's dictionary) sends every distinct (`lemma`, `pos`, article) of `dictionary_entries` (≈100k), with up to three of its glosses, to the AI through the **Message Batches API** (half price), a few hundred words per request, Haiku 5.5 at `low` effort, with structured output. Its answer is checked against `THEMES` (unknown keys dropped, at most 2 kept) and written to a file committed to the repo (`server/data/dictionary-themes…`, compressed if large); the run can be resumed, and costs roughly $0.50–$1, measured and recorded when it runs. It is never part of `pnpm test` and never runs in production.
+2. **Loading:** `import:wiktionary` loads `dictionary_themes` from that file in the same transaction as the entries, so the Mac, Neon and a restore all get the themes without AI. The same step gives every existing `words` row whose `themes` is still `null` the dictionary's themes for its (`lemma`, `pos`, article): one statement, no AI, so the words saved before M13 that are in the dictionary get their themes when M13's dictionary load runs.
+3. **Saving a word** (§6.5 photo import, §6.7 typed words): a new `words` row whose (`lemma`, `pos`, article) is in `dictionary_themes` gets its themes at once. Enrichment's dictionary step (§6.6, step 1) does the same for a word still `null`.
+4. **Call 2** (enrichment, AI accounts) returns `themes` for every word it gets, by the same rules; the server stores them only where `words.themes` is still `null` after step 3. Unknown keys are dropped, at most 2 kept. A word whose Call 2 batch fails stays `null`.
+- **No AI backfill** (the user, 2026-10-29): words saved before M13 that aren't in the dictionary (≈10 %; 43 on the author's Mac) stay without themes, as do words that skip Call 2 (added by an account with AI off and entered by hand, or in a failed batch). They are few; the learner can set them on Edit word, and the testing data is cleared before the app opens for real. So the app has one prompt that themes words (Call 2's); the dictionary run's prompt is only that one-off script's.
+- **Known gap, to solve later** (the user, 2026-10-29: after testing, or when it shows): a word not in the dictionary that an account with AI off enters by hand stays without themes until an account with AI adds the same word (its details stay pending, so that account's enrichment fills them, themes included). Failed Call 2 batches are not a gap: Add details on Home retries them, themes included.
+  - **Considered and not built:** a scheduled job (e.g. hourly) theming every word still without themes. The AI would cost almost nothing, but the job needs a home (Vercel Hobby's cron runs at most daily; GitHub's schedules can be skipped, §18.9, and hourly runs would use about a third of the repo's free Actions minutes), the AI key and a database login that can write to production, and watching. It would nearly always find nothing.
+  - **The fix when it's needed:** theme such a word when it is saved, even for an account with AI off: one small themes-only call (≈$0.00001 a word) with the dictionary run's prompt, as a background feature of the shared word rather than an AI feature of the account. No schedule, nothing to watch.
+
+### 19.5 Screens
+- **Review** (screen 3): unchanged.
+- **Word detail** (screen 8): a **Themes** line on the top card, under the forms: the themes' labels as small neutral chips ("Body & health", "Work"), or nothing when there are none. When the learner has their own choice, a small muted "Your choice" after them.
+- **Edit word** (screen 9): a **Themes** card under Your translation and Note. Its rows show the 22 themes, each with a check; at most 2 can be checked (a third tap does nothing, with the hint "At most 2 themes"). **Use suggested** (shown only when the learner's choice differs from the word's) goes back to the word's themes. Saved with the other fields by **Save**.
+- **My words** (screen 7):
+  - **Select**, a text button at the right of the header (where the word count is today; the count moves under the title while selecting). It turns the list into selection mode: each row gets an empty circle at its left (24 px, a 2 px border) and tapping a row fills its circle with the accent and a check instead of opening the word. The header then shows "3 selected" and **Cancel**; the tabs, search and view menu still work, and the selection stays across them until Cancel.
+  - An action bar at the bottom while selecting: **Add to group** (lime, "Add 3 words to group"; disabled with nothing selected). In a group's list (below) the bar also offers **Remove from group**.
+  - **Add to group** opens a screen of its own (not a modal, like Edit word): the learner's groups, each with its word count, and **New group** with a name field at the top. Choosing a group adds the words (those already in it are skipped) and returns to My words with a toast ("Added 3 words to Hard ones"), out of selection mode.
+  - **The view menu** gets a heading "Groups" after "Imports", with every group by name; choosing one shows only its words, as choosing an import does (the URL holds `group=7`).
+- **Settings → Groups** (a row under Imports): the round back button, the large title "Groups", and each group with its word count; a group opens **Rename** and **Delete group** ("Delete group "Hard ones"? Its words stay in your list."), as Rename import does. Empty: "No groups yet. Use Select in My words to make one."
+- The selection circle and the action bar are new design-system components (`docs/design-system/`), in both colour schemes.
+
+### 19.6 API (Zod schemas in `core/`)
+- Word responses (`GET /words`, `GET /words/:id`) add `themes` (the effective ones: the learner's, else the word's) and, on the detail, `suggestedThemes` (the word's) and `themesOwn` (whether the learner chose).
+- `PATCH /words/:id` accepts `themes`: an array of 0–2 keys from `THEMES`, or `null` to go back to the word's.
+- `GET /words` accepts `group=<id>` (only that group's words; an unknown group is 404).
+- **Groups:** `GET /groups` (each with `id`, `name`, `wordCount`, newest first); `POST /groups` (`name`, and optionally `userWordIds` to fill it at once); `PATCH /groups/:id` (`name`); `DELETE /groups/:id`; `POST /groups/:id/words` and `DELETE /groups/:id/words` (`userWordIds`, at most 500; words not in the learner's list are 404, words already in or not in the group are skipped). Another learner's group is 404, as for words.
+
+### 19.7 Tests (test-first)
+- **core:** `THEMES` keys are unique and stable (a snapshot); the schemas accept 0–2 known keys and refuse others.
+- **server:**
+  - `dictionary_themes` loads from a small sample file with the dictionary, and is replaced with it;
+  - a saved word (photo import and typed) gets the dictionary's themes; Call 2's themes are stored only for a word still `null`, with unknown keys dropped and at most 2 kept (recorded fixtures, re-recorded for Call 2's new output);
+  - loading the dictionary's themes fills existing words still `null` (and leaves the others, including a learner's own choice, alone);
+  - the learner's own themes replace the word's for them only, and `null` goes back;
+  - groups: create, rename (unique per account, ignoring case), delete (words stay), add and remove words (skipping duplicates), list a group's words, another learner's group is 404; deleting a word removes it from its groups; deleting an account removes its groups.
+- **web:** selection mode (toggle, count, Cancel, the selection kept across tabs), Add to group (new and existing), Remove from group, the Themes card's 2-theme limit and Use suggested, the view menu's groups.
+- `pnpm test:live` after Call 2's prompt changes (≈1¢).
+
+### 19.8 Steps
+M13 is built in two steps, each with its demo and the user's review:
+- **M13.1 Themes:** the list, the dictionary run and its file, `dictionary_themes` (filling existing words as it loads), themes at save and in Call 2, Word detail and Edit word. **Demo:** on the iPhone, the existing dictionary words have themes on Word detail; a new photo import's words have themes, and a word in it not in the dictionary got its themes from the AI; correcting a theme on Edit word, and Use suggested.
+- **M13.2 Groups:** the tables, the API, Select and Add to group in My words, the view menu's groups, Settings → Groups. **Demo:** select three words, make a group "Hard ones", list it from the view menu, remove one word from it, rename and delete the group (the words stay).
