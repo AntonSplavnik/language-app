@@ -219,7 +219,7 @@ pnpm --filter server serve:vercel [port]                         # serve the bui
 From [docs/plan.md](docs/plan.md), Part 2, in build order:
 
 - Nightly encrypted backups of the production database (M12.5).
-- Themes tagged by the AI and the learner's own groups (M13); combinable filters in My words and Practice (M14); card modes such as German → English, articles, plurals and verb forms (M15).
-- Spaced repetition (M16) and progress over time: a daily goal, a streak, a history (M17).
+- Themes tagged by the AI and the learner's own groups (M13); combinable filters in My words and Practice (M16); card modes such as German → English, articles, plurals and verb forms (M17).
+- Spaced repetition (M14) and progress over time: a daily goal, a streak, a history (M15).
 - Basics: the alphabet (M18), text-to-speech (M19), numbers (M20) and time (M21).
 - Later: open sign-up (an email service and a privacy page), push notifications, gamification, AI for subscribers, a new example sentence on demand; and from [docs/design.md §15](docs/design.md#15-later), grammar topics, levels, more practice modes and a React Native phone app reusing `core/` and `server/`.
