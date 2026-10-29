@@ -7,10 +7,10 @@ name: Backup
 
 on:
   schedule:
-    # Off the hour, when GitHub's schedules are least delayed. In Berlin's time zone, 03:17 is
-    # never skipped or repeated when the clocks change.
-    - cron: "17 3 * * *"
-      timezone: Europe/Berlin
+    # Off the hour, when GitHub's schedules are least delayed: 02:17 UTC, so 03:17 in Berlin in
+    # winter and 04:17 in summer. Plain UTC, as GitHub's schedules have long run: with
+    # `timezone: Europe/Berlin`, the first night (2026-10-29) started no run at all (§18.6).
+    - cron: "17 2 * * *"
   workflow_dispatch:
 
 permissions:

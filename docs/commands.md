@@ -182,7 +182,7 @@ It answers `{"status":"ok"}`. Production's server logs (one hour on Hobby) are i
 
 ## Backups
 
-Every night at 03:17 (Berlin time) GitHub backs up production's database, encrypted with your `age` key, to the Cloudflare R2 bucket `dingsda-app-backups`, where each file stays 30 days and can't be deleted sooner. A failed backup emails you. The full story is in `docs/design.md` §18.6, the first setup and the restore into Neon in §18.9.
+Every night at 02:17 UTC (03:17 in Berlin in winter, 04:17 in summer) GitHub backs up production's database, encrypted with your `age` key, to the Cloudflare R2 bucket `dingsda-app-backups`, where each file stays 30 days and can't be deleted sooner. A failed backup emails you. The full story is in `docs/design.md` §18.6, the first setup and the restore into Neon in §18.9.
 
 ### 1. Run a backup now (before something risky)
 ```sh
