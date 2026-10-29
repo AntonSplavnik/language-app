@@ -1058,7 +1058,7 @@ Fixtures are created by running a few real photos through Claude once and saving
     - **Every account is treated alike,** user 1 included (the user, 2026-10-28): the developer account is only the one `user:claim` made, with AI switched on, and there are no developer tools.
     - It deletes in **one transaction** (`deleteAccount` in `auth/accounts.ts`): the `users` row is locked first (`FOR UPDATE`, so nothing can be added to the account meanwhile) and what will go counted again; then what the cascades don't reach, by the same function Delete account's `afterDelete` hook runs (`removeLeftovers`: any invite for its email never linked to it, and the state of a Connect under way); then the `users` row, whose cascades (§5) take the account's data and its invite. Shared words, the dictionary and other accounts stay. A failure at any step rolls everything back, and the script prints the statement's own reason.
     - Afterwards it prints what was deleted, counted inside the transaction, and "On Neon (production), copies remain for a while: Neon's history keeps the account for 6 hours, and the nightly backups for up to 30 days, which the bucket's lock doesn't let anyone shorten" (§18.6); printed on the Mac too.
-  - All of them work on `DATABASE_URL` (for Neon: the direct connection, run from the Mac, with the string read from the git-ignored `deploy.env` so it is never typed or shown: `( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server invite:list )`, §18.8) and print which database that is (host and name, never the password); an unknown account is an error (exit code 1). `pnpm db:migrate`, `import:wiktionary` and `themes:classify` work the same way (`themes:classify` only ever on the Mac's own database: it reads the dictionary).
+  - All of them work on `DATABASE_URL` (for Neon: the direct connection, run from the Mac with `pnpm prod` in front, `pnpm prod invite:list`, which reads the string from the git-ignored `deploy.env` so it is never typed or shown, §18.3) and print which database that is (host and name, never the password); an unknown account is an error (exit code 1). `pnpm db:migrate`, `import:wiktionary` and `themes:classify` work the same way (`themes:classify` only ever on the Mac's own database: it reads the dictionary).
 - **Google on the Mac** (§4 Accounts): one OAuth client in Google Cloud, made once by hand:
   1. In the Google Cloud console, a project for the app (one for development and production).
   2. **Google Auth Platform → Branding:** the app's name, a support email and the developer's email. **Audience:** External, left in Testing (with only the basic scopes any Google account can sign in, §16, so the invite list is what keeps strangers out); listing your own and the test Gmail under Test users does no harm, in case Google holds back accounts that aren't listed. **Data access:** nothing to add (the basic `openid`, `email` and `profile` are asked for by default).
@@ -1277,7 +1277,8 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 - **GitHub Actions** (§18.4, §18.6):
   - secrets, set going live (§18.8): `VERCEL_TOKEN` (valid until ≈2027-10-26), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_MIGRATE_URL` (direct, owner);
   - for the backups (M12.5, set 2026-10-28, §18.9 step 5): the secrets `NEON_BACKUP_URL` (direct, the read-only `backup` role, `sslmode=verify-full`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (the bucket's token), and a repository variable, `AGE_RECIPIENT`, the backups' public key (`age1…`).
-- **Going live's secrets** sat in `deploy.env` at the repo root (git-ignored, values single-quoted) while §18.8 was under way, and the commands read them from there, so none was typed, shown or pasted into a chat; it was deleted afterwards. A later script on Neon gets a new `deploy.env` with `NEON_DIRECT_URL='…'` from Neon's console.
+- **Going live's secrets** sat in `deploy.env` at the repo root (git-ignored, values single-quoted) while §18.8 was under way, and the commands read them from there, so none was typed, shown or pasted into a chat; it was deleted afterwards.
+- **`deploy.env` stays on the Mac** since 2026-10-29 (the user: making and deleting it for every script on Neon was too many steps). It holds `NEON_DIRECT_URL='…'`, the owner's direct string from Neon's console (connection pooling off), written once from the clipboard with `umask 077` (`docs/commands.md`, Accounts in production); a password reset in Neon means writing it again. **`pnpm prod <script> [args]`** (`server/scripts/prod.sh`) runs one of the server's scripts on it: it reads `deploy.env`, turns `sslmode=require` into `verify-full` (§18.5), sets `DATABASE_URL` for that one command and runs `pnpm --filter server <script> [args]`; without `deploy.env` or `NEON_DIRECT_URL` it says so and stops. Every script prints its database first, so the first line shows Neon's `ep-…` host. Nothing else reads `deploy.env`: `pnpm dev`, the tests and the scripts without `pnpm prod` keep the Mac's databases from `.env`. A secret needed only for a one-off step (as §18.9's) can be added to `deploy.env` for that step and taken out again.
 - **Deployment protection:** Vercel Authentication with Standard Protection: every deployment's own address needs a Vercel login, the production domain doesn't (§16). So Vercel's own login stays off for production: the app's sign-in protects it, and Vercel's would also lock out the iPhone. There are no preview deployments (every deploy is `--prod`).
 
 ### 18.4 Deploys (GitHub Actions)
@@ -1329,8 +1330,8 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
   - a lifecycle rule deletes files after 30 days (a lock wins over a lifecycle rule; both are 30 days), so there are about 30 backups, plus any run by hand. R2's free tier is 10 GB-month, and a backup is under 1 MB today (the Mac's word list: 94 KB, §18.9);
   - the cost: no backup can be deleted early, a mistaken one included. A deleted account stays in backups for at most 30 days either way (§4 Accounts).
 - **The private `age` key** (an X25519 key from plain `age-keygen`; not its `-pq` keys, which the runner's age 1.1 can't use) is kept only by the user, in a password manager. GitHub and R2 hold only encrypted files; GitHub holds the public key as the repository variable `AGE_RECIPIENT`.
-- **The read-only role** `backup` (§18.5), made by **`pnpm --filter server backup:role [role]`**, run as the owner (`neondb_owner`) on the direct connection with the password in `BACKUP_ROLE_PASSWORD` (from `deploy.env`, `openssl rand -hex 32`), so it is never typed, shown or kept in Neon's SQL Editor history; the password reaches Neon only in the `CREATE ROLE` statement over TLS. It grants `CONNECT`, `USAGE` on `public` and `drizzle`, `SELECT` on all their tables and sequences, and default privileges for the tables and sequences the owner creates later (`ALTER DEFAULT PRIVILEGES IN SCHEMA public, drizzle`), so a later migration's table is dumped without a new grant. Run again with a password it changes the password; without one, an existing role only gets its grants again (after a restore into Neon, below). It can read everything, session tokens included (pg_dump locks every table whose definition it dumps), so `NEON_BACKUP_URL` is a secret like the others. It is printed with the database first, like the other scripts.
-- **Restore: `pnpm --filter server backup:restore <file.dump.age> [dictionary.jsonl] [themes.tsv]`** (decided in M12.5: the target is `DATABASE_URL`, as for every other script, not an argument, so no connection string with a password is ever typed; for Neon it comes from `deploy.env` as in §18.8):
+- **The read-only role** `backup` (§18.5), made by **`pnpm --filter server backup:role [role]`**, run as the owner (`neondb_owner`) on the direct connection with the password in `BACKUP_ROLE_PASSWORD` (put into `deploy.env` for the step, `openssl rand -hex 32`; `pnpm prod backup:role` passes it on with Neon's string, §18.3), so it is never typed, shown or kept in Neon's SQL Editor history; the password reaches Neon only in the `CREATE ROLE` statement over TLS. It grants `CONNECT`, `USAGE` on `public` and `drizzle`, `SELECT` on all their tables and sequences, and default privileges for the tables and sequences the owner creates later (`ALTER DEFAULT PRIVILEGES IN SCHEMA public, drizzle`), so a later migration's table is dumped without a new grant. Run again with a password it changes the password; without one, an existing role only gets its grants again (after a restore into Neon, below). It can read everything, session tokens included (pg_dump locks every table whose definition it dumps), so `NEON_BACKUP_URL` is a secret like the others. It is printed with the database first, like the other scripts.
+- **Restore: `pnpm --filter server backup:restore <file.dump.age> [dictionary.jsonl] [themes.tsv]`** (decided in M12.5: the target is `DATABASE_URL`, as for every other script, not an argument, so no connection string with a password is ever typed; for Neon it comes from `deploy.env` through `pnpm prod backup:restore …`, §18.3):
   1. prints `Database: <host>/<name>`;
   2. checks that the file and the dictionary file are there, then refuses, changing nothing, a database that isn't empty: any table, view or sequence outside PostgreSQL's own schemas, or a `drizzle` schema. The Mac's own `.env` points at the dev database, which isn't empty, so a restore needs `DATABASE_URL` set to a new one;
   3. checks that `age` and PostgreSQL 17's `pg_restore` are there (Homebrew's keg-only `postgresql@17`, the runner's `/usr/lib/postgresql/17/bin`, or PATH; `--version` must say 17);
@@ -1356,6 +1357,8 @@ Built in M12.4 as the check found (`docs/plan.md`, M12):
 
 ### 18.8 Going live, once (M12.4, done 2026-10-26)
 The steps in order, done once by the user and Claude together. **You** marks what the user does by hand (a console, a password, a paste); **Claude** marks commands the session can run in the main checkout's root, which print no secret.
+
+*Written before `pnpm prod` (§18.3, 2026-10-29): as a record of what was done it keeps its commands. Today `deploy.env` stays on the Mac, and a `( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server <script> … )` line is `pnpm prod <script> …`.*
 - **Secrets:** they live only in `deploy.env` at the repo root (git-ignored, readable only by you) and, where they must stay, in Vercel, GitHub and the password manager. Commands read them in a subshell, `( set -a; . ./deploy.env; set +a; … )`, so a secret never appears on a command line, in output or in shell history; values go to Vercel through stdin. Nobody pastes a secret into the chat.
 - **The Vercel CLI** isn't installed: it runs as `npx -y vercel@63.1.2` (the newest release at least two weeks old on 2026-10-26), with the login made for `project add`.
 - **Rehearsed on 2026-10-26** on the Mac against a fresh local database standing in for Neon: steps 1 and 3 as written (with a piped throwaway password for `user:claim`), the reset of step 2.4, and the built function with step 6's variables, answering as step 6 expects (§16, `docs/plan.md` M12.4).
@@ -1473,6 +1476,8 @@ The steps in order, done once by the user and Claude together. **You** marks wha
 
 ### 18.9 Going live with backups (M12.5, done 2026-10-28)
 The steps in order, done once by the user and Claude together, as in §18.8: **You** marks what the user does by hand (a console, the key, a paste, a GitHub secret); **Claude** marks commands the session can run in the main checkout's root, which print no secret.
+
+*Written before `pnpm prod` (§18.3, 2026-10-29): as a record of what was done it keeps its commands. Today `deploy.env` stays on the Mac, and a `( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server <script> … )` line is `pnpm prod <script> …`.*
 - **Secrets** live only in `deploy.env` at the repo root (git-ignored, readable only by you, values single-quoted, read in a subshell `( set -a; . ./deploy.env; set +a; … )`), in GitHub's secrets and, for the private key, in the password manager. Nobody types, prints or pastes a secret into the chat. The private key never touches a file or the session: only the user sees it, and only the public key is shared.
 - **The Mac's prerequisites:** `brew install age postgresql@17` (done during the build, 2026-10-27: age 1.3.2, PostgreSQL 17.11, keg-only; never start its server). `gh` is installed and signed in (§18.8).
 - **Rehearsed on 2026-10-27** on the Mac, without the accounts: a stand-in for Neon (a database owned by a role that isn't a superuser but can create roles, as `neondb_owner`, with a copy of the dev database's rows), `backup:role` and step 4's URL, `backup-dump.sh` as the workflow runs it (throwaway key pair; the upload skipped), the drill of step 8 (counts equal but for the sign-ins), and the procedure below into the stand-in after its reset (`docs/plan.md`, M12.5).
@@ -1573,7 +1578,7 @@ The steps in order, done once by the user and Claude together, as in §18.8: **Y
 
 **Restoring production into Neon** (written, not drilled; the local stand-in was, §18.9's rehearsal). For damage found within 6 hours, Neon's own history is quicker and loses less (the console → Branches → `main` → **Restore** to a moment before it). Otherwise, from the latest backup before the damage:
 1. You: download that file from the bucket into `~/Downloads`. In Neon's console, keep the damaged state first: Branches → **Create branch** from `main` (`damaged-<date>`), deleted once all is well.
-2. Claude: a new `deploy.env` with `NEON_DIRECT_URL` (step 4.1 above, or `docs/commands.md`, production steps 1–4).
+2. Claude: check `deploy.env` is there (`pnpm prod db:counts` shows Neon's host first); if not, write it (§18.3, `docs/commands.md`, Accounts in production).
 3. You, Neon's SQL Editor (database `neondb`): empty it, as §18.8 step 2.4 did. From here until step 5 the app answers errors.
    ```sql
    DROP SCHEMA IF EXISTS drizzle CASCADE;
@@ -1582,17 +1587,17 @@ The steps in order, done once by the user and Claude together, as in §18.8: **Y
    ```
 4. You, in your own terminal: the restore as `neondb_owner` (≈30 s for the dictionary over the internet). The first line must be Neon's `ep-…` host; then paste the private key, then `pbcopy < /dev/null`:
    ```sh
-   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server backup:restore ~/Downloads/<file>.dump.age )
+   pnpm prod backup:restore ~/Downloads/<file>.dump.age
    ```
 5. Claude: the `backup` role's grants again (the reset dropped them and the restore leaves grants out), the migrations' check, Neon's counts and the app:
    ```sh
-   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server backup:role )
-   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm db:migrate )
-   ( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server db:counts )
+   pnpm prod backup:role
+   pnpm prod db:migrate
+   pnpm prod db:counts
    curl -s https://dingsda.vercel.app/api/health
    ```
    `backup:role` says "grants renewed"; `db:migrate` "Database is up to date". You: sign in on the iPhone and check the word list.
-6. Claude: `rm deploy.env` and the downloaded file. The next nightly backup runs as before.
+6. Claude: delete the downloaded file (`deploy.env` stays, §18.3). The next nightly backup runs as before.
 
 **What a restore loses:** everything after the backup's time (at most about a day of practice, imports and new accounts), and every sign-in: every device signs in again, with passwords and Google links kept. The rate limits start again from zero. The developer account and every other keep their ids, so nothing else changes.
 

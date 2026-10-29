@@ -5,6 +5,7 @@
 // BACKUP_ROLE_PASSWORD an existing role only gets its grants again (after a restore, §18.9).
 //
 //   BACKUP_ROLE_PASSWORD=… pnpm --filter server backup:role [role]      (the role: backup)
+//   pnpm prod backup:role [role]      (on Neon: DATABASE_URL and BACKUP_ROLE_PASSWORD from deploy.env, §18.3)
 //
 // Works on DATABASE_URL from .env (or the environment).
 import { loadEnvFile, parseConfig } from "../src/config";

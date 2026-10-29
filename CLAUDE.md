@@ -52,8 +52,8 @@ pnpm build:vercel         # web build + the API bundled into .vercel/output (Ver
 pnpm test:bundle          # build, then test .vercel/output and the bundled function on the test DB (CI runs it)
 pnpm test:backup          # a backup's round trip on throwaway DBs; needs `brew install age postgresql@17` (CI installs them)
 pnpm --filter server serve:vercel [port]   # serve the built function with plain Node; reads only the environment
-# Scripts against Neon: the string comes from the git-ignored deploy.env, never typed or shown (docs/design.md §18.8)
-( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm db:migrate )   # likewise invite:*, user:*, import:wiktionary
+pnpm prod <script> [args]  # a server script on Neon: DATABASE_URL from the git-ignored deploy.env, kept on the Mac, never typed or shown (docs/design.md §18.3)
+pnpm prod user:ai <email|username> on   # likewise user:*, invite:*, db:migrate, db:counts, backup:role, import:wiktionary <file>
 ```
 
 **Production is live** at `https://dingsda.vercel.app` (Vercel + Neon, docs/design.md §18): a push to `main` deploys it, so push only what has passed its milestone's review. CI is `.github/workflows/ci.yml`: the checks (typecheck, lint, `pnpm test`, `pnpm test:bundle`, `pnpm test:backup`) on every push to `main` and every pull request; on `main`, then Neon's migrations and the Vercel deploy. A push or pull request that changes only `*.md` files or `docs/` runs nothing (`paths-ignore`, docs/design.md §18.4). Nightly backups of Neon, encrypted with `age`, go to Cloudflare R2 from `.github/workflows/backup.yml` (docs/design.md §18.6; live since 2026-10-28, §18.9). The Mac's `.env` never has `BETTER_AUTH_URL` (production's address; the Mac's server refuses it).

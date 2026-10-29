@@ -15,6 +15,7 @@
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter server db:generate",
     "db:migrate": "pnpm --filter server db:migrate",
+    "prod": "sh server/scripts/prod.sh",
     "build:vercel": "pnpm --filter @language-app/web build && pnpm --filter @language-app/server build:vercel",
     "check": "biome check .",
     "format": "biome check --write ."

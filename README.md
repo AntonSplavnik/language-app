@@ -183,7 +183,7 @@ pnpm --filter server serve:vercel [port]                         # serve the bui
 - `pnpm test` never calls Claude. Server tests replay real Claude responses recorded in `server/test/fixtures/ai/` (with `ai:try … --save <name>`). Error cases such as refusals, `max_tokens` and 429/5xx are built from those recordings. Google is faked at the network edge, so no test leaves the machine.
 - Server tests use a separate database, `language_app_test`, rebuilt from the migrations at the start of each run.
 - Run `pnpm test:live` after changes under `server/src/ai/`. It uses the models set in `.env`, up to two photos from `server/test/live/photos/` (git-ignored), a 3-word enrich batch and two Ask AI calls.
-- The account scripts, `pnpm db:migrate` and `import:wiktionary` work on `DATABASE_URL` and print which database that is. Against production they run from the Mac on Neon's direct connection, read from a git-ignored `deploy.env` so it is never typed or shown ([docs/design.md §14](docs/design.md#14-development-setup), Accounts on the Mac).
+- The account scripts, `pnpm db:migrate` and `import:wiktionary` work on `DATABASE_URL` and print which database that is. Against production they run from the Mac with `pnpm prod` in front (`pnpm prod user:list`), on Neon's direct connection, read from the git-ignored `deploy.env` kept on the Mac so it is never typed or shown ([docs/design.md §14](docs/design.md#14-development-setup), Accounts on the Mac).
 - The rules for working on the repo (spec first, test-first milestones, every API shape a Zod schema in `core/`) are in [CLAUDE.md](CLAUDE.md).
 
 ## Production

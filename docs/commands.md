@@ -72,51 +72,68 @@ Accounts are named by email or username, in any case. A learner can also delete 
 
 ## Accounts in production (`https://dingsda.vercel.app`, Neon)
 
-The same commands, run from the Mac against Neon. Neon's connection string goes into a temporary, git-ignored `deploy.env`, so it is never typed or shown.
+The same commands with `pnpm prod` in front run on production's database (Neon) instead of the Mac's. Neon's connection string stays in `deploy.env` at the repo root (git-ignored, readable only by you), so it is never typed or shown.
 
-### 1. In Neon's console: Connect → turn Connection pooling **off** → copy the connection string
-
-### 2. Write it from the clipboard into `deploy.env`
+### Once: put Neon's connection string into `deploy.env`
+1. In Neon's console: Connect → turn Connection pooling **off** → copy the connection string.
+2. Write it from the clipboard into `deploy.env`, readable only by you:
 ```sh
-printf "NEON_DIRECT_URL='%s'\n" "$(pbpaste)" > deploy.env
+(umask 077; printf "NEON_DIRECT_URL='%s'\n" "$(pbpaste)" > deploy.env)
+```
+3. Check it: the first line must say `Database: ep-…neon.tech/neondb`, not `localhost`.
+```sh
+pnpm prod user:list
+```
+If Neon's password is ever reset, do these three steps again.
+
+Each command below prints `Database: <host>/<name>` first: check it says `ep-…neon.tech/neondb`. Without `pnpm prod` in front, the same command uses the Mac's database.
+
+### Invite someone (needed only while sign-up is invite-only, `SIGNUP_MODE=invite`)
+```sh
+pnpm prod invite:add friend@example.com
 ```
 
-### 3. Make the file readable only by you
+### See the invite list
 ```sh
-chmod 600 deploy.env
+pnpm prod invite:list
 ```
 
-### 4. Switch the connection to `verify-full`
+### Take an email off the invite list
 ```sh
-sed -i '' 's/sslmode=require/sslmode=verify-full/' deploy.env
+pnpm prod invite:remove friend@example.com
 ```
 
-### 5. Run the command you need, for example an invite
+### Switch an account's AI on
 ```sh
-( set -a; . ./deploy.env; set +a; DATABASE_URL="$NEON_DIRECT_URL" pnpm --filter server invite:add friend@example.com )
+pnpm prod user:ai friend@example.com on
 ```
-Check that the first line says `Database: ep-…neon.tech/neondb`, not `localhost`. Any account command works the same way: replace `invite:add friend@example.com` with, for example, `user:list`, `user:ai friend@example.com on`, `invite:list`, `user:set-password lazypixel` or `user:delete friend@example.com`.
 
-### 6. Delete `deploy.env` when you're done
+### Switch it off
 ```sh
-rm deploy.env
+pnpm prod user:ai friend@example.com off
 ```
+
+### Set a new password (asks for it hidden, twice; signs the account out everywhere)
+```sh
+pnpm prod user:set-password lazypixel
+```
+
+### See every account (only reads)
+```sh
+pnpm prod user:list
+```
+
+### Delete an account and everything in it (asks you to type its username back)
+```sh
+pnpm prod user:delete friend@example.com
+```
+Copies remain for a while after it: Neon's history keeps the account for 6 hours, and the nightly backups for up to 30 days (nobody can shorten that).
 
 ### Inviting a friend to production, start to finish
-While sign-up is open (M12.7, testing) they just open the address and create an account (step 3); you need steps 1–6 only to switch their AI on.
-1. Steps 1–4 above.
-2. `invite:add` with their email (step 5).
-3. They open `https://dingsda.vercel.app` and create an account, with a password or Continue with Google. New accounts have AI off.
-4. If they should have AI: step 5 with `user:ai their@email.com on`.
-5. Step 6.
-
-### Deleting an account from production, start to finish
-1. Steps 1–4 above.
-2. See the accounts: step 5 with `user:list`.
-3. Delete one: step 5 with `user:delete their@email.com`. Check the first line says Neon, read what will go, then type its username and press Return.
-4. Step 6.
-
-Copies remain for a while after it: Neon's history keeps the account for 6 hours, and the nightly backups for up to 30 days (nobody can shorten that).
+While sign-up is open (M12.7, testing) they skip step 1 and just create an account; you need only step 3, to switch their AI on.
+1. `pnpm prod invite:add their@email.com`
+2. They open `https://dingsda.vercel.app` and create an account, with a password or Continue with Google. New accounts have AI off.
+3. If they should have AI: `pnpm prod user:ai their@email.com on`
 
 ## Before pushing
 
@@ -179,6 +196,11 @@ gh run view <run-id> --repo AntonSplavnik/language-app --log-failed
 curl -s https://dingsda.vercel.app/api/health
 ```
 It answers `{"status":"ok"}`. Production's server logs (one hour on Hobby) are in Vercel's dashboard → `dingsda` → Logs.
+
+### Production's row counts (every table; only reads)
+```sh
+pnpm prod db:counts
+```
 
 ## Backups
 
@@ -249,6 +271,11 @@ pnpm --filter server dict:lookup Bank noun die
 It also loads the dictionary's themes from `server/data/dictionary-themes.tsv` and gives your saved words without themes theirs; until that file exists it says so and loads none.
 ```sh
 pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl
+```
+
+### Reload the dictionary into production's database (≈30 s; after `server/data/dictionary-themes.tsv` changes)
+```sh
+pnpm prod import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl
 ```
 
 ### Estimate the dictionary's themes run (free: counts tokens, runs no model)

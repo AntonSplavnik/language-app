@@ -6,7 +6,7 @@ coverage/
 
 # Vercel: the linked project (.vercel/project.json), pulled settings and the build output
 .vercel/
-# Production's secrets while going live (docs/design.md §18.8); never in git
+# Production's connection string for `pnpm prod`, kept on the Mac (docs/design.md §18.3); never in git
 deploy.env
 *.log
 
