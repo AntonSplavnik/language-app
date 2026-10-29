@@ -2,11 +2,13 @@ import {
   sameThemes,
   THEMES_MAX,
   type ThemeKey,
+  type ThemeSummary,
   themeLabel,
   type WordDetail,
 } from "@language-app/core";
 
-// A word's themes on Word detail and Edit word (docs/design.md §10 screens 8 and 9).
+// A word's themes on Word detail and Edit word, and the themes of My words' view menu
+// (docs/design.md §10 screens 7, 8 and 9).
 
 /**
  * A tap on a theme of Edit word's Themes card: it is checked (after those already checked, so the
@@ -36,3 +38,7 @@ export function themeChips(
   if (word.themes.length === 0) return null;
   return { labels: word.themes.map(themeLabel), own: word.themesOwn };
 }
+
+/** A theme in My words' view menu: its label and the learner's words with it, "Home (34)". */
+export const themeMenuText = ({ key, words }: Pick<ThemeSummary, "key" | "words">) =>
+  `${themeLabel(key)} (${words})`;

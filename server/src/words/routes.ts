@@ -11,7 +11,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAi } from "../auth/learner";
 import { enrichPendingForUser } from "./enrich";
-import { deleteWord, getWordDetail, listWords, updateWord } from "./service";
+import { deleteWord, getWordDetail, listThemes, listWords, updateWord } from "./service";
 import { type DescribeDeps, describeWord, saveTypedWords } from "./typed";
 
 const Params = z.object({ id: z.coerce.number().int().positive() });
@@ -46,6 +46,8 @@ export function wordRoutes(app: FastifyInstance, deps: DescribeDeps) {
   app.get("/api/words", async (request) =>
     listWords(db, request.learner.id, WordListQuery.parse(request.query)),
   );
+
+  app.get("/api/themes", async (request) => listThemes(db, request.learner.id));
 
   app.get("/api/words/:id", async (request) => {
     const { id } = Params.parse(request.params);

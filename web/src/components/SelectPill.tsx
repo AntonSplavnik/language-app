@@ -4,7 +4,7 @@ import styles from "./SelectPill.module.css";
 
 /**
  * A native select drawn as a pill with the chosen option's text and a chevron (My words' view
- * menu, Practice setup's Import menu). The select itself is invisible over the pill, so a tap
+ * menu, Practice setup's Import and Theme menus). The select itself is invisible over the pill, so a tap
  * opens the phone's own picker and the pill is as wide as the chosen text, not the longest option.
  */
 export function SelectPill({

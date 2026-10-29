@@ -6,6 +6,7 @@ import {
   type Pos,
   SessionResponse,
   type ThemeKey,
+  ThemeListResponse,
   WordDetail,
   WordListResponse,
   type WordStatus,
@@ -341,6 +342,110 @@ describe("GET /api/words?sort= (§9.1)", () => {
     const res = await app().inject({ method: "GET", url: "/api/words?sort=oldest" });
     expect(res.statusCode).toBe(400);
     expect(errorCode(res)).toBe("invalid_request");
+  });
+});
+
+describe("GET /api/words?theme= (§9.1)", () => {
+  async function seedThemes() {
+    await seedWord("Arzt", { themes: ["body", "work"], translation: "doctor" });
+    await seedWord("Büro", { themes: ["work"], translation: "office" });
+    await seedWord("Lehrer", { themes: ["work"], translation: "teacher", status: "ignored" });
+    // The learner's own themes replace the word's: work, not home.
+    await seedWord("Tisch", { themes: ["home"], ownThemes: ["work"], status: "learned" });
+    await seedWord("Stuhl", { themes: ["home"] });
+    // Their choice of none: under no theme.
+    await seedWord("Lampe", { themes: ["home"], ownThemes: [] });
+    await seedWord("Kühlschrank");
+  }
+
+  it("keeps only the words with the theme, in any status, and counts only those", async () => {
+    await seedThemes();
+
+    const all = await list("?theme=work");
+    expect(lemmas(all)).toEqual(["Arzt", "Büro", "Lehrer", "Tisch"]);
+    expect(all.counts).toEqual({ learning: 2, learned: 1, ignored: 1 });
+    expect(lemmas(await list("?theme=home"))).toEqual(["Stuhl"]);
+    expect(lemmas(await list("?theme=body"))).toEqual(["Arzt"]);
+    expect((await list("?theme=food")).words).toEqual([]);
+  });
+
+  it("combines with the tabs, the search and the order", async () => {
+    await seedThemes();
+
+    const learning = await list("?status=learning&theme=work");
+    expect(lemmas(learning)).toEqual(["Arzt", "Büro"]);
+    expect(learning.counts).toEqual({ learning: 2, learned: 1, ignored: 1 });
+
+    const searched = await list("?status=learned&theme=work&q=t");
+    expect(lemmas(searched)).toEqual(["Tisch"]);
+    // Arzt and Lehrer (teacher) match "t" too; Büro (office) doesn't.
+    expect(searched.counts).toEqual({ learning: 1, learned: 1, ignored: 1 });
+    const office = await list("?theme=work&q=office");
+    expect(lemmas(office)).toEqual(["Büro"]);
+    expect(office.counts).toEqual({ learning: 1, learned: 0, ignored: 0 });
+
+    expect(lemmas(await list("?theme=work&sort=newest"))).toEqual([
+      "Tisch",
+      "Lehrer",
+      "Büro",
+      "Arzt",
+    ]);
+  });
+
+  it("shows only this learner's words", async () => {
+    const other = await otherLearner();
+    await seedWord("Arzt", { themes: ["body"], userId: other });
+    expect((await list("?theme=body")).words).toEqual([]);
+  });
+
+  it("rejects a key that isn't in THEMES", async () => {
+    for (const theme of ["health", "Home", ""]) {
+      const res = await app().inject({ method: "GET", url: `/api/words?theme=${theme}` });
+      expect(res.statusCode, theme).toBe(400);
+      expect(errorCode(res)).toBe("invalid_request");
+    }
+  });
+});
+
+describe("GET /api/themes (§9.1)", () => {
+  async function themes() {
+    const res = await app().inject({ method: "GET", url: "/api/themes" });
+    expect(res.statusCode).toBe(200);
+    return ThemeListResponse.parse(res.json()).themes;
+  }
+
+  it("counts the learner's words per effective theme, in THEMES order", async () => {
+    // A word in two themes counts in both.
+    await seedWord("Arzt", { themes: ["work", "body"] });
+    await seedWord("Büro", { themes: ["work"], status: "learned" });
+    // The learner's own themes replace the word's: work, not home.
+    await seedWord("Tisch", { themes: ["home"], ownThemes: ["work"] });
+    await seedWord("Stuhl", { themes: ["home"] });
+    // Ignored words count among the theme's words, not the ones to practise.
+    await seedWord("Bett", { themes: ["home"], status: "ignored" });
+    await seedWord("Lampe", { themes: ["home"], ownThemes: [] });
+    await seedWord("Kühlschrank");
+    // A key no longer in THEMES is left out.
+    await seedWord("Sofa", { themes: ["furniture" as ThemeKey] });
+    const other = await otherLearner();
+    await seedWord("Brot", { themes: ["food"], userId: other });
+
+    expect(await themes()).toEqual([
+      { key: "body", words: 1, practisable: 1 },
+      { key: "home", words: 2, practisable: 1 },
+      { key: "work", words: 3, practisable: 3 },
+    ]);
+  });
+
+  it("a theme whose words are all ignored is listed with none to practise", async () => {
+    await seedWord("Bett", { themes: ["home"], status: "ignored" });
+    expect(await themes()).toEqual([{ key: "home", words: 1, practisable: 0 }]);
+  });
+
+  it("leaves out themes without words: none at all for a list without themes", async () => {
+    expect(await themes()).toEqual([]);
+    await seedWord("Kühlschrank");
+    expect(await themes()).toEqual([]);
   });
 });
 

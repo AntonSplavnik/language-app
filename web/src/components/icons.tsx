@@ -169,6 +169,14 @@ export const TargetIcon = (props: IconProps) => (
   </Stroke>
 );
 
+/** A theme: the Theme source. */
+export const TagIcon = (props: IconProps) => (
+  <Stroke weight={1.8} {...props}>
+    <path d="M4 4h7.2l8.3 8.3a1.7 1.7 0 0 1 0 2.4l-4.8 4.8a1.7 1.7 0 0 1-2.4 0L4 11.2z" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+  </Stroke>
+);
+
 /** The AI and the dictionary disagree on an article (Review). */
 export const WarningIcon = (props: IconProps) => (
   <Stroke {...props}>

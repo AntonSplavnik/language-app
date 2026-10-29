@@ -19,7 +19,7 @@ export async function startSession(
   userId: number,
   choice: SessionChoice,
 ): Promise<SessionResponse> {
-  const { source, importId } = choice;
+  const { source, importId, theme } = choice;
   // Only a finished import of the learner's can be practised (§9).
   if (importId !== undefined) {
     const [found] = await db
@@ -35,7 +35,7 @@ export async function startSession(
   }
   const [session] = await db
     .insert(sessions)
-    .values({ userId, source, importId: importId ?? null })
+    .values({ userId, source, importId: importId ?? null, theme: theme ?? null })
     .returning();
   if (!session) throw new Error("insert returned no row");
   return { id: session.id, source, cards };

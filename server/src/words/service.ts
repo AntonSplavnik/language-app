@@ -1,13 +1,16 @@
 import {
   type DeleteWordResponse,
   knownThemes,
+  THEME_KEYS,
+  type ThemeKey,
+  type ThemeListResponse,
   type UpdateWordRequest,
   type WordDetail,
   type WordListQuery,
   type WordListResponse,
   type WordStatus,
 } from "@language-app/core";
-import { and, asc, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { userWords, words, wordTranslations } from "../db/schema";
 import { HttpError } from "../http/errors";
@@ -31,19 +34,30 @@ function searchFilter(q: string | undefined): SQL | undefined {
 }
 
 /**
- * The learner's words (§9.1): one status or all, searched, from one import or all, A–Z or newest
- * first. The counts per status cover the same search and import, whatever status was asked for.
+ * A word's effective themes (§5): the learner's own when they chose, otherwise the word's. Null
+ * when neither has any, which is under no theme.
+ */
+const effectiveThemes = sql<string[] | null>`coalesce(${userWords.themes}, ${words.themes})`;
+
+/** The learner's words with this theme among their effective ones. */
+export const hasTheme = (theme: ThemeKey): SQL => sql`${theme} = any(${effectiveThemes})`;
+
+/**
+ * The learner's words (§9.1): one status or all, searched, from one import or one theme or all,
+ * A–Z or newest first. The counts per status cover the same search, import and theme, whatever
+ * status was asked for.
  */
 export async function listWords(
   db: Db,
   userId: number,
-  { status, q, importId, sort = "az" }: WordListQuery,
+  { status, q, importId, theme, sort = "az" }: WordListQuery,
 ): Promise<WordListResponse> {
   const language = await learnerLanguageOf(db, userId);
   // The words the import created; an import of another learner's has none of this learner's.
   const mine = and(
     eq(userWords.userId, userId),
     importId === undefined ? undefined : eq(userWords.importId, importId),
+    theme === undefined ? undefined : hasTheme(theme),
   );
   const search = searchFilter(q);
   const order =
@@ -82,6 +96,37 @@ export async function listWords(
   for (const row of perStatus) counts[row.status] = row.n;
 
   return { words: list, counts };
+}
+
+/**
+ * The learner's themes that have words (§9.1), in THEMES order: their words in every status, and
+ * those a session can take (`learning` + `learned`). A word in two themes counts in both; a key
+ * no longer in THEMES is left out.
+ */
+export async function listThemes(db: Db, userId: number): Promise<ThemeListResponse> {
+  // One row per word and theme.
+  const themed = db
+    .select({ key: sql<string>`unnest(${effectiveThemes})`.as("key"), status: userWords.status })
+    .from(userWords)
+    .innerJoin(words, eq(userWords.wordId, words.id))
+    .where(eq(userWords.userId, userId))
+    .as("themed");
+  const practisable = inArray(themed.status, ["learning", "learned"]);
+  const rows = await db
+    .select({
+      key: themed.key,
+      words: count(),
+      practisable: sql<number>`(count(*) filter (where ${practisable}))::int`,
+    })
+    .from(themed)
+    .groupBy(themed.key);
+  const counts = new Map(rows.map((row) => [row.key, row]));
+  return {
+    themes: THEME_KEYS.flatMap((theme) => {
+      const row = counts.get(theme);
+      return row ? [{ key: theme, words: row.words, practisable: row.practisable }] : [];
+    }),
+  };
 }
 
 export async function getWordDetail(

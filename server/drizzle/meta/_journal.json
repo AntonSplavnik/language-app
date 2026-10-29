@@ -64,6 +64,13 @@
       "when": 1793266539843,
       "tag": "0008_themes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793273316867,
+      "tag": "0009_session-theme",
+      "breakpoints": true
     }
   ]
 }

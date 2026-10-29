@@ -57,7 +57,7 @@ export const AiCallType = z.enum(["extract", "enrich", "describe"]);
 export type AiCallType = z.infer<typeof AiCallType>;
 
 /** Where a practice session takes its words from (§8.1); `import` is one past import (§9.2). */
-export const SessionSource = z.enum(["import", "last_7_days", "not_learned"]);
+export const SessionSource = z.enum(["import", "theme", "last_7_days", "not_learned"]);
 export type SessionSource = z.infer<typeof SessionSource>;
 
 export const Auxiliary = z.enum(["haben", "sein"]);

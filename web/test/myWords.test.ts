@@ -7,9 +7,11 @@ import {
   listRequest,
   parseListQuery,
   viewFromValue,
+  viewGone,
   viewValue,
   wordsUrl,
 } from "../src/words/listQuery";
+import { themeMenuText } from "../src/words/themes";
 
 describe("letter sections of the list (§10)", () => {
   const words = (...lemmas: string[]) => lemmas.map((lemma, id) => ({ id, lemma }));
@@ -149,6 +151,64 @@ describe("My words URL (§10)", () => {
     expect(views.map(viewValue)).toEqual(["az", "newest", "import-5"]);
     for (const view of views) expect(viewFromValue(viewValue(view))).toEqual(view);
     expect(viewFromValue("import-x")).toEqual(AZ);
+  });
+});
+
+describe("My words by theme (§10 screen 7)", () => {
+  const AZ = { kind: "az" } as const;
+  const home = { kind: "theme", theme: "home" } as const;
+
+  it("reads a theme from the URL; a key that isn't in THEMES is All words · A–Z", () => {
+    const view = (query: string) => parseListQuery(new URLSearchParams(query)).view;
+    expect(view("theme=home")).toEqual(home);
+    expect(view("theme=free-time")).toEqual({ kind: "theme", theme: "free-time" });
+    // A theme shows its words A–Z; a sort next to it is ignored.
+    expect(view("theme=home&sort=newest")).toEqual(home);
+    for (const odd of ["theme=health", "theme=Home", "theme=", "theme=home-2"]) {
+      expect(view(odd), odd).toEqual(AZ);
+    }
+  });
+
+  it("keeps the theme in the URL and asks the server for its words", () => {
+    const url = wordsUrl({ status: "learned", q: "tisch", view: home });
+    expect(url).toBe("/words?status=learned&q=tisch&theme=home");
+    expect(parseListQuery(new URL(url, "http://x").searchParams)).toEqual({
+      status: "learned",
+      q: "tisch",
+      view: home,
+    });
+    expect(listRequest({ status: "learning", q: "", view: home })).toEqual({
+      status: "learning",
+      q: "",
+      theme: "home",
+    });
+  });
+
+  it("the view menu's values stand for the themes", () => {
+    expect(viewValue(home)).toBe("theme-home");
+    expect(viewFromValue("theme-free-time")).toEqual({ kind: "theme", theme: "free-time" });
+    expect(viewFromValue("theme-health")).toEqual(AZ);
+  });
+
+  it("lists each theme under Themes by its label and its words", () => {
+    expect(themeMenuText({ key: "home", words: 34 })).toBe("Home (34)");
+    expect(themeMenuText({ key: "body", words: 1 })).toBe("Body & health (1)");
+  });
+
+  it("falls back to All words · A–Z once the menu is in and no longer has the view", () => {
+    const menu = {
+      imports: [{ id: 5 }],
+      themes: [{ key: "home" as const }, { key: "work" as const }],
+    };
+    expect(viewGone(home, menu)).toBe(false);
+    expect(viewGone({ kind: "theme", theme: "food" }, menu)).toBe(true);
+    expect(viewGone({ kind: "import", importId: 5 }, menu)).toBe(false);
+    expect(viewGone({ kind: "import", importId: 6 }, menu)).toBe(true);
+    // While the menu loads, or when it couldn't be loaded, the view stays.
+    expect(viewGone({ kind: "theme", theme: "food" }, { ...menu, themes: null })).toBe(false);
+    expect(viewGone({ kind: "import", importId: 6 }, { ...menu, imports: null })).toBe(false);
+    expect(viewGone(AZ, { imports: [], themes: [] })).toBe(false);
+    expect(viewGone({ kind: "newest" }, { imports: [], themes: [] })).toBe(false);
   });
 });
 

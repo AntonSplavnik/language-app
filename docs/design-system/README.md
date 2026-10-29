@@ -52,7 +52,7 @@ A visual version with live previews of every component in both themes is the **G
 - [SearchField](components/SearchField.md): The search on My words: 48 px, `radius-field`, `surface` + `border`, a 18 px search icon inside at the left in `muted`, 16 px text.
 - [CheckList](components/CheckList.md): A card of rows that each toggle a check, a 24 px ring that fills lime (Edit word's Themes card, at most 2 checked); the label, an optional action (Use suggested) and help at the top.
 - [SourceOption](components/SourceOption.md): A radio choice drawn as a card (Practice setup): icon well, title over description, and the count at the right.
-- [SelectPill](components/SelectPill.md): A native select drawn as a pill with the chosen text and a chevron, the select invisible on top (My words' view menu, Practice setup's Import menu).
+- [SelectPill](components/SelectPill.md): A native select drawn as a pill with the chosen text and a chevron, the select invisible on top (My words' view menu, Practice setup's Import and Theme menus).
 - [StatusSelect](components/StatusSelect.md): The word's status on Word detail: a native `<select>` (Learning / Learned / Ignored) styled as a pill, so the phone's own picker opens.
 - [TextField](components/TextField.md): Text inputs, in three settings: on a card, on the page, and several in a form card (`FormCard`: Sign in, Create account).
 
@@ -138,7 +138,7 @@ Use the named styles (`display-hero` … `badge`) and nothing between them. Inpu
 
 ## Iconography
 
-Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stroke="currentColor"`, round caps and joins, stroke 2 (1.8 for the book, camera, calendar, target and gear; 1.9 for the trash), drawn at 20 px by default (16 px inside small text, 22 px in answer buttons, 24–32 px in big wells). They inherit the text colour of their control and are always `aria-hidden`: the button around them carries the `aria-label`. The only filled icon is Play. Add a new icon to `icons.tsx` in the same style rather than importing an icon set. The one logo, Google's "G" on GoogleButton, is not an icon: it keeps Google's four colours and lives in `GoogleButton.tsx`. The SVG files in the Icons asset group are copies for reference, drawn in a fixed grey ink (`#85848f`); in the app they take the text colour.
+Inline stroke SVGs from `web/src/components/icons.tsx`, on a 24-unit grid, `stroke="currentColor"`, round caps and joins, stroke 2 (1.8 for the book, camera, tag, calendar, target and gear; 1.9 for the trash), drawn at 20 px by default (16 px inside small text, 22 px in answer buttons, 24–32 px in big wells). They inherit the text colour of their control and are always `aria-hidden`: the button around them carries the `aria-label`. The only filled icon is Play. Add a new icon to `icons.tsx` in the same style rather than importing an icon set. The one logo, Google's "G" on GoogleButton, is not an icon: it keeps Google's four colours and lives in `GoogleButton.tsx`. The SVG files in the Icons asset group are copies for reference, drawn in a fixed grey ink (`#85848f`); in the app they take the text colour.
 
 ## Accessibility rules
 

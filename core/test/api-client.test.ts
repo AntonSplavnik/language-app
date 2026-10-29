@@ -254,6 +254,31 @@ describe("session endpoints", () => {
     });
     expect(body).toEqual({ source: "import", importId: 5 });
   });
+
+  it("createSession sends the theme to practise (§19.9)", async () => {
+    let body: unknown;
+    const api = createApiClient({
+      fetch: async (_input, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ id: 9, source: "theme", cards: [] }));
+      },
+    });
+    expect((await api.createSession({ source: "theme", theme: "home" })).source).toBe("theme");
+    expect(body).toEqual({ source: "theme", theme: "home" });
+  });
+
+  it("listThemes reads the learner's themes with their counts (§19.9)", async () => {
+    const themes = { themes: [{ key: "home", words: 34, practisable: 20 }] };
+    const calls: string[] = [];
+    const api = createApiClient({
+      fetch: async (input, init) => {
+        calls.push(`${init?.method ?? "GET"} ${String(input)}`);
+        return new Response(JSON.stringify(themes));
+      },
+    });
+    expect(await api.listThemes()).toEqual(themes);
+    expect(calls).toEqual(["GET /api/themes"]);
+  });
 });
 
 describe("CreateSessionRequest (§9)", () => {
@@ -265,6 +290,20 @@ describe("CreateSessionRequest (§9)", () => {
       false,
     );
     expect(CreateSessionRequest.safeParse({ source: "last_import" }).success).toBe(false);
+  });
+
+  it("needs a known theme for theme, and no other source takes one (§19.9)", () => {
+    expect(CreateSessionRequest.safeParse({ source: "theme", theme: "home" }).success).toBe(true);
+    for (const body of [
+      { source: "theme" },
+      { source: "theme", theme: "health" },
+      { source: "theme", theme: null },
+      { source: "theme", theme: "home", importId: 5 },
+      { source: "import", importId: 5, theme: "home" },
+      { source: "not_learned", theme: "home" },
+    ]) {
+      expect(CreateSessionRequest.safeParse(body).success, JSON.stringify(body)).toBe(false);
+    }
   });
 });
 
@@ -353,6 +392,12 @@ describe("word endpoints", () => {
       "/api/words?status=learning&importId=5",
       "/api/words?sort=newest&q=tisch",
     ]);
+  });
+
+  it("listWords sends the theme (§19.9)", async () => {
+    const { calls, api } = recording();
+    await api.listWords({ status: "learned", q: "tisch", theme: "free-time" });
+    expect(calls.map((c) => c.url)).toEqual(["/api/words?status=learned&q=tisch&theme=free-time"]);
   });
 
   it("getWord, updateWord and deleteWord use the right methods, paths and bodies", async () => {

@@ -1,6 +1,8 @@
 import {
   displayTranslation,
   LEARNED_STREAK,
+  type ThemeSummary,
+  themeLabel,
   type WordListItem,
   type WordListResponse,
 } from "@language-app/core";
@@ -28,9 +30,12 @@ import {
   parseListQuery,
   TABS,
   viewFromValue,
+  viewGone,
   viewValue,
   wordsUrl,
 } from "../words/listQuery";
+import { themeMenuText } from "../words/themes";
+import { useThemes } from "../words/useThemes";
 import styles from "./MyWordsScreen.module.css";
 
 /** Typing waits this long before searching. */
@@ -56,6 +61,8 @@ export function MyWordsScreen() {
   const latestRequest = useRef(0);
   const { state: past } = usePastImports();
   const imports = past.kind === "ready" ? labelImports(past.imports) : null;
+  const themeList = useThemes();
+  const themes = themeList.kind === "ready" ? themeList.themes : null;
 
   // The search and the view go into the URL, so Back from a word returns to the same list.
   // `replace`: tabs, searches and views are not steps the Back button should walk through.
@@ -86,18 +93,22 @@ export function MyWordsScreen() {
 
   useEffect(load, [load]);
 
-  // Without the imports the list still loads as asked; the menu offers only the All words views.
+  // Without the imports or the themes the list still loads as asked; the menu leaves them out.
   const importsError = past.kind === "error" ? past.message : null;
   useEffect(() => {
     if (importsError) toast.show(importsError);
   }, [importsError, toast]);
-
-  // An import that is no longer in the menu (its words were all deleted) falls back to A–Z.
-  const importGone =
-    view.kind === "import" && imports !== null && !imports.some((i) => i.id === view.importId);
+  const themesError = themeList.kind === "error" ? themeList.message : null;
   useEffect(() => {
-    if (importGone) show({ view: { kind: "az" } });
-  }, [importGone, show]);
+    if (themesError) toast.show(themesError);
+  }, [themesError, toast]);
+
+  // An import that is no longer in the menu (its words were all deleted), or a theme without
+  // words, falls back to A–Z.
+  const gone = viewGone(view, { imports, themes });
+  useEffect(() => {
+    if (gone) show({ view: { kind: "az" } });
+  }, [gone, show]);
 
   // While another search loads, the previous results of the same tab and view stay on screen.
   const shown =
@@ -136,7 +147,12 @@ export function MyWordsScreen() {
         />
       </form>
 
-      <ViewMenu view={view} imports={imports} onChange={(next) => show({ view: next })} />
+      <ViewMenu
+        view={view}
+        imports={imports}
+        themes={themes}
+        onChange={(next) => show({ view: next })}
+      />
 
       <SegmentedTabs
         label="Word status"
@@ -184,21 +200,32 @@ export function MyWordsScreen() {
 const VIEW_TEXT = { az: "All words · A–Z", newest: "All words · Newest first" };
 
 /**
- * All words · A–Z, All words · Newest first, then the past imports under "Imports" (§10). Until the
- * imports are in (or when they fail to load), an import in the URL shows as "One import".
+ * All words · A–Z, All words · Newest first, then the past imports under "Imports" and the themes
+ * with words under "Themes" (§10). Until the imports are in (or when they fail to load), an import
+ * in the URL shows as "One import"; a theme shows its label.
  */
 function ViewMenu({
   view,
   imports,
+  themes,
   onChange,
 }: {
   view: ListView;
   imports: LabelledImport[] | null;
+  themes: ThemeSummary[] | null;
   onChange: (view: ListView) => void;
 }) {
-  const chosen =
+  const chosenImport =
     view.kind === "import" ? imports?.find((item) => item.id === view.importId) : undefined;
-  const text = view.kind === "import" ? (chosen?.label ?? "One import") : VIEW_TEXT[view.kind];
+  const chosenTheme =
+    view.kind === "theme" ? themes?.find((item) => item.key === view.theme) : undefined;
+  const text =
+    view.kind === "import"
+      ? (chosenImport?.label ?? "One import")
+      : view.kind === "theme"
+        ? themeLabel(view.theme)
+        : VIEW_TEXT[view.kind];
+  const listed = view.kind === "import" ? chosenImport : view.kind === "theme" ? chosenTheme : true;
   return (
     <SelectPill
       className={styles.view}
@@ -218,12 +245,24 @@ function ViewMenu({
           ))}
         </optgroup>
       )}
-      {view.kind === "import" && !chosen && <option value={viewValue(view)}>{text}</option>}
+      {themes && themes.length > 0 && (
+        <optgroup label="Themes">
+          {themes.map((theme) => (
+            <option key={theme.key} value={viewValue({ kind: "theme", theme: theme.key })}>
+              {themeMenuText(theme)}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {!listed && <option value={viewValue(view)}>{text}</option>}
     </SelectPill>
   );
 }
 
-/** Newest first under day headings; A–Z (all words or one import's) under letter headings. */
+/**
+ * Newest first under day headings; A–Z (all words, one import's or one theme's) under letter
+ * headings.
+ */
 function Sections({ words, view, from }: { words: WordListItem[]; view: ListView; from: string }) {
   const groups =
     view.kind === "newest"
@@ -299,7 +338,7 @@ const EMPTY: Record<ListQuery["status"], { title: string; text: string }> = {
 
 function EmptyList({ query, counts }: { query: ListQuery; counts: WordListResponse["counts"] }) {
   const tab = TABS.find((t) => t.status === query.status)?.label.toLowerCase();
-  // A search, or one import, may have words in the other tabs.
+  // A search, one import or one theme may have words in the other tabs.
   const elsewhere = TABS.filter((t) => t.status !== query.status && counts[t.status] > 0).map(
     (t) => (
       <Link
@@ -329,6 +368,15 @@ function EmptyList({ query, counts }: { query: ListQuery; counts: WordListRespon
       <div className={styles.empty}>
         <EmptyIcon />
         <p className={styles.emptyTitle}>No {tab} words from this import.</p>
+        {elsewhere}
+      </div>
+    );
+  }
+  if (query.view.kind === "theme") {
+    return (
+      <div className={styles.empty}>
+        <EmptyIcon />
+        <p className={styles.emptyTitle}>No {tab} words in this theme.</p>
         {elsewhere}
       </div>
     );

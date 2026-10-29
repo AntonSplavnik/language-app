@@ -6,11 +6,13 @@ import {
   THEME_KEYS,
   THEMES,
   ThemeKey,
+  ThemeListResponse,
   ThemesOutput,
   themeLabel,
   UpdateWordRequest,
   WordDetail,
   WordListItem,
+  WordListQuery,
 } from "../src";
 
 describe("THEMES (docs/design.md §19.2)", () => {
@@ -116,5 +118,36 @@ describe("the schemas with themes (§19.6)", () => {
     expect(
       ThemesOutput.safeParse({ words: [{ ref: 0, lemma: "Arzt", themes: ["body", "x"] }] }).success,
     ).toBe(true);
+  });
+});
+
+describe("filtering and practising by theme (§19.9)", () => {
+  it("GET /words takes one known theme", () => {
+    expect(WordListQuery.parse({ status: "learning", theme: "home" })).toEqual({
+      status: "learning",
+      theme: "home",
+    });
+    expect(WordListQuery.parse({})).toEqual({});
+    for (const theme of ["health", "", "Home"]) {
+      expect(WordListQuery.safeParse({ theme }).success, theme).toBe(false);
+    }
+  });
+
+  it("GET /themes: known keys, each with its words and the practisable ones", () => {
+    const themes = [
+      { key: "home", words: 34, practisable: 20 },
+      { key: "work", words: 3, practisable: 0 },
+    ];
+    expect(ThemeListResponse.parse({ themes })).toEqual({ themes });
+    for (const bad of [
+      { key: "health", words: 3, practisable: 1 },
+      { key: "home", words: -1, practisable: 0 },
+      { key: "home", words: 2, practisable: 1.5 },
+      { key: "home", words: 2 },
+    ]) {
+      expect(ThemeListResponse.safeParse({ themes: [bad] }).success, JSON.stringify(bad)).toBe(
+        false,
+      );
+    }
   });
 });

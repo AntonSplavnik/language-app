@@ -53,7 +53,7 @@ export const NOTE_MAX = 2000;
 export const WordSort = z.enum(["az", "newest"]);
 export type WordSort = z.infer<typeof WordSort>;
 
-/** `GET /api/words?status=&q=&importId=&sort=` (§9.1). */
+/** `GET /api/words?status=&q=&importId=&theme=&sort=` (§9.1). */
 export const WordListQuery = z.object({
   /** Absent: every status. */
   status: WordStatus.optional(),
@@ -61,6 +61,8 @@ export const WordListQuery = z.object({
   q: z.string().max(100).optional(),
   /** Only the words this import created; an id that isn't one of the learner's matches nothing. */
   importId: z.coerce.number().int().positive().optional(),
+  /** Only the words with this theme among their effective ones; a key not in THEMES is refused. */
+  theme: ThemeKey.optional(),
   /** `az` when absent. */
   sort: WordSort.optional(),
 });
@@ -90,12 +92,26 @@ export const WordListResponse = z.object({
    */
   words: z.array(WordListItem),
   /**
-   * Words per status that match `q` and `importId` (all of them without either), whatever
+   * Words per status that match `q`, `importId` and `theme` (all of them without any), whatever
    * `status` asked for.
    */
   counts: z.record(WordStatus, z.number().int().nonnegative()),
 });
 export type WordListResponse = z.infer<typeof WordListResponse>;
+
+/** One of the learner's themes (§9.1): how many of their words have it. */
+export const ThemeSummary = z.object({
+  key: ThemeKey,
+  /** The learner's words with the theme, in every status (My words' view menu). */
+  words: z.number().int().nonnegative(),
+  /** Those of them `learning` or `learned`: what a theme session draws on (§8.1). */
+  practisable: z.number().int().nonnegative(),
+});
+export type ThemeSummary = z.infer<typeof ThemeSummary>;
+
+/** `GET /api/themes`: the learner's themes that have words, in THEMES order. */
+export const ThemeListResponse = z.object({ themes: z.array(ThemeSummary) });
+export type ThemeListResponse = z.infer<typeof ThemeListResponse>;
 
 /** `GET /api/words/:userWordId`: everything about one of the learner's words (§10 Word detail). */
 export const WordDetail = WordView.extend({

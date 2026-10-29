@@ -240,6 +240,8 @@ export const sessions = pgTable("sessions", {
   source: text().$type<SessionSource>().notNull(),
   /** The import practised, for source `import`; null otherwise (§5). */
   importId: integer().references(() => imports.id, { onDelete: "set null" }),
+  /** The theme practised, for source `theme`; null otherwise (§5). */
+  theme: text().$type<ThemeKey>(),
   startedAt: timestampTz().notNull().defaultNow(),
   finishedAt: timestampTz(),
 });

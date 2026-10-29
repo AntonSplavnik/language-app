@@ -53,6 +53,7 @@ import {
 import {
   DeleteWordResponse,
   EnrichPendingResponse,
+  ThemeListResponse,
   type UpdateWordRequest,
   WordDetail,
   type WordListQuery,
@@ -212,6 +213,8 @@ export function createApiClient({ baseUrl = "", fetch }: ApiClientOptions) {
     updateWord: (id: number, body: UpdateWordRequest) =>
       sendJson(WordDetail, "PATCH", `/words/${id}`, body),
     deleteWord: (id: number) => request(DeleteWordResponse, `/words/${id}`, { method: "DELETE" }),
+    /** The learner's themes that have words, with their counts (§9.1), in THEMES order. */
+    listThemes: () => request(ThemeListResponse, "/themes"),
 
     sessionOptions: () => request(SessionOptionsResponse, "/sessions/options"),
     createSession: (body: CreateSessionRequest) => postJson(SessionResponse, "/sessions", body),
