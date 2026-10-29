@@ -14,12 +14,14 @@ import { Headword } from "../components/Headword";
 import { ChevronDownIcon, PencilIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { SpeakerButton } from "../components/SpeakerButton";
+import { ThemeChips } from "../components/ThemeChips";
 import { WordLoadState } from "../components/WordLoadState";
 import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
 import type { EditState } from "../words/editHistory";
 import { historyLine, sourceNote, streakLabel } from "../words/labels";
 import { TABS, wordsUrl } from "../words/listQuery";
+import { themeChips } from "../words/themes";
 import { useWord } from "../words/useWord";
 import styles from "./WordDetailScreen.module.css";
 
@@ -54,6 +56,7 @@ export function WordDetailScreen() {
   // A noun's gender colours its chip.
   const article = word.pos === "noun" ? word.article : null;
   const note = sourceNote(word);
+  const themes = themeChips(word);
   const streak = streakLabel(word);
   const shownStatus = savingStatus ?? word.status;
   const hasOwnTranslation = Boolean(word.customTranslation?.trim());
@@ -112,6 +115,8 @@ export function WordDetailScreen() {
               {back.forms && <span lang="de">{back.forms}</span>}
             </p>
           </div>
+          {/* Nothing when the word has no themes (§10). */}
+          {themes && <ThemeChips labels={themes.labels} own={themes.own} />}
 
           <div className={styles.meaning}>
             <h2 className={styles.label}>Meaning</h2>

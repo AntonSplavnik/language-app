@@ -32,7 +32,8 @@ pnpm test:live            # real Claude API calls (~1¢ on Haiku, the default; ~
 pnpm --filter server ai:try extract <photo> [--save name]      # one real call: words, tokens, time, cost
 pnpm --filter server ai:try enrich <words.json> [--save name]  # --save records a fixture in server/test/fixtures/ai/
 pnpm --filter server ai:try describe <text> [--entry file] [--save name]  # Ask AI (Call 3) for a typed word
-pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary, ~14 s
+pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl  # (re)load the dictionary and its themes (server/data/dictionary-themes.tsv; --themes <file> for another), ~15 s
+pnpm --filter server themes:classify [--estimate | --limit N | --only lemmas.txt]  # the dictionary run: themes every dictionary word via the Batches API (~$1, with the user's go-ahead); resumable; --estimate is free
 pnpm --filter server backfill:pronunciation                    # IPA and recordings for words saved before pronunciation existed; safe to rerun
 pnpm --filter server dict:lookup <lemma> <pos> [article]       # what the dictionary check sees for a word
 pnpm --filter server demo:import <photo> --user <email|username> [--save]  # whole import flow against a running `pnpm dev`, signed in (one real AI call)
@@ -42,7 +43,7 @@ pnpm --filter server user:set-password <email|username>      # new password (ask
 pnpm --filter server user:ai <email|username> on|off         # the account's AI features (photo/PDF import, Ask AI, example sentences)
 pnpm --filter server user:list                               # every account: methods, AI, words, created, last active; read-only
 pnpm --filter server user:delete <email|username>            # an account and all its data, in one transaction; asks for the username typed back
-pnpm --filter server backup:restore <file.dump.age> [dict]   # a nightly backup into an EMPTY DATABASE_URL; asks for the private age key (docs/design.md §18.6)
+pnpm --filter server backup:restore <file.dump.age> [dict] [themes]  # a nightly backup into an EMPTY DATABASE_URL; asks for the private age key (docs/design.md §18.6)
 pnpm --filter server db:counts                               # every table's exact row count in DATABASE_URL, read-only (the restore drill compares them)
 pnpm --filter server backup:role [role]                      # the read-only role backups dump as; password from BACKUP_ROLE_PASSWORD
 pnpm typecheck

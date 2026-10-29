@@ -39,3 +39,10 @@
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+
+/* Use suggested, in the Themes card's head: a Cancel-style pill a step smaller, as Ask AI. */
+.suggested {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+}

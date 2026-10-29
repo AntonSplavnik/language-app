@@ -1,7 +1,15 @@
-import { CUSTOM_TRANSLATION_MAX, cardBack, NOTE_MAX } from "@language-app/core";
+import {
+  CUSTOM_TRANSLATION_MAX,
+  cardBack,
+  NOTE_MAX,
+  THEMES,
+  type ThemeKey,
+  themeLabel,
+} from "@language-app/core";
 import { useId, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import { api } from "../api";
+import { CheckList, CheckRow } from "../components/CheckList";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Headword } from "../components/Headword";
 import { Page } from "../components/Page";
@@ -11,13 +19,15 @@ import { errorMessage, useToast } from "../lib/toast";
 import ui from "../styles/ui.module.css";
 import { afterDelete, type EditState, leaveEdit } from "../words/editHistory";
 import { wordsUrl } from "../words/listQuery";
+import { toggleTheme, usesOwnThemes } from "../words/themes";
 import { useWord } from "../words/useWord";
 import { changesOf, draftOf, type WordDraft } from "../words/wordForm";
 import styles from "./EditWordScreen.module.css";
 
 /**
- * The learner's own translation and note for a word, and deleting it (§10). A screen of its own
- * that looks like an iOS sheet: Cancel and Save return to Word detail without adding history.
+ * The learner's own translation, note and themes for a word, and deleting it (§10). A screen of
+ * its own that looks like an iOS sheet: Cancel and Save return to Word detail without adding
+ * history.
  */
 export function EditWordScreen() {
   const id = Number(useParams().id);
@@ -67,6 +77,13 @@ export function EditWordScreen() {
   const changes = changesOf(word, draft);
   const edit = (field: Partial<WordDraft>) =>
     setTyped((current) => ({ ...(current ?? draftOf(word)), ...field }));
+  // Use suggested shows while the checked themes aren't the word's own (§10).
+  const ownThemes = usesOwnThemes(draft.themes, word.suggestedThemes);
+  const toggle = (key: ThemeKey) => {
+    const { themes, limited } = toggleTheme(draft.themes, key);
+    if (limited) toast.show("At most 2 themes");
+    else edit({ themes });
+  };
 
   const save = async () => {
     if (!changes || busy) return;
@@ -146,6 +163,34 @@ export function EditWordScreen() {
             onChange={(event) => edit({ note: event.target.value })}
           />
         </label>
+        <CheckList
+          label="Themes"
+          help={
+            ownThemes
+              ? `Suggested: ${word.suggestedThemes.map(themeLabel).join(", ") || "none"}`
+              : "Up to 2. The first is the main one."
+          }
+          action={
+            ownThemes && (
+              <button
+                type="button"
+                className={`${ui.pill} ${ui.pillSecondary} ${styles.suggested}`}
+                onClick={() => edit({ themes: word.suggestedThemes })}
+              >
+                Use suggested
+              </button>
+            )
+          }
+        >
+          {THEMES.map((theme) => (
+            <CheckRow
+              key={theme.key}
+              label={theme.label}
+              checked={draft.themes.includes(theme.key)}
+              onToggle={() => toggle(theme.key)}
+            />
+          ))}
+        </CheckList>
       </form>
 
       <ConfirmDelete

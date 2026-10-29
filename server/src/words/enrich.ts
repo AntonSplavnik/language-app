@@ -1,14 +1,21 @@
-import type { EnrichInputWord, EnrichOutput, VerbForms } from "@language-app/core";
-import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
+import {
+  type EnrichInputWord,
+  type EnrichOutput,
+  knownThemes,
+  type VerbForms,
+} from "@language-app/core";
+import { and, count, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { AiClient } from "../ai/types";
 import type { Learner } from "../auth/learner";
 import type { Db } from "../db/client";
 import { userWords, words, wordTranslations } from "../db/schema";
 import { type DictionaryEntry, entriesForWord, lookupWords, wordKey } from "../dictionary/lookup";
+import { themesFromDictionary } from "../dictionary/themes";
 import { pronunciationOf } from "./pronunciation";
 
 // Enrichment (docs/design.md §6.6): example sentences for every word, plus the plural or verb
-// forms the dictionary doesn't have; the pronunciation comes from the dictionary only.
+// forms the dictionary doesn't have; the pronunciation comes from the dictionary only. Themes come
+// from the dictionary, else from the AI (§6.6).
 
 export const ENRICH_BATCH_SIZE = 30;
 /** Batches sent to the AI at the same time. */
@@ -63,6 +70,11 @@ export async function enrichWords(
       .set({ ...(forms ? { ...forms, formsSource: "dictionary" as const } : {}), ...pronunciation })
       .where(and(eq(words.id, word.id), isNull(words.enrichedAt)));
   }
+  // The dictionary's themes, for a word still without them (§6.6).
+  await themesFromDictionary(
+    db,
+    pendingWords.map((w) => w.id),
+  );
   if (!learner.aiEnabled) return { enriched: 0, pending: 0 };
 
   // 2. The AI writes every example sentence, and the forms the dictionary didn't have.
@@ -114,6 +126,8 @@ export async function enrichWords(
             exampleDe: result.exampleDe,
             enrichedAt: new Date(),
             ...(aiForms ? { ...aiForms, formsSource: "ai" as const } : {}),
+            // The AI's themes only for a word the dictionary didn't theme (§6.6).
+            themes: sql`coalesce(${words.themes}, ${sql.param(knownThemes(result.themes))}::text[])`,
           })
           .where(and(eq(words.id, word.id), isNull(words.enrichedAt)))
           .returning({ id: words.id });

@@ -15,6 +15,7 @@ import type { Db, Executor } from "../db/client";
 import { imports, users, userWords, words, wordTranslations } from "../db/schema";
 import { checkWord } from "../dictionary/check";
 import { lookupWords, wordKey } from "../dictionary/lookup";
+import { themesFromDictionary } from "../dictionary/themes";
 import { HttpError } from "../http/errors";
 import { type EnrichDeps, enrichWords } from "../words/enrich";
 import { candidateKey, newCandidateWords, type WordIdentity } from "./candidates";
@@ -27,8 +28,9 @@ export type ImportDeps = { db: Db; ai: AiClient; dailyPhotoLimit: number } & Day
 
 /**
  * The `words` row with this identity, created when there is none (§6.5, §6.7). `values` are only
- * used for a new row; an existing one is reused unchanged. Rows are found or created in a fixed
- * order by the callers, so concurrent saves lock them in the same order.
+ * used for a new row, which also gets the dictionary's themes at once (§6.5); an existing one is
+ * reused unchanged. Rows are found or created in a fixed order by the callers, so concurrent saves
+ * lock them in the same order.
  */
 export async function findOrCreateWordRow(
   tx: Executor,
@@ -40,7 +42,10 @@ export async function findOrCreateWordRow(
     .values({ language: TARGET_LANGUAGE, ...identity, ...values })
     .onConflictDoNothing()
     .returning({ id: words.id });
-  if (created) return { id: created.id, created: true };
+  if (created) {
+    await themesFromDictionary(tx, [created.id]);
+    return { id: created.id, created: true };
+  }
 
   const [existing] = await tx
     .select({ id: words.id })

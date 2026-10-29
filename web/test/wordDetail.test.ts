@@ -28,6 +28,9 @@ const tisch: WordDetail = {
   lastResult: null,
   lastPracticedAt: null,
   addedAt: "2026-10-01T10:00:00.000Z",
+  themes: ["home"],
+  suggestedThemes: ["home"],
+  themesOwn: false,
 };
 
 describe("source note on Word detail (§10)", () => {

@@ -55,6 +55,7 @@ describe("the tables a backup leaves the data of (backup-dump.sh)", () => {
     expect(excludedTables()).toEqual([
       "dictionary_entries",
       "dictionary_forms",
+      "dictionary_themes",
       "auth_sessions",
       "auth_verifications",
       "auth_rate_limits",

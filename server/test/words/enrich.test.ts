@@ -1,5 +1,5 @@
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import type { Article, Pos, WordStatus } from "@language-app/core";
+import type { Article, Pos, ThemeKey, WordStatus } from "@language-app/core";
 import { asc, eq, inArray } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createClaudeAi } from "../../src/ai/claude";
@@ -13,6 +13,7 @@ import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
+const THEMES = new URL("../fixtures/dictionary-themes-sample.tsv", import.meta.url).pathname;
 
 beforeEach(async () => {
   await loadDictionary(db, SAMPLE);
@@ -24,7 +25,11 @@ async function addWord(
   pos: Pos,
   article: Article | null,
   translation: string,
-  { status = "learning", enriched = false }: { status?: WordStatus; enriched?: boolean } = {},
+  {
+    status = "learning",
+    enriched = false,
+    themes = null,
+  }: { status?: WordStatus; enriched?: boolean; themes?: ThemeKey[] | null } = {},
 ) {
   const word = first(
     await db
@@ -35,6 +40,7 @@ async function addWord(
         pos,
         article,
         checkStatus: "match",
+        themes,
         ...(enriched ? { enrichedAt: new Date(), exampleDe: "Schon da." } : {}),
       })
       .returning({ id: words.id }),
@@ -59,6 +65,7 @@ function setup(
     effort: "medium",
   });
   return {
+    ai,
     requests: replay.requests,
     enrich: (wordIds: number[], importId: number | null = null) =>
       enrichWords(
@@ -67,6 +74,9 @@ function setup(
       ),
   };
 }
+
+const themesOf = async (id: number) =>
+  first(await db.select({ themes: words.themes }).from(words).where(eq(words.id, id))).themes;
 
 async function word(id: number) {
   const [row] = await db
@@ -297,5 +307,74 @@ describe("enrichWords (§6.6)", () => {
       .where(inArray(words.id, [tisch, other]))
       .orderBy(asc(words.id));
     expect(rows.map((r) => r.enrichedAt !== null)).toEqual([true, false]);
+  });
+});
+
+describe("themes in enrichment (§6.6)", () => {
+  beforeEach(async () => {
+    await loadDictionary(db, SAMPLE, { themes: THEMES });
+  });
+
+  it("asks Call 2 for every word's themes and stores them only where the word has none", async () => {
+    const kuehlschrank = await addWord("Kühlschrank", "noun", "der", "fridge"); // not in the file
+    const decided = await addWord("Garage", "noun", "die", "garage", { themes: [] });
+    const own = await addWord("Schreibtisch", "noun", "der", "desk", { themes: ["work"] });
+    const s = setup((request) =>
+      fakeEnrichResponse(request, (entry) => ({ ...entry, themes: ["home", "technology"] })),
+    );
+
+    expect(await s.enrich([kuehlschrank, decided, own])).toEqual({ enriched: 3, pending: 0 });
+
+    expect(await themesOf(kuehlschrank)).toEqual(["home", "technology"]);
+    expect(await themesOf(decided)).toEqual([]);
+    expect(await themesOf(own)).toEqual(["work"]);
+    expect(s.requests[0]?.system).toEqual(expect.stringContaining("- offices: "));
+  });
+
+  it("drops unknown keys and keeps at most 2 of Call 2's themes", async () => {
+    const one = await addWord("Kühlschrank", "noun", "der", "fridge");
+    const two = await addWord("Schreibtisch", "noun", "der", "desk");
+    const s = setup((request) =>
+      fakeEnrichResponse(request, (entry) => ({
+        ...entry,
+        themes:
+          entry.lemma === "Kühlschrank"
+            ? ["kitchen", "home", "home", "food", "technology"]
+            : ["furniture", "office"],
+      })),
+    );
+
+    await s.enrich([one, two]);
+
+    expect(await themesOf(one)).toEqual(["home", "food"]);
+    // Nothing known left: decided as none.
+    expect(await themesOf(two)).toEqual([]);
+  });
+
+  it("the dictionary step gives a word still without themes the dictionary's first", async () => {
+    const tisch = await addWord("Tisch", "noun", "der", "table");
+    const s = setup((request) =>
+      fakeEnrichResponse(request, (entry) => ({ ...entry, themes: ["culture"] })),
+    );
+
+    await s.enrich([tisch]);
+    expect(await themesOf(tisch)).toEqual(["home", "food"]);
+  });
+
+  it("the dictionary's themes come without AI, and stay when the AI call fails", async () => {
+    const tisch = await addWord("Tisch", "noun", "der", "table");
+    const see = await addWord("See", "noun", "die", "sea");
+    const kuehlschrank = await addWord("Kühlschrank", "noun", "der", "fridge");
+
+    await enrichWords(
+      { db, ai: setup().ai },
+      { learner: { id: LEARNER_ID, learnerLanguage: "en", aiEnabled: false }, wordIds: [tisch] },
+    );
+    expect(await themesOf(tisch)).toEqual(["home", "food"]);
+
+    await setup(() => apiError(529)).enrich([see, kuehlschrank]);
+    expect(await themesOf(see)).toEqual(["nature"]);
+    // A failed batch leaves the word undecided; Add details tries again.
+    expect(await themesOf(kuehlschrank)).toBeNull();
   });
 });

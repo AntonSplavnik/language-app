@@ -1,6 +1,7 @@
 // System prompts for the three Claude calls (docs/design.md §11.2, §11.3, §11.6).
 // After changing a prompt, re-record the fixtures (`pnpm --filter server ai:try … --save`)
 // and run `pnpm test:live`.
+import { THEME_RULES } from "./themes";
 
 const LANGUAGE_NAMES: Record<string, string> = { en: "English", ko: "Korean" };
 
@@ -44,8 +45,11 @@ The user message is a JSON list of words. For each word, return one entry with t
   - Nouns: "plural" is the nominative plural without the article ("Tische"); null if the noun has no plural. "forms" is null.
   - Verbs: "forms" holds "praeteritum" (3rd person singular Präteritum), "partizip2" (Partizip II) and "auxiliary" ("haben" or "sein"), e.g. gehen: "ging", "gegangen", "sein". Write separable verbs in full ("stand auf", "aufgestanden"). "plural" is null.
   - Any other part of speech: both null.
+- "themes": the word's theme keys, in the sense given by "translation", by the rules below.
 
-Return exactly one entry for every input word, in the input order.`;
+Return exactly one entry for every input word, in the input order.
+
+${THEME_RULES}`;
 }
 
 export function describeSystemPrompt(learnerLanguage: string): string {

@@ -25,6 +25,7 @@ import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
+const THEMES = new URL("../fixtures/dictionary-themes-sample.tsv", import.meta.url).pathname;
 
 beforeEach(async () => {
   await loadDictionary(db, SAMPLE);
@@ -314,6 +315,24 @@ describe("POST /api/words: one typed word (§6.7, §9.3)", () => {
       expect(errorCode(res)).toBe("invalid_request");
     }
     expect(await db.select().from(userWords)).toEqual([]);
+  });
+
+  it("a new word gets the dictionary's themes at once; Call 2's only where it has none (§6.7)", async () => {
+    await loadDictionary(db, SAMPLE, { themes: THEMES });
+    const s = setup((r) => fakeEnrichResponse(r, (entry) => ({ ...entry, themes: ["culture"] })));
+    const [, bank] = (await s.lookup("Bank")).entries as [EntryView, EntryView];
+
+    await s.addWords({
+      words: [fromEntry(bank, "bank"), byHand("Kühlschrank", "noun", "der", "fridge")],
+    });
+
+    const themesOf = async (lemma: string) =>
+      (await db.select({ themes: words.themes }).from(words).where(eq(words.lemma, lemma)))[0]
+        ?.themes;
+    // The dictionary's, kept although Call 2 answered too.
+    expect(await themesOf("Bank")).toEqual(["offices", "shopping"]);
+    // Not in the dictionary's themes: Call 2's.
+    expect(await themesOf("Kühlschrank")).toEqual(["culture"]);
   });
 
   it("enrichment failing leaves the words saved, with details pending", async () => {

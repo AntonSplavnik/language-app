@@ -15,6 +15,7 @@
     "serve:vercel": "node scripts/serve-vercel.ts",
     "ai:try": "tsx scripts/ai-try.ts",
     "import:wiktionary": "tsx scripts/import-wiktionary.ts",
+    "themes:classify": "tsx scripts/themes-classify.ts",
     "dict:lookup": "tsx scripts/dict-lookup.ts",
     "backfill:pronunciation": "tsx scripts/backfill-pronunciation.ts",
     "demo:import": "tsx scripts/demo-import.ts",

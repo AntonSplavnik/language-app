@@ -5,6 +5,7 @@ import { asc } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createClaudeAi, FALLBACK_BETA, MAX_TOKENS } from "../../src/ai/claude";
+import { THEME_RULES } from "../../src/ai/themes";
 import { AiError } from "../../src/ai/types";
 import { dbUsageSink } from "../../src/ai/usage";
 import { aiUsage, imports } from "../../src/db/schema";
@@ -294,6 +295,22 @@ describe("enrichWords (§11.3)", () => {
     // needsForms was false: no forms, but still an example sentence.
     expect(byLemma.get("Garage")).toMatchObject({ plural: null, forms: null });
     expect(byLemma.get("Garage")?.exampleDe).toMatch(/Garage/);
+  });
+
+  it("returns themes for every word, by the shared rules (§11.3)", async () => {
+    const { ai, requests } = setup(enrichFixture.response);
+    const { words } = await ai.enrichWords(input, ctx);
+
+    const themes = Object.fromEntries(words.map((w) => [w.lemma, w.themes]));
+    expect(themes).toMatchObject({
+      Schreibtisch: ["home"],
+      Kühlschrank: ["home"],
+      Arbeit: ["work"],
+      verkaufen: ["shopping"],
+      // A general verb gets none.
+      sehen: [],
+    });
+    expect(String(first(requests).system)).toContain(THEME_RULES);
   });
 
   it("sends the words as JSON and records an enrich usage row", async () => {

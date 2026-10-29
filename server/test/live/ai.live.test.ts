@@ -4,7 +4,7 @@
 // Ask AI calls.
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { EnrichInputWord } from "@language-app/core";
+import { EnrichInputWord, knownThemes } from "@language-app/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { shrinkLikeTheBrowser } from "../../scripts/shrink-photo";
@@ -62,7 +62,7 @@ describe("live Claude calls", () => {
     },
   );
 
-  it("enriches a small batch, one entry per word with forms where asked", async () => {
+  it("enriches a small batch, one entry per word with forms and themes", async () => {
     const all = z
       .array(EnrichInputWord)
       .parse(
@@ -80,6 +80,10 @@ describe("live Claude calls", () => {
     expect(byLemma.get("aufstehen")?.forms?.auxiliary).toBe("sein");
     expect(byLemma.get("Garage")).toMatchObject({ plural: null, forms: null });
     for (const word of words) expect(word.exampleDe.length).toBeGreaterThan(5);
+    // Themes (§11.3): only known keys, at most 2; a desk and a garage belong to some theme.
+    for (const word of words) expect(knownThemes(word.themes), word.lemma).toEqual(word.themes);
+    expect(byLemma.get("Schreibtisch")?.themes.length).toBeGreaterThan(0);
+    expect(byLemma.get("Garage")?.themes.length).toBeGreaterThan(0);
   });
 
   it("Ask AI corrects a misspelt noun to its base form with its article", async () => {

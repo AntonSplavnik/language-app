@@ -34,6 +34,7 @@ import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
+const THEMES = new URL("../fixtures/dictionary-themes-sample.tsv", import.meta.url).pathname;
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]);
 
 beforeEach(async () => {
@@ -268,6 +269,25 @@ describe("typed words without AI (§6.7)", () => {
       formsSource: "dictionary",
       enrichedAt: null,
     });
+    expect(await db.select().from(aiUsage)).toEqual([]);
+  });
+
+  it("words get the dictionary's themes without AI; one the dictionary hasn't stays without (§6.6)", async () => {
+    await loadDictionary(db, SAMPLE, { themes: THEMES });
+    const s = await setup();
+    await s.saveList({
+      words: [
+        { lemma: "Tisch", pos: "noun", article: "der", translation: "table" },
+        { lemma: "Kühlschrank", pos: "noun", article: "der", translation: "fridge" },
+      ],
+    });
+
+    const themesOf = async (lemma: string) =>
+      (await db.select({ themes: words.themes }).from(words).where(eq(words.lemma, lemma)))[0]
+        ?.themes;
+    expect(await themesOf("Tisch")).toEqual(["home", "food"]);
+    // The known gap (§6.6): no AI, so no themes until an account with AI adds it.
+    expect(await themesOf("Kühlschrank")).toBeNull();
     expect(await db.select().from(aiUsage)).toEqual([]);
   });
 

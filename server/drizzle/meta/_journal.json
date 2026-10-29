@@ -57,6 +57,13 @@
       "when": 1793022799830,
       "tag": "0007_clear-oauth-tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793266539843,
+      "tag": "0008_themes",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,11 @@
-import type {
-  DeleteWordResponse,
-  UpdateWordRequest,
-  WordDetail,
-  WordListQuery,
-  WordListResponse,
-  WordStatus,
+import {
+  type DeleteWordResponse,
+  knownThemes,
+  type UpdateWordRequest,
+  type WordDetail,
+  type WordListQuery,
+  type WordListResponse,
+  type WordStatus,
 } from "@language-app/core";
 import { and, asc, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
@@ -55,10 +56,16 @@ export async function listWords(
     timesSeen: userWords.timesSeen,
     correctStreak: userWords.correctStreak,
     addedAt: userWords.addedAt,
+    ownThemes: userWords.themes,
+    wordThemes: words.themes,
   })
     .where(and(mine, search, status ? eq(userWords.status, status) : undefined))
     .orderBy(...order);
-  const list = rows.map((row) => ({ ...row, addedAt: row.addedAt.toISOString() }));
+  const list = rows.map(({ ownThemes, wordThemes, ...row }) => ({
+    ...row,
+    addedAt: row.addedAt.toISOString(),
+    themes: knownThemes(ownThemes ?? wordThemes ?? []),
+  }));
 
   // The same search in every tab, so a word the learner looks for in the wrong tab is still found.
   const perStatus = await db
@@ -92,13 +99,21 @@ export async function getWordDetail(
     lastResult: userWords.lastResult,
     lastPracticedAt: userWords.lastPracticedAt,
     addedAt: userWords.addedAt,
+    ownThemes: userWords.themes,
+    wordThemes: words.themes,
   }).where(and(eq(userWords.id, userWordId), eq(userWords.userId, userId)));
   if (!row) throw wordNotFound();
 
+  const { ownThemes, wordThemes, ...word } = row;
+  const suggestedThemes = knownThemes(wordThemes ?? []);
   return {
-    ...row,
+    ...word,
     lastPracticedAt: row.lastPracticedAt?.toISOString() ?? null,
     addedAt: row.addedAt.toISOString(),
+    // The learner's own choice replaces the word's for them (§5).
+    themes: ownThemes ? knownThemes(ownThemes) : suggestedThemes,
+    suggestedThemes,
+    themesOwn: ownThemes !== null,
   };
 }
 
@@ -108,13 +123,14 @@ const cleared = (text: string | null | undefined) =>
 
 /**
  * Changes the learner's own data for a word. Moving a word into `learning` by hand resets its
- * streak, so the next correct answer doesn't mark it learned again at once (§8.5).
+ * streak, so the next correct answer doesn't mark it learned again at once (§8.5). Their own
+ * themes replace the word's for them only; `null` goes back to the word's (§5).
  */
 export async function updateWord(
   db: Db,
   userId: number,
   userWordId: number,
-  { status, customTranslation, note }: UpdateWordRequest,
+  { status, customTranslation, note, themes }: UpdateWordRequest,
 ): Promise<WordDetail> {
   const changes = {
     status,
@@ -125,8 +141,10 @@ export async function updateWord(
         : undefined,
     customTranslation: cleared(customTranslation),
     note: cleared(note),
+    themes,
   };
 
+  // A field set to null is a change too (themes: null), so only `undefined` counts as left out.
   if (Object.values(changes).some((value) => value !== undefined)) {
     const updated = await db
       .update(userWords)

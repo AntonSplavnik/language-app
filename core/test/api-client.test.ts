@@ -298,6 +298,9 @@ describe("word endpoints", () => {
     lastResult: "knew",
     lastPracticedAt: "2026-10-11T09:00:00.000Z",
     addedAt: "2026-10-10T09:00:00.000Z",
+    themes: ["home", "work"],
+    suggestedThemes: ["home"],
+    themesOwn: true,
   };
   const listed = {
     words: [
@@ -307,6 +310,7 @@ describe("word endpoints", () => {
         timesSeen: 2,
         correctStreak: 1,
         addedAt: "2026-10-10T09:00:00.000Z",
+        themes: ["home"],
       },
     ],
     counts: { learning: 1, learned: 0, ignored: 0 },
@@ -357,10 +361,12 @@ describe("word endpoints", () => {
     expect(await api.updateWord(4, { customTranslation: "desk", status: "learning" })).toEqual(
       detail,
     );
+    await api.updateWord(4, { themes: null });
     expect(await api.deleteWord(4)).toEqual({ deleted: true });
 
     expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
       "GET /api/words/4",
+      "PATCH /api/words/4",
       "PATCH /api/words/4",
       "DELETE /api/words/4",
     ]);
@@ -369,9 +375,11 @@ describe("word endpoints", () => {
       status: "learning",
     });
     expect(new Headers(calls[1]?.init?.headers).get("content-type")).toBe("application/json");
+    // Back to the word's themes: null is sent, not left out.
+    expect(JSON.parse(String(calls[2]?.init?.body))).toEqual({ themes: null });
     // A DELETE without a body must not claim to send JSON (Fastify rejects an empty JSON body).
-    expect(calls[2]?.init?.body).toBeUndefined();
-    expect(new Headers(calls[2]?.init?.headers).get("content-type")).toBeNull();
+    expect(calls[3]?.init?.body).toBeUndefined();
+    expect(new Headers(calls[3]?.init?.headers).get("content-type")).toBeNull();
   });
 });
 

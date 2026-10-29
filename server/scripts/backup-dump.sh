@@ -12,9 +12,9 @@
 set -euo pipefail
 
 # The tables backed up without their data (the tables themselves stay, empty after a restore): the
-# dictionary, which backup:restore loads again, and the sign-ins, so a backup holds no session
-# that still works. server/test/backup/backup.test.ts holds this list to the schema.
-EXCLUDED_TABLES="dictionary_entries dictionary_forms auth_sessions auth_verifications auth_rate_limits"
+# dictionary with its themes, which backup:restore loads again, and the sign-ins, so a backup holds
+# no session that still works. server/test/backup/backup.test.ts holds this list to the schema.
+EXCLUDED_TABLES="dictionary_entries dictionary_forms dictionary_themes auth_sessions auth_verifications auth_rate_limits"
 # Data a backup must have, or it fails: the accounts, the word lists, and the migrations' record
 # (without it `pnpm db:migrate` would try to rebuild a restored database).
 REQUIRED_DATA="public.users public.user_words drizzle.__drizzle_migrations"

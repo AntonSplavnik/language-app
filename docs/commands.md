@@ -245,9 +245,21 @@ pnpm --filter server ai:try extract path/to/photo.jpg
 pnpm --filter server dict:lookup Bank noun die
 ```
 
-### Reload the dictionary into the Mac's database (≈14 s)
+### Reload the dictionary into the Mac's database (≈15 s)
+It also loads the dictionary's themes from `server/data/dictionary-themes.tsv` and gives your saved words without themes theirs; until that file exists it says so and loads none.
 ```sh
 pnpm --filter server import:wiktionary data/kaikki/kaikki.org-dictionary-German.jsonl
+```
+
+### Estimate the dictionary's themes run (free: counts tokens, runs no model)
+```sh
+pnpm --filter server themes:classify --estimate
+```
+
+### Theme the whole dictionary (costs money, ≈$1; once, done together)
+Writes `server/data/dictionary-themes.tsv`. Takes a few minutes to an hour (the Batches API); if it stops, run the same command again and it goes on where it was.
+```sh
+pnpm --filter server themes:classify
 ```
 
 ## Dates to remember

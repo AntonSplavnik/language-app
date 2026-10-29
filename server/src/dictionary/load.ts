@@ -1,11 +1,19 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
 import type { Pos } from "@language-app/core";
 import { sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { dictionaryEntries, dictionaryForms } from "../db/schema";
 import { type DictionaryRow, type FormRow, mapLine } from "./kaikki";
+import { parseThemesFile, replaceDictionaryThemes, themesFromDictionary } from "./themes";
+
+/** The dictionary run's result (§7 Themes), committed to the repo; see themes.ts for its format. */
+export const DICTIONARY_THEMES_FILE = fileURLToPath(
+  new URL("../../data/dictionary-themes.tsv", import.meta.url),
+);
 
 /**
  * Rows per INSERT: as many as PostgreSQL's 65,535 parameters allow with room to spare (an entry
@@ -24,19 +32,61 @@ export type LoadResult = {
   /** Lines that were not valid JSON. */
   invalid: number;
   byPos: Partial<Record<Pos, number>>;
+  /** Rows written to dictionary_themes; null when there was no themes file to load (§7 Themes). */
+  themes: number | null;
+  /** Existing words without themes that got the dictionary's. */
+  wordsThemed: number;
+};
+
+export type LoadOptions = {
+  /**
+   * The dictionary's themes file (`DICTIONARY_THEMES_FILE`, §7 Themes). When it is missing, or not
+   * given, dictionary_themes and the words are left as they are.
+   */
+  themes?: string;
+  onProgress?: (result: LoadResult) => void;
 };
 
 /**
+ * What a load did with the themes, for the scripts that load the dictionary (import:wiktionary,
+ * backup:restore): how many it loaded, or a note that there was no file.
+ */
+export function themesLine(result: LoadResult, file: string): string {
+  if (result.themes === null) {
+    return (
+      `Themes: none loaded, no file at ${file}. It comes from the dictionary run ` +
+      "(themes:classify, docs/design.md §7 Themes); dictionary_themes and the words are unchanged."
+    );
+  }
+  const words = result.wordsThemed === 1 ? "word" : "words";
+  return `Themes: ${result.themes} dictionary words; ${result.wordsThemed} saved ${words} without themes got them.`;
+}
+
+/**
  * Replaces dictionary_entries and dictionary_forms with the contents of a kaikki.org JSONL file
- * (`.jsonl` or `.jsonl.gz`), in one transaction: readers see either the old tables or the new
- * ones (§7).
+ * (`.jsonl` or `.jsonl.gz`), and dictionary_themes with the themes file, in one transaction:
+ * readers see either the old tables or the new ones (§7). Then the words still without themes get
+ * the dictionary's, in the same transaction (§7 Themes).
  */
 export async function loadDictionary(
   db: Db,
   path: string,
-  onProgress?: (result: LoadResult) => void,
+  { themes: themesFile, onProgress }: LoadOptions = {},
 ): Promise<LoadResult> {
-  const result: LoadResult = { read: 0, inserted: 0, forms: 0, invalid: 0, byPos: {} };
+  const result: LoadResult = {
+    read: 0,
+    inserted: 0,
+    forms: 0,
+    invalid: 0,
+    byPos: {},
+    themes: null,
+    wordsThemed: 0,
+  };
+  // Read first, so a file that can't be read stops the load before anything changes.
+  const themes =
+    themesFile && existsSync(themesFile)
+      ? parseThemesFile(await readFile(themesFile, "utf8"))
+      : null;
 
   await db.transaction(async (tx) => {
     await tx.execute(sql`TRUNCATE ${dictionaryEntries}, ${dictionaryForms} RESTART IDENTITY`);
@@ -116,6 +166,12 @@ export async function loadDictionary(
     await flushForms();
 
     for (const index of indexes) await tx.execute(sql.raw(index.definition));
+
+    if (themes) {
+      await replaceDictionaryThemes(tx, themes);
+      result.themes = themes.length;
+      result.wordsThemed = await themesFromDictionary(tx);
+    }
   });
 
   return result;

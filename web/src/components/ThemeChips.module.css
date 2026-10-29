@@ -1,0 +1,30 @@
+/* A word's themes (§10 Word detail). See docs/design-system/components/ThemeChips.md. */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Neutral, so they never compete with the gender chip or the lime. text-soft on surface-raised:
+   about 9:1 in light, 10:1 in dark. */
+.chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* "Your choice", after the chips: caption, muted. */
+.own {
+  padding-left: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}

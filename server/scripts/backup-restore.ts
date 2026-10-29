@@ -1,20 +1,22 @@
 // Restores a nightly backup (docs/design.md §18.6) into DATABASE_URL, which must be empty: asks for
 // the private age key (typed hidden, or the first line piped in; never written anywhere), decrypts
-// the file straight into PostgreSQL 17's pg_restore, loads the dictionary as import:wiktionary does,
-// then prints every table's row count. Refuses a database that isn't empty, changing nothing.
+// the file straight into PostgreSQL 17's pg_restore, loads the dictionary and its themes as
+// import:wiktionary does, then prints every table's row count. Refuses a database that isn't
+// empty, changing nothing.
 //
-//   pnpm --filter server backup:restore <file.dump.age> [dictionary.jsonl]
+//   pnpm --filter server backup:restore <file.dump.age> [dictionary.jsonl] [themes.tsv]
 //
-// Works on DATABASE_URL from .env (or the environment). The Mac's dev database isn't empty, so a
-// restore goes into a new one (§18.9). Needs age and PostgreSQL 17's client (§14).
+// The themes are the repo's (server/data/dictionary-themes.tsv, §7 Themes) unless another file is
+// given. Works on DATABASE_URL from .env (or the environment). The Mac's dev database isn't empty,
+// so a restore goes into a new one (§18.9). Needs age and PostgreSQL 17's client (§14).
 import { resolve } from "node:path";
 import { loadEnvFile, parseConfig } from "../src/config";
 import { DEFAULT_DICTIONARY, formatCounts, restoreBackup } from "./backup";
 import { askSecret, databaseName } from "./prompt";
 
-const [file, dictionary] = process.argv.slice(2);
+const [file, dictionary, themes] = process.argv.slice(2);
 if (!file) {
-  console.error("Usage: backup:restore <file.dump.age> [dictionary.jsonl]");
+  console.error("Usage: backup:restore <file.dump.age> [dictionary.jsonl] [themes.tsv]");
   process.exit(1);
 }
 const fromHere = (path: string) => resolve(process.env.INIT_CWD ?? process.cwd(), path);
@@ -27,6 +29,7 @@ try {
     file: fromHere(file),
     databaseUrl: DATABASE_URL,
     dictionary: dictionary ? fromHere(dictionary) : DEFAULT_DICTIONARY,
+    ...(themes ? { themes: fromHere(themes) } : {}),
     askKey: () => askSecret("Private key (AGE-SECRET-KEY-1…, hidden): "),
     log: (line) => console.log(line),
   });

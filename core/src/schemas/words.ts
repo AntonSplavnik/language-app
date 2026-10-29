@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { THEMES_MAX, ThemeKey } from "../themes";
 import {
   Article,
   CheckStatus,
@@ -65,9 +66,16 @@ export const WordListQuery = z.object({
 });
 export type WordListQuery = z.infer<typeof WordListQuery>;
 
+/**
+ * A word's themes as the learner sees them (§5): their own choice when they made one, else the
+ * shared word's, else none. 0–2 keys, the main one first.
+ */
+const EffectiveThemes = z.array(ThemeKey).max(THEMES_MAX);
+
 /** One row of the word list: the word plus enough progress for a small hint. */
 export const WordListItem = WordView.extend({
   status: WordStatus,
+  themes: EffectiveThemes,
   timesSeen: z.number().int().nonnegative(),
   correctStreak: z.number().int().nonnegative(),
   /** When the word was added to the learner's list (My words' day headings). */
@@ -102,17 +110,29 @@ export const WordDetail = WordView.extend({
   lastResult: LastResult.nullable(),
   lastPracticedAt: z.iso.datetime().nullable(),
   addedAt: z.iso.datetime(),
+  themes: EffectiveThemes,
+  /** The shared word's themes, what Use suggested goes back to; none when it has none. */
+  suggestedThemes: EffectiveThemes,
+  /** Whether `themes` is the learner's own choice (Word detail's "Your choice"). */
+  themesOwn: z.boolean(),
 });
 export type WordDetail = z.infer<typeof WordDetail>;
 
 /**
  * `PATCH /api/words/:userWordId`. Absent fields stay as they are; an empty or blank text (or null)
- * clears it. Texts are trimmed.
+ * clears it. Texts are trimmed. `themes: null` drops the learner's own choice.
  */
 export const UpdateWordRequest = z.object({
   status: WordStatus.optional(),
   customTranslation: z.string().max(CUSTOM_TRANSLATION_MAX).nullable().optional(),
   note: z.string().max(NOTE_MAX).nullable().optional(),
+  /** The learner's own themes, 0–2 keys of THEMES; null goes back to the word's (§9.1). */
+  themes: z
+    .array(ThemeKey)
+    .max(THEMES_MAX)
+    .refine((keys) => new Set(keys).size === keys.length, "A theme can be chosen once")
+    .nullable()
+    .optional(),
 });
 export type UpdateWordRequest = z.infer<typeof UpdateWordRequest>;
 

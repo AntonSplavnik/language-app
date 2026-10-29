@@ -5,6 +5,7 @@ import {
   PhotoUploadResponse,
   type Pos,
   SessionResponse,
+  type ThemeKey,
   WordDetail,
   WordListResponse,
   type WordStatus,
@@ -51,6 +52,12 @@ type Seed = {
   correctStreak?: number;
   importId?: number | null;
   addedAt?: Date;
+  /** The shared word's themes; null = undecided. */
+  themes?: ThemeKey[] | null;
+  /** The learner's own choice; null = the word's. */
+  ownThemes?: ThemeKey[] | null;
+  /** Use the shared word another seed made with this lemma, instead of a new one. */
+  reuse?: boolean;
 };
 
 /** A shared word with an English translation and a user_words row. Returns the user_words id. */
@@ -69,15 +76,22 @@ async function seedWord(
     correctStreak = 0,
     importId = null,
     addedAt,
+    themes = null,
+    ownThemes = null,
+    reuse = false,
   }: Seed = {},
 ) {
-  const word = first(
-    await db
-      .insert(words)
-      .values({ language: "de", lemma, pos, article, checkStatus: "match" })
-      .returning({ id: words.id }),
-  );
-  await db.insert(wordTranslations).values({ wordId: word.id, language: "en", translation });
+  const word = reuse
+    ? first(await db.select({ id: words.id }).from(words).where(eq(words.lemma, lemma)))
+    : first(
+        await db
+          .insert(words)
+          .values({ language: "de", lemma, pos, article, checkStatus: "match", themes })
+          .returning({ id: words.id }),
+      );
+  if (!reuse) {
+    await db.insert(wordTranslations).values({ wordId: word.id, language: "en", translation });
+  }
   return first(
     await db
       .insert(userWords)
@@ -92,6 +106,7 @@ async function seedWord(
         correctStreak,
         importId,
         addedAt,
+        themes: ownThemes,
       })
       .returning({ id: userWords.id }),
   ).id;
@@ -390,6 +405,9 @@ describe("GET /api/words/:id (§10 Word detail)", () => {
       lastResult: "knew",
       lastPracticedAt: "2026-10-10T08:30:00.000Z",
       addedAt: "2026-10-01T12:00:00.000Z",
+      themes: [],
+      suggestedThemes: [],
+      themesOwn: false,
     });
   });
 
@@ -403,7 +421,29 @@ describe("GET /api/words/:id (§10 Word detail)", () => {
       lastResult: null,
       lastPracticedAt: null,
       timesSeen: 0,
+      themes: [],
+      suggestedThemes: [],
+      themesOwn: false,
     });
+  });
+
+  it("carries the word's themes, or the learner's own choice instead (§9.1)", async () => {
+    const arzt = await seedWord("Arzt", { themes: ["body", "work"] });
+    const tisch = await seedWord("Tisch", { themes: ["home"], ownThemes: ["work", "free-time"] });
+    const und = await seedWord("und", { pos: "conjunction", themes: [], ownThemes: [] });
+
+    expect(await detail(arzt)).toMatchObject({
+      themes: ["body", "work"],
+      suggestedThemes: ["body", "work"],
+      themesOwn: false,
+    });
+    expect(await detail(tisch)).toMatchObject({
+      themes: ["work", "free-time"],
+      suggestedThemes: ["home"],
+      themesOwn: true,
+    });
+    // Choosing none is a choice too.
+    expect(await detail(und)).toMatchObject({ themes: [], suggestedThemes: [], themesOwn: true });
   });
 
   it("404 for an unknown word or another learner's word; 400 for a malformed id", async () => {
@@ -414,6 +454,77 @@ describe("GET /api/words/:id (§10 Word detail)", () => {
       expect(errorCode(res)).toBe("word_not_found");
     }
     expect((await app().inject({ method: "GET", url: "/api/words/abc" })).statusCode).toBe(400);
+  });
+});
+
+describe("themes in the word list (§9.1)", () => {
+  it("each word carries its effective themes: the learner's, else the word's, else none", async () => {
+    await seedWord("Arzt", { themes: ["body", "work"] });
+    await seedWord("Tisch", { themes: ["home"], ownThemes: ["work"] });
+    await seedWord("Kühlschrank");
+
+    const body = await list();
+    expect(body.words.map((w) => [w.lemma, w.themes])).toEqual([
+      ["Arzt", ["body", "work"]],
+      ["Kühlschrank", []],
+      ["Tisch", ["work"]],
+    ]);
+  });
+
+  it("a key no longer in THEMES is left out rather than breaking the list", async () => {
+    await seedWord("Tisch", { themes: ["furniture" as ThemeKey, "home"] });
+    expect((await list()).words[0]?.themes).toEqual(["home"]);
+  });
+});
+
+describe("PATCH /api/words/:id themes (§9.1)", () => {
+  it("stores the learner's own themes for them only; the shared word keeps its own", async () => {
+    const id = await seedWord("Tisch", { themes: ["home"] });
+    const theirs = await seedWord("Tisch", { userId: await otherLearner(), reuse: true });
+
+    const res = await patch(id, { themes: ["work", "school"] });
+    expect(res.statusCode).toBe(200);
+    expect(WordDetail.parse(res.json())).toMatchObject({
+      themes: ["work", "school"],
+      suggestedThemes: ["home"],
+      themesOwn: true,
+    });
+    expect(await detail(id)).toMatchObject({ themes: ["work", "school"] });
+    const [shared] = await db.select({ themes: words.themes }).from(words);
+    expect(shared?.themes).toEqual(["home"]);
+    // The other learner still sees the word's.
+    expect((await progress(theirs)).themes).toBeNull();
+  });
+
+  it("an empty choice means none; null goes back to the word's", async () => {
+    const id = await seedWord("Tisch", { themes: ["home"] });
+
+    await patch(id, { themes: [] });
+    expect(await detail(id)).toMatchObject({ themes: [], themesOwn: true });
+
+    const back = await patch(id, { themes: null });
+    expect(WordDetail.parse(back.json())).toMatchObject({
+      themes: ["home"],
+      suggestedThemes: ["home"],
+      themesOwn: false,
+    });
+    expect((await progress(id)).themes).toBeNull();
+  });
+
+  it("leaves the themes alone when they aren't sent", async () => {
+    const id = await seedWord("Tisch", { themes: ["home"], ownThemes: ["work"] });
+    await patch(id, { note: "lesson 4" });
+    expect((await progress(id)).themes).toEqual(["work"]);
+  });
+
+  it("refuses unknown keys, more than 2 and a key twice", async () => {
+    const id = await seedWord("Tisch", { themes: ["home"] });
+    for (const themes of [["furniture"], ["home", "work", "food"], ["home", "home"], "home"]) {
+      const res = await patch(id, { themes });
+      expect(res.statusCode, JSON.stringify(themes)).toBe(400);
+      expect(errorCode(res)).toBe("invalid_request");
+    }
+    expect((await progress(id)).themes).toBeNull();
   });
 });
 

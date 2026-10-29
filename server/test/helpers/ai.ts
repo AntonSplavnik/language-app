@@ -155,8 +155,8 @@ export function enrichInputOf(request: MessageRequest): EnrichInputWord[] {
 }
 
 /**
- * A made-up but well-formed enrich response for a request: an example sentence per word and
- * invented forms where they were asked for. `change` can alter or drop single entries.
+ * A made-up but well-formed enrich response for a request: an example sentence per word, invented
+ * forms where they were asked for, and no themes. `change` can alter or drop single entries.
  */
 export function fakeEnrichResponse(
   request: MessageRequest,
@@ -178,6 +178,7 @@ export function fakeEnrichResponse(
               auxiliary: "haben",
             }
           : null,
+      themes: [],
     };
     const changed = change(entry, input);
     return changed ? [changed] : [];

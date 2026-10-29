@@ -13,3 +13,4 @@ export * from "./schemas/stats";
 export * from "./schemas/typed";
 export * from "./schemas/words";
 export * from "./shuffle";
+export * from "./themes";

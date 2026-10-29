@@ -108,7 +108,8 @@ try {
           ? JSON.stringify(word.forms)
           : "";
       console.log(
-        `#${word.ref} ${word.lemma} ${forms}\n   ${word.exampleDe}\n   ${word.exampleTranslation}`,
+        `#${word.ref} ${word.lemma} ${forms}\n   ${word.exampleDe}\n   ${word.exampleTranslation}` +
+          `\n   themes: ${word.themes.join(", ") || "none"}`,
       );
     }
   } else {

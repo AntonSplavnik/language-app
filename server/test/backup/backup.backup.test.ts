@@ -29,6 +29,7 @@ import { testDatabaseUrl } from "../helpers/env";
 
 const SERVER = fileURLToPath(new URL("../../", import.meta.url));
 const SAMPLE = fileURLToPath(new URL("../fixtures/kaikki-sample.jsonl", import.meta.url));
+const THEMES = fileURLToPath(new URL("../fixtures/dictionary-themes-sample.tsv", import.meta.url));
 const JOURNAL = fileURLToPath(new URL("../../drizzle/meta/_journal.json", import.meta.url));
 const admin = createDb(testDatabaseUrl());
 const prefix = `${new URL(testDatabaseUrl()).pathname.slice(1)}_backup`;
@@ -85,21 +86,23 @@ beforeAll(async () => {
   await target.execute(sql`DROP SCHEMA public CASCADE`);
   await target.execute(sql`CREATE SCHEMA public`);
   await runMigrations(source);
-  await loadDictionary(source, SAMPLE);
+  await loadDictionary(source, SAMPLE, { themes: THEMES });
   await source.execute(sql`
     INSERT INTO users (name, learner_language, target_language, email, username, ai_enabled)
     VALUES ('Friend', 'en', 'de', 'friend@example.com', 'friend', false)`);
   await source.execute(sql`
-    INSERT INTO words (language, lemma, pos, article, check_status)
-    VALUES ('de', 'Tisch', 'noun', 'der', 'match'), ('de', 'gehen', 'verb', NULL, 'match')`);
+    INSERT INTO words (language, lemma, pos, article, check_status, themes)
+    VALUES ('de', 'Tisch', 'noun', 'der', 'match', '{home}'),
+           ('de', 'gehen', 'verb', NULL, 'match', NULL)`);
   await source.execute(sql`
     INSERT INTO word_translations (word_id, language, translation) VALUES (1, 'en', 'table')`);
   await source.execute(
     sql`INSERT INTO imports (user_id, name, status) VALUES (1, 'Lesson 4', 'done')`,
   );
   await source.execute(sql`
-    INSERT INTO user_words (user_id, word_id, status, import_id, times_seen)
-    VALUES (1, 1, 'learning', 1, 3), (1, 2, 'learned', 1, 5), (2, 1, 'learning', NULL, 0)`);
+    INSERT INTO user_words (user_id, word_id, status, import_id, times_seen, themes)
+    VALUES (1, 1, 'learning', 1, 3, '{work}'), (1, 2, 'learned', 1, 5, NULL),
+           (2, 1, 'learning', NULL, 0, NULL)`);
   await source.execute(sql`INSERT INTO sessions (user_id, source) VALUES (1, 'not_learned')`);
   await source.execute(sql`
     INSERT INTO card_results (session_id, user_word_id, result, flipped, answer_ms)
@@ -189,7 +192,7 @@ describe("backup:restore", () => {
     // As the script, with the key piped in as its first line.
     const run = spawnSync(
       join(SERVER, "node_modules/.bin/tsx"),
-      ["scripts/backup-restore.ts", backup, SAMPLE],
+      ["scripts/backup-restore.ts", backup, SAMPLE, THEMES],
       {
         cwd: SERVER,
         input: `${key}\n`,
@@ -201,17 +204,19 @@ describe("backup:restore", () => {
     expect(run.stderr).toBe("");
     expect(run.status).toBe(0);
     const lines = run.stdout.split("\n");
-    expect(lines.slice(0, 5)).toEqual([
+    expect(lines.slice(0, 6)).toEqual([
       `Database: ${databaseName(urlOf(TARGET, OWNER))}`,
       expect.stringMatching(/^Restored in [\d.]+ s$/),
       expect.stringMatching(/^Dictionary: \d+ entries and \d+ forms in [\d.]+ s$/),
+      // gehen had none: the restored dictionary gives it its themes (none, decided).
+      "Themes: 13 dictionary words; 1 saved word without themes got them.",
       "",
       "Rows per table:",
     ]);
     expect(run.stdout).not.toContain(key);
     expect(run.stdout).not.toContain(PASSWORD);
     const counts = await tableCounts(target);
-    expect(lines.slice(5, -1)).toEqual(formatCounts(counts));
+    expect(lines.slice(6, -1)).toEqual(formatCounts(counts));
     const signIns = ["auth_sessions", "auth_verifications", "auth_rate_limits"];
     expect(counts).toEqual(
       sourceCounts.map(({ table, rows }) => ({ table, rows: signIns.includes(table) ? 0 : rows })),
@@ -221,6 +226,16 @@ describe("backup:restore", () => {
     expect(excludedTables().filter((table) => !signIns.includes(table))).toEqual([
       "dictionary_entries",
       "dictionary_forms",
+      "dictionary_themes",
+    ]);
+    // The words' themes and the learner's own come back with the words; a word without themes
+    // gets the dictionary's as it loads.
+    const { rows: themes } = await target.execute(sql`
+      SELECT w.lemma, w.themes, uw.themes AS own FROM user_words uw JOIN words w ON w.id = uw.word_id
+      WHERE uw.user_id = 1 ORDER BY lower(w.lemma)`);
+    expect(themes).toEqual([
+      { lemma: "gehen", themes: [], own: null },
+      { lemma: "Tisch", themes: ["home"], own: ["work"] },
     ]);
   });
 

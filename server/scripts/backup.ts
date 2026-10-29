@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
 import pg from "pg";
 import { createDb, type Db } from "../src/db/client";
-import { loadDictionary } from "../src/dictionary/load";
+import { DICTIONARY_THEMES_FILE, loadDictionary, themesLine } from "../src/dictionary/load";
 
 // The nightly backups' tooling on the Mac (docs/design.md §18.6): the read-only role the dump runs
 // as, restoring a backup, and the row counts a restore is compared by. The dump itself is
@@ -155,6 +155,8 @@ export type RestoreOptions = {
   databaseUrl: string;
   /** The kaikki.org file to load the dictionary from. */
   dictionary: string;
+  /** The dictionary's themes (§7 Themes); the repo's file unless another is given. */
+  themes?: string;
   /** The private key, asked for only once the database is known to be empty. */
   askKey: () => Promise<string>;
   log?: (line: string) => void;
@@ -191,10 +193,12 @@ export async function restoreBackup(options: RestoreOptions): Promise<TableCount
     log(`Restored in ${seconds(started)} s`);
 
     started = performance.now();
-    const dictionary = await loadDictionary(db, options.dictionary);
+    const themes = options.themes ?? DICTIONARY_THEMES_FILE;
+    const dictionary = await loadDictionary(db, options.dictionary, { themes });
     log(
       `Dictionary: ${dictionary.inserted} entries and ${dictionary.forms} forms in ${seconds(started)} s`,
     );
+    log(themesLine(dictionary, themes));
     return await tableCounts(db);
   } finally {
     await db.$client.end();

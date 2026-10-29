@@ -19,6 +19,7 @@ import { first, LEARNER_ID, useTestDb } from "../helpers/db";
 
 const db = useTestDb();
 const SAMPLE = new URL("../fixtures/kaikki-sample.jsonl", import.meta.url).pathname;
+const THEMES = new URL("../fixtures/dictionary-themes-sample.tsv", import.meta.url).pathname;
 const recorded = loadAiFixture("extract-vocab-p13").response;
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]);
 
@@ -495,6 +496,35 @@ describe("POST /api/imports/:id/save (§6.5)", () => {
       checkStatus: "mismatch_fixed",
       translation: "desk",
     });
+  });
+
+  it("a new word gets the dictionary's themes at once; a reused word keeps its own (§6.5)", async () => {
+    await loadDictionary(db, SAMPLE, { themes: THEMES });
+    const s = setup([page(PAGE_ONE)]);
+    const view = await importWithPage(s);
+    await db.insert(words).values({
+      language: "de",
+      lemma: "gehen",
+      pos: "verb",
+      article: null,
+      checkStatus: "match",
+      themes: ["travel"],
+    });
+
+    await s.save(view.id, allDecisions);
+
+    const themesOf = async (lemma: string) =>
+      (await db.select({ themes: words.themes }).from(words).where(eq(words.lemma, lemma)))[0]
+        ?.themes;
+    expect(await themesOf("Tisch")).toEqual(["home", "food"]);
+    expect(await themesOf("See")).toEqual(["nature"]);
+    // Reused unchanged, though the dictionary says none.
+    expect(await themesOf("gehen")).toEqual(["travel"]);
+    // Not in the dictionary's themes: Call 2 decides (its batch failed here, so still undecided).
+    expect(await themesOf("Kühlschrank")).toBeNull();
+    // Skipped words are saved too, so they get their themes as well (nicht is the dictionary's
+    // adverb, not this particle: keyed exactly).
+    expect(await themesOf("nicht")).toBeNull();
   });
 
   it("when two candidates become the same word, add wins over skip", async () => {

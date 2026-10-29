@@ -10,6 +10,7 @@ import type {
   LastResult,
   Pos,
   SessionSource,
+  ThemeKey,
   VerbForms,
   WordStatus,
 } from "@language-app/core";
@@ -159,6 +160,11 @@ export const words = pgTable(
     checkStatus: text().$type<CheckStatus>().notNull(),
     enrichedAt: timestampTz(),
     createdAt: createdAt(),
+    /**
+     * Theme keys, 0–2, the main one first (§5): from the dictionary's themes, else from
+     * enrichment (Call 2). Null until decided; `{}` is decided, no theme.
+     */
+    themes: text().array().$type<ThemeKey[]>(),
   },
   // der See and die See are different words; non-nouns (article NULL) must still be unique.
   (t) => [unique("words_identity").on(t.language, t.lemma, t.pos, t.article).nullsNotDistinct()],
@@ -217,6 +223,8 @@ export const userWords = pgTable(
     correctStreak: integer().notNull().default(0),
     lastResult: text().$type<LastResult>(),
     lastPracticedAt: timestampTz(),
+    /** The learner's own themes, 0–2, replacing the word's for them; null = the word's (§5). */
+    themes: text().array().$type<ThemeKey[]>(),
   },
   (t) => [
     unique("user_words_user_word").on(t.userId, t.wordId),
@@ -294,6 +302,22 @@ export const dictionaryForms = pgTable(
     unique("dictionary_forms_form_lemma_pos").on(t.form, t.lemma, t.pos),
     index("dictionary_forms_lower_form").on(sql`lower(${t.form})`),
   ],
+);
+
+/**
+ * The themes of every dictionary word, from the one-off dictionary run (`themes:classify`, §7 Themes),
+ * keyed as `words` is, so der See and die See can differ. Loaded by `import:wiktionary` from
+ * `server/data/dictionary-themes.tsv` and replaced with the dictionary.
+ */
+export const dictionaryThemes = pgTable(
+  "dictionary_themes",
+  {
+    lemma: text().notNull(),
+    pos: text().$type<Pos>().notNull(),
+    article: text().$type<Article>(),
+    themes: text().array().$type<ThemeKey[]>().notNull(),
+  },
+  (t) => [unique("dictionary_themes_identity").on(t.lemma, t.pos, t.article).nullsNotDistinct()],
 );
 
 export const aiUsage = pgTable(

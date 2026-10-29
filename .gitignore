@@ -10,8 +10,12 @@ coverage/
 deploy.env
 *.log
 
-# Wiktionary download (large; see docs/design.md §7)
-data/
+# Wiktionary download (large; see docs/design.md §7). Only the top-level folder: server/data/ is
+# committed (the dictionary's themes, §19.4)
+/data/
+# themes:classify's resumable state (batch ids, answers so far) and a sample's output
+server/data/*.state.json
+server/data/*.sample.tsv
 
 # Real textbook photos used by live tests (copyrighted)
 server/test/live/photos/

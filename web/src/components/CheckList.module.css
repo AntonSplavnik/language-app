@@ -1,0 +1,92 @@
+/* A card of rows that each toggle a check (§10 Edit word's Themes card). See
+   docs/design-system/components/CheckList.md. The label is ui.label. */
+
+/* The card is ui.card, without padding of its own: the rows reach its edges. */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 14px 14px 0 18px;
+}
+
+/* caption, as a field's help text. */
+.help {
+  margin: 4px 0 0;
+  padding: 0 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.rows {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows li {
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 8px 16px 8px 18px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The last row follows the card's bottom corners (its radius less the 1 px border), so the pressed
+   ground and the focus ring stay inside it. */
+.rows li:last-child .row {
+  border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  border-bottom-right-radius: calc(var(--radius-card) - 1px);
+}
+
+.row:active {
+  background: var(--surface-muted);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+}
+
+/* body */
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* An empty ring, or the lime check when checked (as EntryCard's, a size smaller). */
+.check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--track-strong);
+  display: grid;
+  place-items: center;
+}
+
+.checked {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+}
