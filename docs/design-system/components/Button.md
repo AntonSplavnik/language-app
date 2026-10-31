@@ -2,9 +2,9 @@
 
 The app's buttons: `ui.button` plus one variant from `web/src/styles/ui.module.css`. Pick by role, not by look.
 
-- **`ui.primary` + `ui.cta`**: the one big action in a sticky footer (Start, Review words, Save N words, Practice these now, New session). 60 px, `radius-xl`, display font 20/800. One per screen.
+- **`ui.primary` + `ui.cta`**: the one big action in a sticky footer (Start, Review words, Save N words, Practice these now, New session, Next round). 60 px, `radius-xl`, display font 20/800. One per screen.
 - **`ui.primary`** (48 px): a lime action that is not the footer's (Try again).
-- **`ui.secondary`** (+ `ui.large` in a footer, 56 px, `radius-lg`, 700): the alternative next to or under the main action (Import more pages, Home on Summary, Keep).
+- **`ui.secondary`** (+ `ui.large` in a footer, 56 px, `radius-lg`, 700): the alternative next to or under the main action (Import more pages, Home on Summary, End practice between rounds, Keep).
 - **`ui.quiet`**: a text action in `accent-ink` (empty-state links like "2 in Ignored ›"). On Done the quiet Home is `muted`, so the only lime is Practice these now.
 - **`ui.danger`**: the confirming Delete inside the delete confirmation only.
 - **`ui.small`**: 36 px, 14 px, for inline actions in errors and banners, and with `ui.secondary` in a row (Account's Google **Connect** and **Disconnect**; a reversible action like these needs no confirmation, only deleting asks, with `ConfirmDelete`).

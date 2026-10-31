@@ -70,21 +70,28 @@ export const CardResultRequest = z.object({
   flipMs: z.number().int().nonnegative().nullable(),
   /** Time from card shown to the answer. */
   answerMs: z.number().int().nonnegative(),
+  /** 1 for the first go through the cards, 2 for the first repeat…; 1 when left out (§8.4). */
+  round: z.number().int().positive().default(1),
 });
 export type CardResultRequest = z.infer<typeof CardResultRequest>;
 
 export const CardResultResponse = z.object({
-  /** False when this card already had an answer in this session (a retried request). */
+  /** False when this card already had an answer in this round (a retried request). */
   recorded: z.boolean(),
 });
 export type CardResultResponse = z.infer<typeof CardResultResponse>;
 
 /** `POST /api/sessions/:id/finish` (§8.6) */
 export const SessionSummary = z.object({
+  /** The first round's answers: `knew`, `didntKnow`, `skipped` and `missed`. */
   knew: z.number().int().nonnegative(),
   didntKnow: z.number().int().nonnegative(),
   skipped: z.number().int().nonnegative(),
-  /** Words answered "didn't know", in the order they were answered. */
+  /** Words answered "didn't know" in the first round, in the order they were answered. */
   missed: z.array(PracticeCard),
+  /** The highest round with an answer, at least 1. */
+  rounds: z.number().int().positive(),
+  /** Words whose last answer in the session is "didn't know". */
+  stillMissed: z.number().int().nonnegative(),
 });
 export type SessionSummary = z.infer<typeof SessionSummary>;

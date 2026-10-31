@@ -5,24 +5,34 @@ import {
   type SessionResponse,
 } from "@language-app/core";
 import { useDrag } from "@use-gesture/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../api";
-import { ArrowUpIcon, CheckIcon, CloseIcon } from "../components/icons";
+import { ArrowUpIcon, CheckIcon, CloseIcon, PlayIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { StepProgress } from "../components/StepProgress";
 import { readJson, removeItem, writeJson } from "../lib/storage";
 import { errorMessage, useToast } from "../lib/toast";
 import { Card, isCardControl } from "../practice/Card";
 import { createResultQueue } from "../practice/resultQueue";
+import {
+  afterAnswer,
+  closeAction,
+  missedLine,
+  nextRound,
+  type Rounds,
+  restoreRounds,
+  roundDoneTitle,
+  roundLabel,
+  type Saved,
+  type StoredTab,
+} from "../practice/rounds";
 import { decideSwipe, SWIPE_DISTANCE } from "../practice/swipe";
 import ui from "../styles/ui.module.css";
 import styles from "./FlashcardsScreen.module.css";
 
 /** How long a card takes to slide out after an answer. */
 const EXIT_MS = 260;
-
-type Saved = { session: SessionResponse; index: number };
 
 const EXIT_TRANSFORM: Record<CardResult, (x: number, y: number) => string> = {
   knew: (_, y) => `translate3d(130vw, ${y}px, 0) rotate(24deg)`,
@@ -36,28 +46,30 @@ const HINT: Record<CardResult, string> = {
   skipped: "Skip",
 };
 
-/** Flashcards (§8.2–8.4). The session's cards survive a reload of this tab. */
+/** Flashcards (§8.2–8.4). The session's rounds and cards survive a reload of this tab. */
 export function FlashcardsScreen() {
   const sessionId = Number(useParams().id);
   const location = useLocation();
   const storageKey = `practice:${sessionId}`;
 
-  const [saved] = useState<Saved | null>(() => {
-    const fromStart = location.state as SessionResponse | null;
-    if (fromStart?.id === sessionId) return { session: fromStart, index: 0 };
-    return readJson<Saved>(storageKey, "session") ?? null;
-  });
+  const [saved] = useState(() =>
+    restoreRounds(
+      readJson<StoredTab>(storageKey, "session"),
+      location.state as SessionResponse | null,
+      sessionId,
+    ),
+  );
 
   if (!saved) return <Navigate to="/practice" replace />;
   return <Flashcards key={sessionId} saved={saved} storageKey={storageKey} />;
 }
 
 function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string }) {
-  const { session } = saved;
+  const { session, ...start } = saved;
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [index, setIndex] = useState(saved.index);
+  const [rounds, setRounds] = useState<Rounds>(start);
   const [flipped, setFlipped] = useState(false);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   const [leaving, setLeaving] = useState<CardResult | null>(null);
@@ -66,12 +78,13 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
   const shownAt = useRef(performance.now());
   const flipMs = useRef<number | null>(null);
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set here too: StrictMode runs this cleanup once on mounting, in development.
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   // Answers are sent at once; failed ones wait and are retried (§8.4).
   const queue = useMemo(
@@ -90,11 +103,12 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
   useEffect(() => () => queue.dispose(), [queue]);
 
   useEffect(() => {
-    writeJson(storageKey, { session, index } satisfies Saved, "session");
-  }, [storageKey, session, index]);
+    writeJson(storageKey, { session, ...rounds } satisfies Saved, "session");
+  }, [storageKey, session, rounds]);
 
-  const card = session.cards[index];
-  const busy = leaving !== null || finishing !== null;
+  const card = rounds.cards[rounds.index];
+  const { between } = rounds;
+  const busy = leaving !== null || finishing !== null || between;
 
   const finish = useCallback(async () => {
     setFinishing("saving");
@@ -114,6 +128,15 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
     }
   }, [queue, session.id, storageKey, navigate, toast]);
 
+  /** A new card starts clean; its time counts from now (not from the view before a round). */
+  const resetCard = useCallback(() => {
+    shownAt.current = performance.now();
+    flipMs.current = null;
+    setFlipped(false);
+    setDrag({ x: 0, y: 0, active: false });
+    setLeaving(null);
+  }, []);
+
   const flip = useCallback(() => {
     if (busy) return;
     if (flipMs.current === null) flipMs.current = Math.round(performance.now() - shownAt.current);
@@ -129,23 +152,31 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
         flipped: flipMs.current !== null,
         flipMs: flipMs.current,
         answerMs: Math.round(performance.now() - shownAt.current),
+        round: rounds.round,
       });
       setLeaving(result);
+      const next = afterAnswer(rounds, result);
       setTimeout(() => {
-        if (index + 1 < session.cards.length) {
-          shownAt.current = performance.now();
-          flipMs.current = null;
-          setFlipped(false);
-          setDrag({ x: 0, y: 0, active: false });
-          setLeaving(null);
-          setIndex(index + 1);
+        if (next) {
+          resetCard();
+          setRounds(next);
         } else {
           void finish();
         }
       }, EXIT_MS);
     },
-    [card, busy, queue, index, session.cards.length, finish],
+    [card, busy, queue, rounds, resetCard, finish],
   );
+
+  const startNextRound = () => {
+    resetCard();
+    setRounds(nextRound(rounds));
+  };
+
+  // The close button from round 2 on. While a card leaves, its own timer decides what comes next.
+  const endRound = () => {
+    if (!busy) void finish();
+  };
 
   // The card follows the finger; a long or quick enough swipe answers, otherwise it snaps back.
   // A swipe may start anywhere, the speaker button included. A tap on the speaker is the
@@ -176,7 +207,9 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
     return () => document.removeEventListener("touchmove", onTouchMove);
   }, []);
 
+  // Between rounds the keys are the buttons' own: Space must still press the focused one.
   useEffect(() => {
+    if (between) return;
     const onKey = (event: KeyboardEvent) => {
       const actions: Record<string, () => void> = {
         " ": flip,
@@ -192,13 +225,24 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flip, answer]);
+  }, [between, flip, answer]);
 
-  const total = session.cards.length;
+  const total = rounds.cards.length;
+  // The card shown has been answered once it is leaving, and between rounds.
+  const answered = between || leaving ? rounds.index + 1 : rounds.index;
+  const header = (close: ReactNode) => (
+    <PracticeHeader
+      close={close}
+      label={roundLabel(rounds.round)}
+      position={rounds.index + 1}
+      answered={answered}
+      total={total}
+    />
+  );
 
   if (finishing) {
     return (
-      <Page bar={<PracticeHeader position={total} answered={total} total={total} />}>
+      <Page bar={header(<LeaveLink />)}>
         <div className={styles.finishing}>
           {finishing === "failed" ? (
             <button
@@ -225,6 +269,38 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
 
   if (!card) return <Navigate to="/practice" replace />;
 
+  if (between) {
+    return (
+      <Page
+        bar={header(null)}
+        footer={
+          <div className={styles.roundActions}>
+            <button
+              type="button"
+              className={`${ui.button} ${ui.primary} ${ui.cta}`}
+              onClick={startNextRound}
+            >
+              Next round
+              <PlayIcon size={18} />
+            </button>
+            <button
+              type="button"
+              className={`${ui.button} ${ui.secondary} ${ui.large} ${ui.block}`}
+              onClick={finish}
+            >
+              End practice
+            </button>
+          </div>
+        }
+      >
+        <div className={styles.between}>
+          <h2 className={styles.betweenTitle}>{roundDoneTitle(rounds.round)}</h2>
+          <p>{missedLine(rounds.missed.length)}</p>
+        </div>
+      </Page>
+    );
+  }
+
   const dragHint = hintFor(drag.x, drag.y);
   const transform = leaving
     ? (EXIT_TRANSFORM[leaving] as (x: number, y: number) => string)(drag.x, drag.y)
@@ -236,7 +312,15 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
 
   return (
     <Page
-      bar={<PracticeHeader position={index + 1} answered={index} total={total} />}
+      bar={header(
+        closeAction(rounds.round) === "home" ? (
+          <LeaveLink />
+        ) : (
+          <button type="button" className={ui.round} aria-label="End practice" onClick={endRound}>
+            <CloseIcon size={18} weight={2.2} />
+          </button>
+        ),
+      )}
       footer={
         <div className={styles.buttons}>
           <button
@@ -304,25 +388,36 @@ function Flashcards({ saved, storageKey }: { saved: Saved; storageKey: string })
   );
 }
 
+/** The header's close button in round 1: back to Home, the session unfinished. */
+function LeaveLink() {
+  return (
+    <Link to="/" className={ui.round} aria-label="End practice">
+      <CloseIcon size={18} weight={2.2} />
+    </Link>
+  );
+}
+
 /**
- * The header: a close button that ends practice, then "Practice" with the card's position
- * ("5 / 20") over a bar filled by the cards answered so far.
+ * The header: a close button, if any, then "Practice" or "Round 2" with the card's position
+ * ("5 / 20") over a bar filled by the round's cards answered so far.
  */
 function PracticeHeader({
+  close,
+  label,
   position,
   answered,
   total,
 }: {
+  close: ReactNode;
+  label: string;
   position: number;
   answered: number;
   total: number;
 }) {
   return (
     <>
-      <Link to="/" className={ui.round} aria-label="End practice">
-        <CloseIcon size={18} weight={2.2} />
-      </Link>
-      <StepProgress label="Practice" position={position} done={answered} total={total} />
+      {close}
+      <StepProgress label={label} position={position} done={answered} total={total} />
     </>
   );
 }

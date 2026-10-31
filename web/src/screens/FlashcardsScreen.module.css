@@ -1,4 +1,5 @@
-/* Flashcards (§10): close and progress in the header, the card, the three answers below. */
+/* Flashcards (§10): close and progress in the header, the card, the three answers below; between
+   rounds a title in the middle and two buttons. */
 
 .stage {
   flex: 1;
@@ -161,4 +162,37 @@
 .retry {
   width: auto;
   min-width: 200px;
+}
+
+.between {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.between p {
+  margin: 0;
+  font-size: 17px;
+}
+
+.betweenTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+
+/* Stacked, as on Done. */
+.roundActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }

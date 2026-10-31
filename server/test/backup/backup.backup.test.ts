@@ -108,8 +108,8 @@ beforeAll(async () => {
   await source.execute(sql`
     INSERT INTO sessions (user_id, source, group_id) VALUES (1, 'not_learned', NULL), (1, 'group', 1)`);
   await source.execute(sql`
-    INSERT INTO card_results (session_id, user_word_id, result, flipped, answer_ms)
-    VALUES (1, 1, 'knew', true, 900)`);
+    INSERT INTO card_results (session_id, user_word_id, result, flipped, answer_ms, round)
+    VALUES (1, 1, 'didnt_know', true, 900, 1), (1, 1, 'knew', true, 700, 2)`);
   await source.execute(sql`
     INSERT INTO ai_usage (user_id, import_id, call_type, model, ok)
     VALUES (1, 1, 'extract', 'claude-haiku-5-5', true)`);
@@ -239,6 +239,13 @@ describe("backup:restore", () => {
     expect(themes).toEqual([
       { lemma: "gehen", themes: [], own: null },
       { lemma: "Tisch", themes: ["home"], own: ["work"] },
+    ]);
+    // A word's answers in two rounds both come back, each with its round.
+    const { rows: answers } = await target.execute(sql`
+      SELECT user_word_id, round, result FROM card_results ORDER BY round`);
+    expect(answers).toEqual([
+      { user_word_id: 1, round: 1, result: "didnt_know" },
+      { user_word_id: 1, round: 2, result: "knew" },
     ]);
   });
 

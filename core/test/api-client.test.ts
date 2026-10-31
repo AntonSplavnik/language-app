@@ -211,7 +211,14 @@ describe("session endpoints", () => {
       "GET /api/sessions/options": { options: [{ source: "not_learned", count: 3 }] },
       "POST /api/sessions": { id: 9, source: "not_learned", cards: [] },
       "POST /api/sessions/9/results": { recorded: true },
-      "POST /api/sessions/9/finish": { knew: 1, didntKnow: 0, skipped: 0, missed: [] },
+      "POST /api/sessions/9/finish": {
+        knew: 1,
+        didntKnow: 0,
+        skipped: 0,
+        missed: [],
+        rounds: 1,
+        stillMissed: 0,
+      },
     };
     const api = createApiClient({
       fetch: async (input, init) => {
@@ -233,6 +240,7 @@ describe("session endpoints", () => {
       flipped: true,
       flipMs: 900,
       answerMs: 2100,
+      round: 2,
     };
     expect(await api.recordResult(9, result)).toEqual({ recorded: true });
     expect((await api.finishSession(9)).knew).toBe(1);

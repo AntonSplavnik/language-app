@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import {
   CardResultResponse,
   type LastResult,
@@ -7,7 +8,7 @@ import {
   type ThemeKey,
   type WordStatus,
 } from "@language-app/core";
-import { eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import {
   cardResults,
@@ -137,12 +138,23 @@ async function answer(
   sessionId: number,
   userWordId: number,
   result: "knew" | "didnt_know" | "skipped",
+  round?: number,
 ) {
   return app().inject({
     method: "POST",
     url: `/api/sessions/${sessionId}/results`,
-    payload: { userWordId, result, flipped: true, flipMs: 800, answerMs: 2000 },
+    payload: { userWordId, result, flipped: true, flipMs: 800, answerMs: 2000, round },
   });
+}
+
+async function finish(sessionId: number) {
+  const res = await app().inject({
+    method: "POST",
+    url: `/api/sessions/${sessionId}/finish`,
+    payload: {},
+  });
+  expect(res.statusCode).toBe(200);
+  return SessionSummary.parse(res.json());
 }
 
 const progress = async (userWordId: number) =>
@@ -523,6 +535,14 @@ describe("POST /api/sessions/:id/results (§8.4–8.5)", () => {
     expect(await db.select().from(cardResults)).toHaveLength(1);
   });
 
+  it("an answer without a round is round 1", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "knew");
+
+    expect(await db.select().from(cardResults)).toMatchObject([{ round: 1 }]);
+  });
+
   it("skipped is recorded but changes no progress", async () => {
     const tisch = await seedWord("Tisch");
     const before = await progress(tisch);
@@ -553,6 +573,98 @@ describe("POST /api/sessions/:id/results (§8.4–8.5)", () => {
       payload: { userWordId: tisch, result: "maybe", flipped: false, flipMs: null, answerMs: 1 },
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("repeat rounds: POST /api/sessions/:id/results (§8.4)", () => {
+  it("the same word answered in rounds 1, 2 and 3 gives three rows", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    for (const [round, result] of [
+      [1, "didnt_know"],
+      [2, "didnt_know"],
+      [3, "knew"],
+    ] as const) {
+      const res = await answer(s.id, tisch, result, round);
+      expect(CardResultResponse.parse(res.json())).toEqual({ recorded: true });
+    }
+
+    const rows = await db.select().from(cardResults).orderBy(asc(cardResults.round));
+    expect(rows).toMatchObject([
+      { round: 1, result: "didnt_know" },
+      { round: 2, result: "didnt_know" },
+      { round: 3, result: "knew" },
+    ]);
+  });
+
+  it("a retried round 2 answer is not recorded and adds nothing", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, tisch, "knew", 2);
+    const again = await answer(s.id, tisch, "knew", 2);
+
+    expect(CardResultResponse.parse(again.json())).toEqual({ recorded: false });
+    expect(await db.select().from(cardResults)).toHaveLength(2);
+  });
+
+  it("only the first round changes the word", async () => {
+    const tisch = await seedWord("Tisch", {
+      status: "learned",
+      correctStreak: 4,
+      lastResult: "knew",
+      lastPracticedAt: daysAgo(2),
+    });
+    const s = await session("last_7_days");
+    await answer(s.id, tisch, "didnt_know", 1);
+    const afterFirst = await progress(tisch);
+    expect(afterFirst).toMatchObject({
+      status: "learning",
+      timesSeen: 1,
+      correctStreak: 0,
+      lastResult: "didnt_know",
+    });
+
+    await answer(s.id, tisch, "knew", 2);
+    await answer(s.id, tisch, "didnt_know", 3);
+    await answer(s.id, tisch, "skipped", 4);
+
+    expect(await progress(tisch)).toEqual(afterFirst);
+  });
+
+  it("a word answered right only in later rounds never becomes learned", async () => {
+    const tisch = await seedWord("Tisch", { correctStreak: 2 });
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    for (const round of [2, 3, 4, 5]) await answer(s.id, tisch, "knew", round);
+
+    expect(await progress(tisch)).toMatchObject({
+      status: "learning",
+      correctStreak: 0,
+      timesCorrect: 0,
+      lastResult: "didnt_know",
+    });
+  });
+
+  it("rejects a round that isn't a positive integer", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    for (const round of [0, -1, 1.5]) {
+      expect((await answer(s.id, tisch, "knew", round)).statusCode).toBe(400);
+    }
+    expect(await db.select().from(cardResults)).toEqual([]);
+  });
+
+  it("deleting a word takes its answers of every round", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, tisch, "knew", 2);
+
+    const res = await app().inject({ method: "DELETE", url: `/api/words/${tisch}` });
+
+    expect(res.statusCode).toBe(200);
+    expect(await db.select().from(cardResults)).toEqual([]);
   });
 });
 
@@ -589,5 +701,124 @@ describe("POST /api/sessions/:id/finish (§8.6)", () => {
     expect(SessionSummary.parse(again.json())).toEqual(summary);
     const [after] = await db.select().from(sessions).where(eq(sessions.id, s.id));
     expect(after?.finishedAt).toEqual(row?.finishedAt);
+  });
+
+  it("a session with one round answers as before, with one round and none still missed", async () => {
+    const tisch = await seedWord("Tisch");
+    const stuhl = await seedWord("Stuhl");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "knew");
+    await answer(s.id, stuhl, "skipped");
+
+    expect(await finish(s.id)).toEqual({
+      knew: 1,
+      didntKnow: 0,
+      skipped: 1,
+      missed: [],
+      rounds: 1,
+      stillMissed: 0,
+    });
+  });
+
+  it("a session without answers has one round", async () => {
+    await seedWord("Tisch");
+    const s = await session("not_learned");
+
+    expect(await finish(s.id)).toMatchObject({ knew: 0, missed: [], rounds: 1, stillMissed: 0 });
+  });
+
+  it("counts the first round only, and lists a word missed twice once, in order", async () => {
+    const tisch = await seedWord("Tisch");
+    const stuhl = await seedWord("Stuhl");
+    const lampe = await seedWord("Lampe");
+    const bett = await seedWord("Bett");
+    const s = await session("not_learned");
+    await answer(s.id, bett, "didnt_know", 1);
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, stuhl, "knew", 1);
+    await answer(s.id, lampe, "skipped", 1);
+    // The repeats come back in another order, and must not change it.
+    await answer(s.id, tisch, "didnt_know", 2);
+    await answer(s.id, bett, "didnt_know", 2);
+    await answer(s.id, bett, "knew", 3);
+    await answer(s.id, tisch, "knew", 3);
+
+    const summary = await finish(s.id);
+    expect(summary).toMatchObject({ knew: 1, didntKnow: 2, skipped: 1, rounds: 3 });
+    expect(summary.missed.map((w) => w.lemma)).toEqual(["Bett", "Tisch"]);
+  });
+
+  it("a finished loop: none still missed", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, tisch, "didnt_know", 2);
+    await answer(s.id, tisch, "knew", 3);
+
+    expect(await finish(s.id)).toMatchObject({ rounds: 3, stillMissed: 0 });
+  });
+
+  it("stopped between rounds: every word missed is still missed", async () => {
+    const tisch = await seedWord("Tisch");
+    const stuhl = await seedWord("Stuhl");
+    const lampe = await seedWord("Lampe");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, stuhl, "didnt_know", 1);
+    await answer(s.id, lampe, "knew", 1);
+
+    expect(await finish(s.id)).toMatchObject({ didntKnow: 2, rounds: 1, stillMissed: 2 });
+  });
+
+  it("stopped in the middle of a round: a word not reached counts as still missed", async () => {
+    const tisch = await seedWord("Tisch");
+    const stuhl = await seedWord("Stuhl");
+    const lampe = await seedWord("Lampe");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, stuhl, "didnt_know", 1);
+    await answer(s.id, lampe, "didnt_know", 1);
+    await answer(s.id, tisch, "knew", 2);
+    await answer(s.id, stuhl, "didnt_know", 2);
+
+    expect(await finish(s.id)).toMatchObject({ rounds: 2, stillMissed: 2 });
+  });
+
+  it("a word skipped in a repeat round isn't still missed", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    await answer(s.id, tisch, "didnt_know", 1);
+    await answer(s.id, tisch, "skipped", 2);
+
+    expect(await finish(s.id)).toMatchObject({
+      didntKnow: 1,
+      skipped: 0,
+      rounds: 2,
+      stillMissed: 0,
+    });
+  });
+
+  it("answers from before rounds count as round 1", async () => {
+    const tisch = await seedWord("Tisch");
+    const s = await session("not_learned");
+    // The old code's insert names no round.
+    await db.execute(sql`
+      INSERT INTO card_results (session_id, user_word_id, result, flipped, answer_ms)
+      VALUES (${s.id}, ${tisch}, 'didnt_know', false, 900)`);
+
+    expect(await db.select().from(cardResults)).toMatchObject([{ round: 1 }]);
+    expect(await finish(s.id)).toMatchObject({ didntKnow: 1, rounds: 1, stillMissed: 1 });
+  });
+});
+
+describe("migration 0011: a round for every answer (§5 card_results)", () => {
+  const drizzleDir = new URL("../../drizzle/", import.meta.url);
+  const file = readdirSync(drizzleDir).find((name) => name.endsWith("_card-result-round.sql"));
+  const migration = file ? readFileSync(new URL(file, drizzleDir), "utf8") : "";
+
+  it("adds the column with its default, and only swaps the constraint", () => {
+    expect(file).toBe("0011_card-result-round.sql");
+    expect(migration).toMatch(/ADD COLUMN "round" integer DEFAULT 1 NOT NULL/);
+    expect(migration).not.toMatch(/DELETE|DROP TABLE|DROP COLUMN|UPDATE/i);
   });
 });

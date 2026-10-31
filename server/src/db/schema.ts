@@ -300,14 +300,16 @@ export const cardResults = pgTable(
     userWordId: integer()
       .notNull()
       .references(() => userWords.id, { onDelete: "cascade" }),
+    /** 1 for the first go through the session's cards, 2 for the first repeat, and so on (§8). */
+    round: integer().notNull().default(1),
     result: text().$type<CardResult>().notNull(),
     flipped: boolean().notNull(),
     flipMs: integer(),
     answerMs: integer().notNull(),
     createdAt: createdAt(),
   },
-  // One answer per card per session, so a retried request is never counted twice.
-  (t) => [unique("card_results_session_word").on(t.sessionId, t.userWordId)],
+  // One answer per card per round, so a retried request is never counted twice.
+  (t) => [unique("card_results_session_word_round").on(t.sessionId, t.userWordId, t.round)],
 );
 
 /** Read-only reference loaded from Wiktionary (§7). */

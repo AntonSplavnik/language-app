@@ -1,11 +1,12 @@
 import {
   applyResult,
+  type CardResult,
   type CardResultRequest,
   type CardResultResponse,
   type SessionResponse,
   type SessionSummary,
 } from "@language-app/core";
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Db, Executor } from "../db/client";
 import { cardResults, imports, sessions, userWords } from "../db/schema";
 import { requireGroup } from "../groups/service";
@@ -51,8 +52,8 @@ export async function startSession(
 }
 
 /**
- * Records one answer and applies it to the word's progress (§8.4–8.5). A card can be answered once
- * per session, so a retried request changes nothing and returns `recorded: false`.
+ * Records one answer (§8.4). A card can be answered once per round, so a retried request changes
+ * nothing and returns `recorded: false`. Only the first round changes the word's progress (§8.5).
  */
 export async function recordResult(
   db: Db,
@@ -74,6 +75,7 @@ export async function recordResult(
       .values({
         sessionId,
         userWordId: word.id,
+        round: answer.round,
         result: answer.result,
         flipped: answer.flipped,
         flipMs: answer.flipped ? answer.flipMs : null,
@@ -82,6 +84,7 @@ export async function recordResult(
       .onConflictDoNothing()
       .returning({ id: cardResults.id });
     if (inserted.length === 0) return { recorded: false };
+    if (answer.round > 1) return { recorded: true };
 
     const next = applyResult(word, answer.result, new Date());
     if (next !== word) {
@@ -113,16 +116,29 @@ export async function finishSession(
     .set({ finishedAt: new Date() })
     .where(and(eq(sessions.id, sessionId), isNull(sessions.finishedAt)));
 
-  const counts = await db
-    .select({ result: cardResults.result, n: count() })
+  const answers = await db
+    .select({
+      userWordId: cardResults.userWordId,
+      round: cardResults.round,
+      result: cardResults.result,
+    })
     .from(cardResults)
     .where(eq(cardResults.sessionId, sessionId))
-    .groupBy(cardResults.result);
-  const countOf = (result: string) => counts.find((c) => c.result === result)?.n ?? 0;
+    .orderBy(asc(cardResults.round));
+  const countOf = (result: CardResult) =>
+    answers.filter((a) => a.round === 1 && a.result === result).length;
+  // Ordered by round, so each word ends up with its last answer.
+  const lastAnswers = new Map(answers.map((a) => [a.userWordId, a.result]));
 
   const missed = await wordViewQuery(db, await learnerLanguageOf(db, userId))
     .innerJoin(cardResults, eq(cardResults.userWordId, userWords.id))
-    .where(and(eq(cardResults.sessionId, sessionId), eq(cardResults.result, "didnt_know")))
+    .where(
+      and(
+        eq(cardResults.sessionId, sessionId),
+        eq(cardResults.round, 1),
+        eq(cardResults.result, "didnt_know"),
+      ),
+    )
     .orderBy(asc(cardResults.id));
 
   return {
@@ -130,6 +146,8 @@ export async function finishSession(
     didntKnow: countOf("didnt_know"),
     skipped: countOf("skipped"),
     missed,
+    rounds: answers.at(-1)?.round ?? 1,
+    stillMissed: [...lastAnswers.values()].filter((result) => result === "didnt_know").length,
   };
 }
 

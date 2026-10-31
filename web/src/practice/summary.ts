@@ -1,6 +1,7 @@
 import type { CardResult, SessionSummary } from "@language-app/core";
 
 type Counts = Pick<SessionSummary, "knew" | "didntKnow" | "skipped">;
+type Rounds = Counts & Pick<SessionSummary, "rounds" | "stillMissed">;
 
 /**
  * The Summary's headline, "14 of 20 knew" (§8.6): every card answered counts, skipped ones too.
@@ -23,4 +24,12 @@ export function resultShares({
     { result: "skipped", count: skipped },
   ];
   return shares.filter((share) => share.count > 0);
+}
+
+/** The muted line between the results and the words missed (§8.6), if any. */
+export function roundsLine({ knew, didntKnow, rounds, stillMissed }: Rounds): string | null {
+  if (stillMissed > 0) return `${stillMissed} ${stillMissed === 1 ? "word" : "words"} still missed`;
+  if (rounds > 1) return `Done in ${rounds} rounds`;
+  if (didntKnow === 0 && knew > 0) return "No words missed";
+  return null;
 }

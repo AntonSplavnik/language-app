@@ -56,7 +56,7 @@ describe("POST /api/auth/delete-user", () => {
       groups: 1,
       group_words: 1,
       sessions: 1,
-      card_results: 1,
+      card_results: 2,
       ai_usage: 1,
       auth_sessions: 1,
       auth_accounts: 1,

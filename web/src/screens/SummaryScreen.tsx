@@ -2,13 +2,14 @@ import { displayTranslation, type SessionSummary } from "@language-app/core";
 import { Link, useLocation } from "react-router";
 import { Headword } from "../components/Headword";
 import { Page } from "../components/Page";
-import { knewOf, resultShares } from "../practice/summary";
+import { knewOf, resultShares, roundsLine } from "../practice/summary";
 import ui from "../styles/ui.module.css";
 import styles from "./SummaryScreen.module.css";
 
 /** After the last card (§8.6). The counts come from finishing the session; a reload just says so. */
 export function SummaryScreen() {
   const summary = useLocation().state as SessionSummary | null;
+  const line = summary && roundsLine(summary);
 
   return (
     <Page
@@ -27,6 +28,7 @@ export function SummaryScreen() {
       {summary ? (
         <>
           <Results summary={summary} />
+          {line && <p className={styles.muted}>{line}</p>}
 
           {summary.missed.length > 0 && (
             <section>

@@ -69,13 +69,17 @@ export async function giveData(db: Db, userId: number, lemma: string): Promise<n
       .values({ userId, source: "import", importId: lesson.id })
       .returning({ id: sessions.id }),
   );
-  await db.insert(cardResults).values({
-    sessionId: practice.id,
-    userWordId: userWord.id,
-    result: "knew",
-    flipped: true,
-    answerMs: 900,
-  });
+  // Two rounds of the same word: deleting takes every round's answer.
+  await db.insert(cardResults).values(
+    [1, 2].map((round) => ({
+      sessionId: practice.id,
+      userWordId: userWord.id,
+      round,
+      result: "knew" as const,
+      flipped: true,
+      answerMs: 900,
+    })),
+  );
   await db.insert(aiUsage).values({
     userId,
     importId: lesson.id,
