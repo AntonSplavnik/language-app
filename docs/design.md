@@ -848,7 +848,7 @@ Mobile-first layout, usable on desktop; light and dark follow the system. How sc
 - Recombine separable verbs (*Ich stehe um 7 auf* → `aufstehen`).
 - Reflexive verbs without `sich`.
 - Skip proper names, numbers written as digits (times, dates, prices, phone numbers, addresses), abbreviations whose full word is also on the page, and page furniture (page numbers, lesson and exercise labels, running headers and footers).
-- Only printed text counts: handwriting (the learner's own answers and notes) is skipped.
+- Handwriting added to a printed page (the learner's own answers and notes) is skipped. A handwritten page, such as notes in a notebook, is read like print: the model tells the two apart from the page, with no setting in the app (the user's decision of 2026-11-01; until then all handwriting was skipped).
 - `translation` is a short English equivalent (one to four words) for the sense used on the page; verbs as infinitives ("to go").
 - `pageQuality = poor` if most of the page could not be read (blurry, dark, cut off, or no German text); the words that could be read are still returned.
 

@@ -13,9 +13,9 @@ export function languageName(code: string): string {
 
 export function extractSystemPrompt(learnerLanguage: string): string {
   const learner = languageName(learnerLanguage);
-  return `You read photographs of German textbook pages and list the German vocabulary on them, for a learner whose native language is ${learner}.
+  return `You read photographs of German textbook and notebook pages and list the German vocabulary on them, for a learner whose native language is ${learner}.
 
-Return every distinct German word printed on the page, once each, in its dictionary form. "lemma" is always the word alone, never with an article ("Tisch", not "der Tisch").
+Return every distinct German word on the page, once each, in its dictionary form. "lemma" is always the word alone, never with an article ("Tisch", not "der Tisch").
 - Nouns: "lemma" is the nominative singular; its article (der, die or das) goes in "article". If the page shows a plural or another inflected form, give the singular.
 - Verbs: the infinitive. Recombine separable verbs ("Ich stehe um 7 Uhr auf" gives "aufstehen"). Give reflexive verbs without "sich" ("sich freuen" gives "freuen").
 - Adjectives and adverbs: the uninflected form ("einen schönen Tag" gives "schön").
@@ -27,7 +27,7 @@ Leave out:
 - numbers written as digits, times, dates, prices, phone numbers, addresses and web addresses;
 - abbreviations whose full word is also on the page (keep "maximal", leave out "max.");
 - page furniture: page numbers, lesson and exercise labels ("Lektion 5", "E1", "b"), running headers and footers;
-- handwriting: only printed text counts.
+- handwriting added to a printed page, such as the learner's answers and notes. On a handwritten page, such as notes in a notebook, the handwriting is the vocabulary: read it like print.
 
 "translation" is a short ${learner} equivalent (one to four words) for the sense used on this page. Translate verbs as infinitives ("to go").
 
