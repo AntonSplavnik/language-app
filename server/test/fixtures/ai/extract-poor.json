@@ -2,15 +2,15 @@
   "meta": {
     "kind": "extract",
     "source": "blurry.jpg",
-    "recordedAt": "2026-11-01T20:59:46.285Z",
+    "recordedAt": "2026-11-02T09:05:09.499Z",
     "requestedModel": "claude-opus-5-5",
     "effort": "low",
-    "promptHash": "b0a0947c377f",
-    "durationMs": 1959
+    "promptHash": "19f5f6c22b08",
+    "durationMs": 1976
   },
   "response": {
     "model": "claude-opus-5-5",
-    "id": "msg_011Cgct2Bcv15uTb6vFLRaht",
+    "id": "msg_011CgdqLTiwb3Ww3ZR62tt1a",
     "type": "message",
     "role": "assistant",
     "content": [
@@ -24,7 +24,7 @@
     "stop_sequence": null,
     "stop_details": null,
     "usage": {
-      "input_tokens": 3736,
+      "input_tokens": 3688,
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
       "cache_creation": {
@@ -33,7 +33,7 @@
       },
       "iterations": [
         {
-          "input_tokens": 3736,
+          "input_tokens": 3688,
           "output_tokens": 19,
           "cache_read_input_tokens": 0,
           "cache_creation_input_tokens": 0,
