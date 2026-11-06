@@ -154,7 +154,7 @@ describe("Continue with Google: the address the browser is sent to", () => {
 });
 
 describe("sign-up with Google", () => {
-  it("an invited email gets its account: verified, a username from the email, no AI", async () => {
+  it("an invited email gets its account: verified, a username from the email, AI on", async () => {
     await addInvite(db, "anna.schmidt@gmail.com");
     google.signsInAs({ ...anna, name: "Anna Schmidt", picture: "https://lh3.example/anna" });
     const { callback, location } = await signInWithGoogle(app(), { callbackURL: "/words" });
@@ -169,7 +169,7 @@ describe("sign-up with Google", () => {
       // As for a password sign-up, `name` is the username.
       name: "anna.schmidt",
       image: "https://lh3.example/anna",
-      aiEnabled: false,
+      aiEnabled: true,
       learnerLanguage: "en",
       targetLanguage: "de",
     });
@@ -186,7 +186,7 @@ describe("sign-up with Google", () => {
     const session = AuthSession.parse(
       (await getWith(app(), "/api/auth/get-session", cookie)).json(),
     );
-    expect(session?.user).toMatchObject({ email: "anna.schmidt@gmail.com", aiEnabled: false });
+    expect(session?.user).toMatchObject({ email: "anna.schmidt@gmail.com", aiEnabled: true });
     expect((await getWith(app(), "/api/stats", cookie)).json()).toMatchObject({ learning: 0 });
   });
 
@@ -241,7 +241,7 @@ describe("sign-up with Google", () => {
     );
   });
 
-  it("with SIGNUP_MODE=open there is no check, and the new account has AI off", async () => {
+  it("with SIGNUP_MODE=open there is no check, and the new account has AI on", async () => {
     await addInvite(db, "someone.else@example.com");
     google.signsInAs(anna);
     const { callback, location } = await signInWithGoogle(app({ signupMode: "open" }));
@@ -252,7 +252,7 @@ describe("sign-up with Google", () => {
     expect(await userByEmail("anna.schmidt@gmail.com")).toMatchObject({
       username: "anna.schmidt",
       emailVerified: true,
-      aiEnabled: false,
+      aiEnabled: true,
     });
     // The list isn't touched: the other email's invite stays unused.
     expect(await db.select({ email: invites.email, userId: invites.userId }).from(invites)).toEqual(

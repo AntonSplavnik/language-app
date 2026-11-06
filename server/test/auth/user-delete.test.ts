@@ -350,7 +350,7 @@ describe("user:delete as the script", () => {
         "Test",
         "test@example.com",
         "password",
-        "off",
+        "on",
         "1",
       ]);
       expect(lines.slice(3)).toEqual([

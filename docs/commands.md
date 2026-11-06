@@ -26,7 +26,7 @@ docker compose stop
 These work on the Mac's database (`localhost`). Each prints `Database: <host>/<name>` first.
 
 ### Invite someone (needed only while sign-up is invite-only, `SIGNUP_MODE=invite`)
-While testing (M12.7) the Mac and production run `SIGNUP_MODE=open`: anyone can create an account, with AI off, and the invite list isn't checked. It stays, for a return to `invite`.
+While testing (M12.7) the Mac and production run `SIGNUP_MODE=open`: anyone can create an account, with AI on, and the invite list isn't checked. It stays, for a return to `invite`.
 ```sh
 pnpm --filter server invite:add friend@example.com
 ```
@@ -132,7 +132,7 @@ Copies remain for a while after it: Neon's history keeps the account for 6 hours
 ### Inviting a friend to production, start to finish
 While sign-up is open (M12.7, testing) they skip step 1 and just create an account; you need only step 3, to switch their AI on.
 1. `pnpm prod invite:add their@email.com`
-2. They open `https://dingsda.vercel.app` and create an account, with a password or Continue with Google. New accounts have AI off.
+2. They open `https://dingsda.vercel.app` and create an account, with a password or Continue with Google. New accounts have AI on (`user:ai <email|username> off` switches one off).
 3. If they should have AI: `pnpm prod user:ai their@email.com on`
 
 ## Before pushing

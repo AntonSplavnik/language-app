@@ -20,7 +20,7 @@ const accounts = () => db.select().from(users).orderBy(asc(users.id));
 const newUser = { email: "New@Example.com", username: "New.User", password: PASSWORD };
 
 describe("sign-up of an invited email", () => {
-  it("creates the account: username lower-case and as typed, no AI, en / de", async () => {
+  it("creates the account: username lower-case and as typed, AI on, en / de", async () => {
     await addInvite(db, "new@example.com");
     const res = await signUp(newUser);
 
@@ -31,7 +31,7 @@ describe("sign-up of an invited email", () => {
       username: "new.user",
       displayUsername: "New.User",
       emailVerified: false,
-      aiEnabled: false,
+      aiEnabled: true,
       learnerLanguage: "en",
       targetLanguage: "de",
     });
@@ -42,7 +42,7 @@ describe("sign-up of an invited email", () => {
       emailVerified: false,
       username: "new.user",
       displayUsername: "New.User",
-      aiEnabled: false,
+      aiEnabled: true,
     });
   });
 
@@ -83,14 +83,14 @@ describe("sign-up of an invited email", () => {
     expect(invite.usedAt).toBeInstanceOf(Date);
   });
 
-  it("can't switch its AI on or choose its languages", async () => {
+  it("can't switch its AI off or choose its languages", async () => {
     await addInvite(db, "new@example.com");
-    const res = await signUp({ ...newUser, aiEnabled: true, learnerLanguage: "ko" });
+    const res = await signUp({ ...newUser, aiEnabled: false, learnerLanguage: "ko" });
 
     // Fields no client may set are left out silently.
     expect(res.statusCode).toBe(200);
     const row = (await accounts()).find((u) => u.email === "new@example.com");
-    expect(row).toMatchObject({ aiEnabled: false, learnerLanguage: "en" });
+    expect(row).toMatchObject({ aiEnabled: true, learnerLanguage: "en" });
   });
 });
 
@@ -105,7 +105,7 @@ describe("sign-up of an email not on the list", () => {
     expect((await accounts()).map((u) => u.id)).toEqual([LEARNER_ID]);
   });
 
-  it("is accepted with SIGNUP_MODE=open, without any check, and has AI off", async () => {
+  it("is accepted with SIGNUP_MODE=open, without any check, and has AI on", async () => {
     await addInvite(db, "someone.else@example.com");
     const open = buildTestApp(db, { learner: null, auth: testAuth(db, { signupMode: "open" }) });
     const res = await authPost(open, "/sign-up/email", newUser);
@@ -113,11 +113,11 @@ describe("sign-up of an email not on the list", () => {
     expect(res.statusCode).toBe(200);
     expect(SignedInResponse.parse(res.json()).user).toMatchObject({
       email: "new@example.com",
-      aiEnabled: false,
+      aiEnabled: true,
     });
     expect((await accounts()).map((u) => [u.email, u.aiEnabled])).toEqual([
       [null, true],
-      ["new@example.com", false],
+      ["new@example.com", true],
     ]);
     // The list isn't touched: the other email's invite stays unused.
     expect(await db.select({ email: invites.email, userId: invites.userId }).from(invites)).toEqual(

@@ -169,7 +169,7 @@ export function createAuth({
         // fails its schema check. `input: false`: no client can set them.
         learnerLanguage: { type: "string", required: false, defaultValue: "en", input: false },
         targetLanguage: { type: "string", required: false, defaultValue: "de", input: false },
-        aiEnabled: { type: "boolean", required: false, defaultValue: false, input: false },
+        aiEnabled: { type: "boolean", required: false, defaultValue: true, input: false },
       },
       // Runs before a user is created ("create-user": a password sign-up or a first Google
       // sign-in), and also when Google signs in again ("sign-in") or is linked to an existing

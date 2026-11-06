@@ -214,18 +214,19 @@ describe("user:ai", () => {
     return signUp(app(), { email: "test@example.com", username: "Test" });
   }
 
-  it("switches AI on and off, saying what it was", async () => {
+  it("switches AI off and on, saying what it was", async () => {
+    // A new account starts with AI on.
     await account();
-    expect(await setAiEnabled(db, "test", true)).toMatchObject({
-      account: { username: "test", aiEnabled: true },
-      was: false,
-    });
-    expect((await findAccount(db, "test@example.com"))?.aiEnabled).toBe(true);
-    expect(await setAiEnabled(db, "TEST@example.com", false)).toMatchObject({
-      account: { aiEnabled: false },
+    expect(await setAiEnabled(db, "test", false)).toMatchObject({
+      account: { username: "test", aiEnabled: false },
       was: true,
     });
-    expect(await setAiEnabled(db, "test", false)).toMatchObject({ was: false });
+    expect((await findAccount(db, "test@example.com"))?.aiEnabled).toBe(false);
+    expect(await setAiEnabled(db, "TEST@example.com", true)).toMatchObject({
+      account: { aiEnabled: true },
+      was: false,
+    });
+    expect(await setAiEnabled(db, "test", true)).toMatchObject({ was: true });
   });
 
   it("the switch reaches the account's next request", async () => {
@@ -237,6 +238,8 @@ describe("user:ai", () => {
         payload: {},
         headers: { cookie },
       });
+    expect((await ask()).statusCode).toBe(200);
+    await setAiEnabled(db, "test", false);
     expect((await ask()).statusCode).toBe(403);
     await setAiEnabled(db, "test", true);
     expect((await ask()).statusCode).toBe(200);

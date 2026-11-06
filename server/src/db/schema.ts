@@ -57,8 +57,8 @@ export const users = pgTable("users", {
   /** Stored lower-case, unique; `displayUsername` keeps it as typed. */
   username: text().unique(),
   displayUsername: text(),
-  /** Whether the account may use the AI features (§4 Accounts, the AI switch). No client can set it. */
-  aiEnabled: boolean().notNull().default(false),
+  /** Whether the account may use the AI features (§4 Accounts, the AI switch); on for a new account. No client can set it. */
+  aiEnabled: boolean().notNull().default(true),
 });
 
 // Better Auth's own tables (§5), prefixed so they aren't confused with practice `sessions`.

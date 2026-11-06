@@ -41,12 +41,12 @@ beforeEach(async () => {
   await loadDictionary(db, SAMPLE);
 });
 
-/** An account as sign-up makes it: AI off. */
+/** An account whose AI was switched off with `user:ai` (sign-up makes it with AI on). */
 async function learnerWithoutAi() {
   return first(
     await db
       .insert(users)
-      .values({ name: "Test", learnerLanguage: "en", targetLanguage: "de" })
+      .values({ name: "Test", learnerLanguage: "en", targetLanguage: "de", aiEnabled: false })
       .returning({ id: users.id }),
   ).id;
 }
@@ -177,16 +177,17 @@ describe("switching AI on and off (user:ai)", () => {
     const session = async () =>
       AuthSession.parse((await getWith(app, "/api/auth/get-session", cookie)).json());
 
-    expect((await ask()).statusCode).toBe(403);
-    expect((await session())?.user.aiEnabled).toBe(false);
-
-    await db.update(users).set({ aiEnabled: true }).where(eq(users.id, account.id));
+    // A new account starts with AI on.
     expect((await ask()).statusCode).toBe(200);
     expect((await session())?.user.aiEnabled).toBe(true);
 
     await db.update(users).set({ aiEnabled: false }).where(eq(users.id, account.id));
     expect((await ask()).statusCode).toBe(403);
     expect((await session())?.user.aiEnabled).toBe(false);
+
+    await db.update(users).set({ aiEnabled: true }).where(eq(users.id, account.id));
+    expect((await ask()).statusCode).toBe(200);
+    expect((await session())?.user.aiEnabled).toBe(true);
   });
 });
 

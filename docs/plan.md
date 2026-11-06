@@ -326,6 +326,7 @@ Settled with the user on 2026-10-16; the behaviour is in `docs/design.md` §6.7,
   - **Accounts now,** with Better Auth inside our own server. An account signs in with its email or username and a password, or with Google. Sign-up asks for both an email and a username.
   - **Invite-only sign-up** (`SIGNUP_MODE=invite`): only emails on an invite list can create an account. The list lives in the database and is edited with `invite:add`. Its purpose isn't AI cost but data protection, bots, and someone signing up with another person's email. It goes once the email service and a privacy page exist; then `open`.
   - **AI is switched on per account.** It is off for new accounts, which can type words and practise. The user's own account is the developer account, with AI on.
+    - **Changed 2026-11-06** (the user): new accounts start with AI on (migration `0012_ai-on-by-default`, `docs/design.md` §4 Accounts, the AI switch). Accounts made before then kept their switch as it was; `user:ai … off` still switches one off. With sign-up open (M12.7), anyone with the address gets the AI features, within each account's daily limits (`docs/design.md` §11.5).
   - **Deleting an account,** with all the learner's data, from Settings → Account.
   - **Passwords are reset by script** (`user:set-password`) until the email service exists; there is no "Forgot password" link.
   - **Google:**

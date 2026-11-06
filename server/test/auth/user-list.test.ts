@@ -51,7 +51,10 @@ async function googleOnly(email: string, username: string) {
   return id;
 }
 
-/** User 1 unclaimed with a word, a password account, a Google-only one and one with both. */
+/**
+ * User 1 unclaimed with a word, a password account with its AI switched off, a Google-only one
+ * and one with both (new accounts start with AI on).
+ */
 async function fourAccounts() {
   await giveData(db, LEARNER_ID, "Tisch");
   await addInvite(db, "test@example.com");
@@ -63,7 +66,7 @@ async function fourAccounts() {
   await db.insert(authAccounts).values({ userId: both, providerId: "google", accountId: "sub-b" });
   await giveData(db, both, "Stuhl");
   await giveData(db, both, "Lampe");
-  await setAiEnabled(db, "both.ways", true);
+  await setAiEnabled(db, "test", false);
   return { test: await idOf("test@example.com"), anna, both };
 }
 
@@ -95,7 +98,7 @@ describe("listAccounts", () => {
         username: "anna.schmidt",
         email: "anna.schmidt@gmail.com",
         methods: ["google"],
-        aiEnabled: false,
+        aiEnabled: true,
         words: 0,
       },
       {
@@ -265,10 +268,10 @@ describe("user:list as the script", () => {
     expect(lines.slice(2, 6).map((line) => line.trim().split(/ {2,}/).slice(0, 6))).toEqual([
       ["1", "—", "—", "none", "on", "1"],
       [expect.any(String), "Test", "test@example.com", "password", "off", "0"],
-      [expect.any(String), "anna.schmidt", "anna.schmidt@gmail.com", "google", "off", "0"],
+      [expect.any(String), "anna.schmidt", "anna.schmidt@gmail.com", "google", "on", "0"],
       [String(both), "Both.Ways", "both@example.com", "password, google", "on", "2"],
     ]);
-    expect(lines[6]).toBe("4 accounts, 2 with AI on");
+    expect(lines[6]).toBe("4 accounts, 3 with AI on");
     expect(lines).toHaveLength(7);
 
     // Nothing secret: no password hash, no session token, no Google token.
